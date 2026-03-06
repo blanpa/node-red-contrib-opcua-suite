@@ -1,0 +1,59 @@
+<script type="text/javascript">
+    RED.nodes.registerType('opcua-method', {
+        category: 'opcua',
+        color: '#3a8cba',
+        defaults: {
+            name: { value: '' },
+            endpoint: { value: '', type: 'opcua-endpoint', required: true },
+            methodNodeId: { value: '' },
+            objectNodeId: { value: '' }
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: 'opcua.svg',
+        paletteLabel: 'OPC UA Method',
+        label: function() { return this.name || 'OPC UA Method'; }
+    });
+</script>
+
+<script type="text/html" data-template-name="opcua-method">
+<div class="opcua-node-container">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-endpoint"><i class="fa fa-plug"></i> Endpoint</label>
+        <input type="text" id="node-input-endpoint">
+    </div>
+    <div class="form-row">
+        <label for="node-input-objectNodeId"><i class="fa fa-cube"></i> Object NodeId</label>
+        <input type="text" id="node-input-objectNodeId" placeholder="ns=1;s=MyObject" style="width:70%">
+        <div style="font-size:11px;color:#999;margin-top:2px;padding-left:105px">Or via msg.objectNodeId</div>
+    </div>
+    <div class="form-row">
+        <label for="node-input-methodNodeId"><i class="fa fa-play-circle"></i> Method NodeId</label>
+        <input type="text" id="node-input-methodNodeId" placeholder="ns=1;s=MyMethod" style="width:70%">
+        <div style="font-size:11px;color:#999;margin-top:2px;padding-left:105px">Or via msg.methodNodeId</div>
+    </div>
+</div>
+</script>
+
+<script type="text/html" data-help-name="opcua-method">
+    <p>Calls an OPC UA method.</p>
+    <h3>Input</h3>
+    <ul>
+        <li><code>msg.objectNodeId</code> — Object containing the method (or configuration)</li>
+        <li><code>msg.methodNodeId</code> — The method itself (or configuration)</li>
+        <li><code>msg.inputArguments</code> or <code>msg.payload</code> — Array of input arguments</li>
+    </ul>
+    <h4>Argument Formats</h4>
+    <pre>[{dataType: "Double", value: 3.14}, {dataType: "String", value: "hello"}]</pre>
+    <p>Or simple values (auto-detect): <code>[3.14, "hello", true]</code></p>
+    <h3>Output</h3>
+    <ul>
+        <li><code>msg.payload</code> — Array of output values</li>
+        <li><code>msg.methodResult</code> — Complete result</li>
+        <li><code>msg.statusCode</code> — Method status</li>
+    </ul>
+</script>

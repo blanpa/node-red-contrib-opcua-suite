@@ -1,0 +1,18 @@
+{
+    "ep-auth-user": {
+        "userName": "admin",
+        "password": "admin123"
+    },
+    "ep-auth-operator": {
+        "userName": "operator",
+        "password": "operator123"
+    },
+    "ep-auth-wrong": {
+        "userName": "wronguser",
+        "password": "wrongpass"
+    },
+    "ep-senc-admin": {
+        "userName": "admin",
+        "password": "admin123"
+    }
+}

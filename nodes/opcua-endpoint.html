@@ -1,0 +1,463 @@
+<script type="text/javascript">
+    RED.nodes.registerType('opcua-endpoint', {
+        category: 'config',
+        color: '#3a8cba',
+        defaults: {
+            name: { value: '' },
+            endpointUrl: { value: 'opc.tcp://localhost:4840' },
+            securityMode: { value: 'None' },
+            securityPolicy: { value: 'None' },
+            certificateFile: { value: '' },
+            privateKeyFile: { value: '' },
+            caCertificateFile: { value: '' },
+            userCertificateFile: { value: '' },
+            userPrivateKeyFile: { value: '' }
+        },
+        credentials: {
+            userName: { type: 'text' },
+            password: { type: 'password' }
+        },
+        icon: 'opcua.svg',
+        label: function() {
+            return this.name || 'OPC UA Endpoint';
+        },
+        labelStyle: function() {
+            return this.name ? 'node_label_italic' : '';
+        },
+        oneditprepare: function() {
+            var node = this;
+
+            // Toggle certificate sections based on security mode
+            function updateSecurityUI() {
+                var mode = $('#node-config-input-securityMode').val();
+                var $section = $('#cert-transport-section');
+                if (mode === 'None') {
+                    $section.slideUp(200);
+                } else {
+                    $section.slideDown(200);
+                }
+            }
+            $('#node-config-input-securityMode').on('change', updateSecurityUI);
+            updateSecurityUI();
+
+            // Collapsible sections
+            $('.opcua-section-header').on('click', function() {
+                var $body = $(this).next('.opcua-section-body');
+                var $icon = $(this).find('.opcua-collapse-icon');
+                $body.slideToggle(200);
+                $icon.toggleClass('fa-chevron-down fa-chevron-right');
+            });
+
+            // ─── Drag & Drop Upload Logic ───
+            function setupCertUpload(dropzoneId, inputId) {
+                var $dropzone = $('#' + dropzoneId);
+                var $input = $('#' + inputId);
+                var $fileInput = $dropzone.find('.cert-file-input');
+                var $status = $dropzone.find('.cert-status');
+                var $icon = $dropzone.find('.cert-icon');
+
+                // Show current file if set
+                var currentVal = $input.val();
+                if (currentVal) {
+                    var fname = currentVal.split('/').pop();
+                    $icon.removeClass('fa-cloud-upload').addClass('fa-check-circle');
+                    $status.text(fname);
+                    $dropzone.addClass('has-file');
+                }
+
+                // Click to open file picker
+                $dropzone.on('click', function(e) {
+                    if (e.target === $fileInput[0] || $(e.target).hasClass('cert-clear')) return;
+                    $fileInput.trigger('click');
+                });
+
+                // Drag events
+                $dropzone.on('dragover', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    $dropzone.addClass('drag-over');
+                });
+                $dropzone.on('dragleave', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    $dropzone.removeClass('drag-over');
+                });
+                $dropzone.on('drop', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    $dropzone.removeClass('drag-over');
+                    var files = e.originalEvent.dataTransfer.files;
+                    if (files.length > 0) uploadFile(files[0]);
+                });
+
+                // File input change
+                $fileInput.on('change', function() {
+                    if (this.files.length > 0) uploadFile(this.files[0]);
+                });
+
+                // Clear button
+                $dropzone.find('.cert-clear').on('click', function(e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    $input.val('');
+                    $icon.removeClass('fa-check-circle fa-spinner fa-spin').addClass('fa-cloud-upload');
+                    $status.text('Drop file here or click to select');
+                    $dropzone.removeClass('has-file upload-error');
+                });
+
+                function uploadFile(file) {
+                    $icon.removeClass('fa-cloud-upload fa-check-circle').addClass('fa-spinner fa-spin');
+                    $status.text('Uploading...');
+                    $dropzone.removeClass('has-file upload-error');
+
+                    var reader = new FileReader();
+                    reader.onload = function(ev) {
+                        var base64 = ev.target.result.split(',')[1];
+                        $.ajax({
+                            url: 'opcua-endpoint/upload-cert',
+                            type: 'POST',
+                            contentType: 'application/json',
+                            data: JSON.stringify({ filename: file.name, content: base64 }),
+                            success: function(resp) {
+                                $input.val(resp.path);
+                                $icon.removeClass('fa-spinner fa-spin').addClass('fa-check-circle');
+                                $status.text(resp.filename + ' (' + formatSize(resp.size) + ')');
+                                $dropzone.addClass('has-file');
+                            },
+                            error: function(xhr) {
+                                var msg = xhr.responseJSON ? xhr.responseJSON.error : 'Upload failed';
+                                $icon.removeClass('fa-spinner fa-spin').addClass('fa-cloud-upload');
+                                $status.text(msg);
+                                $dropzone.addClass('upload-error');
+                            }
+                        });
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+
+            function formatSize(bytes) {
+                if (bytes < 1024) return bytes + ' B';
+                if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+                return (bytes / 1048576).toFixed(1) + ' MB';
+            }
+
+            // Initialize all upload zones
+            setupCertUpload('dropzone-cert', 'node-config-input-certificateFile');
+            setupCertUpload('dropzone-key', 'node-config-input-privateKeyFile');
+            setupCertUpload('dropzone-ca', 'node-config-input-caCertificateFile');
+            setupCertUpload('dropzone-usercert', 'node-config-input-userCertificateFile');
+            setupCertUpload('dropzone-userkey', 'node-config-input-userPrivateKeyFile');
+        }
+    });
+</script>
+
+<style>
+    /* ─── Modern OPC UA Endpoint Styles ─── */
+    .opcua-ep-container {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    .opcua-ep-container .form-row {
+        margin-bottom: 10px;
+    }
+    .opcua-ep-container .form-row label {
+        font-weight: 500;
+        color: #444;
+    }
+    .opcua-ep-container input[type="text"],
+    .opcua-ep-container input[type="password"],
+    .opcua-ep-container select {
+        border-radius: 4px;
+    }
+
+    /* Section headers */
+    .opcua-section-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        margin: 16px -12px 12px;
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border-radius: 6px;
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.2s;
+        border: 1px solid #dee2e6;
+    }
+    .opcua-section-header:hover {
+        background: linear-gradient(135deg, #e9ecef, #dee2e6);
+    }
+    .opcua-section-header h4 {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 600;
+        color: #333;
+        flex: 1;
+    }
+    .opcua-section-header .opcua-section-icon {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        color: white;
+    }
+    .opcua-section-header .opcua-section-icon.blue { background: #3a8cba; }
+    .opcua-section-header .opcua-section-icon.green { background: #5cb85c; }
+    .opcua-section-header .opcua-section-icon.orange { background: #f0ad4e; }
+    .opcua-section-header .opcua-collapse-icon {
+        color: #999;
+        font-size: 11px;
+        transition: transform 0.2s;
+    }
+
+    /* Dropzone */
+    .cert-dropzone {
+        border: 2px dashed #d0d5dd;
+        border-radius: 8px;
+        padding: 14px 16px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.25s ease;
+        background: #fafbfc;
+        margin-bottom: 10px;
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .cert-dropzone:hover {
+        border-color: #3a8cba;
+        background: #f0f7fc;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(58,140,186,0.1);
+    }
+    .cert-dropzone.drag-over {
+        border-color: #3a8cba;
+        background: #e3f2fd;
+        border-style: solid;
+        box-shadow: 0 0 0 3px rgba(58,140,186,0.15);
+    }
+    .cert-dropzone.has-file {
+        border-color: #5cb85c;
+        background: #f6fef6;
+        border-style: solid;
+    }
+    .cert-dropzone.has-file:hover {
+        border-color: #4cae4c;
+        background: #edfced;
+    }
+    .cert-dropzone.upload-error {
+        border-color: #d9534f;
+        background: #fef6f6;
+    }
+    .cert-dropzone .cert-icon {
+        font-size: 22px;
+        color: #b0b8c4;
+        flex-shrink: 0;
+        transition: color 0.2s;
+        width: 28px;
+        text-align: center;
+    }
+    .cert-dropzone:hover .cert-icon { color: #3a8cba; }
+    .cert-dropzone.has-file .cert-icon { color: #5cb85c; }
+    .cert-dropzone.upload-error .cert-icon { color: #d9534f; }
+    .cert-dropzone .cert-info {
+        flex: 1;
+        text-align: left;
+        overflow: hidden;
+    }
+    .cert-dropzone .cert-label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        color: #555;
+        margin-bottom: 2px;
+    }
+    .cert-dropzone .cert-status {
+        display: block;
+        font-size: 11px;
+        color: #999;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .cert-dropzone.has-file .cert-status { color: #555; font-weight: 500; }
+    .cert-dropzone.upload-error .cert-status { color: #d9534f; }
+    .cert-dropzone .cert-file-input { display: none; }
+    .cert-dropzone .cert-clear {
+        color: #ccc;
+        cursor: pointer;
+        font-size: 16px;
+        padding: 4px 6px;
+        border-radius: 4px;
+        transition: all 0.15s;
+        display: none;
+        flex-shrink: 0;
+    }
+    .cert-dropzone.has-file .cert-clear { display: block; }
+    .cert-dropzone .cert-clear:hover {
+        color: #d9534f;
+        background: rgba(217,83,79,0.08);
+    }
+
+    /* Hint text */
+    .opcua-hint {
+        font-size: 11px;
+        color: #888;
+        margin: -4px 0 10px 0;
+        padding-left: 2px;
+    }
+</style>
+
+<script type="text/html" data-template-name="opcua-endpoint">
+<div class="opcua-ep-container">
+    <!-- Connection -->
+    <div class="opcua-section-header">
+        <span class="opcua-section-icon blue"><i class="fa fa-plug"></i></span>
+        <h4>Connection</h4>
+        <i class="fa fa-chevron-down opcua-collapse-icon"></i>
+    </div>
+    <div class="opcua-section-body">
+        <div class="form-row">
+        <label for="node-config-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-config-input-name" placeholder="Name">
+        </div>
+        <div class="form-row">
+        <label for="node-config-input-endpointUrl"><i class="fa fa-link"></i> Endpoint URL</label>
+        <input type="text" id="node-config-input-endpointUrl" placeholder="opc.tcp://localhost:4840" style="width:70%">
+        </div>
+    </div>
+
+    <!-- Security -->
+    <div class="opcua-section-header">
+        <span class="opcua-section-icon orange"><i class="fa fa-shield"></i></span>
+        <h4>Security</h4>
+        <i class="fa fa-chevron-down opcua-collapse-icon"></i>
+    </div>
+    <div class="opcua-section-body">
+        <div class="form-row">
+            <label for="node-config-input-securityMode"><i class="fa fa-shield"></i> Security Mode</label>
+            <select id="node-config-input-securityMode">
+                <option value="None">None</option>
+                <option value="Sign">Sign</option>
+                <option value="SignAndEncrypt">SignAndEncrypt</option>
+            </select>
+        </div>
+        <div class="form-row">
+            <label for="node-config-input-securityPolicy"><i class="fa fa-lock"></i> Security Policy</label>
+            <select id="node-config-input-securityPolicy">
+                <option value="None">None</option>
+                <option value="Basic128Rsa15">Basic128Rsa15</option>
+                <option value="Basic256">Basic256</option>
+                <option value="Basic256Sha256">Basic256Sha256</option>
+                <option value="Aes128_Sha256_RsaOaep">Aes128_Sha256_RsaOaep</option>
+                <option value="Aes256_Sha256_RsaPss">Aes256_Sha256_RsaPss</option>
+            </select>
+        </div>
+        <div class="form-row">
+            <label for="node-config-input-userName"><i class="fa fa-user"></i> Username</label>
+            <input type="text" id="node-config-input-userName" placeholder="optional">
+        </div>
+        <div class="form-row">
+            <label for="node-config-input-password"><i class="fa fa-key"></i> Password</label>
+            <input type="password" id="node-config-input-password" placeholder="optional">
+        </div>
+    </div>
+
+    <!-- Transport Certificates -->
+    <div id="cert-transport-section">
+        <div class="opcua-section-header">
+            <span class="opcua-section-icon green"><i class="fa fa-certificate"></i></span>
+            <h4>Transport Certificates</h4>
+            <i class="fa fa-chevron-down opcua-collapse-icon"></i>
+        </div>
+        <div class="opcua-section-body">
+            <p class="opcua-hint">For encrypted connections (Sign / SignAndEncrypt). Upload files via drag &amp; drop or click.</p>
+
+            <input type="hidden" id="node-config-input-certificateFile">
+            <div class="cert-dropzone" id="dropzone-cert">
+                <i class="fa fa-cloud-upload cert-icon"></i>
+                <div class="cert-info">
+                    <span class="cert-label">Client Certificate</span>
+                    <span class="cert-status">Drop file here or click to select</span>
+                </div>
+                <span class="cert-clear"><i class="fa fa-times"></i></span>
+                <input type="file" class="cert-file-input" accept=".pem,.der,.crt,.cer">
+            </div>
+
+            <input type="hidden" id="node-config-input-privateKeyFile">
+            <div class="cert-dropzone" id="dropzone-key">
+                <i class="fa fa-cloud-upload cert-icon"></i>
+                <div class="cert-info">
+                    <span class="cert-label">Private Key</span>
+                    <span class="cert-status">Drop file here or click to select</span>
+                </div>
+                <span class="cert-clear"><i class="fa fa-times"></i></span>
+                <input type="file" class="cert-file-input" accept=".pem,.key">
+            </div>
+
+            <input type="hidden" id="node-config-input-caCertificateFile">
+            <div class="cert-dropzone" id="dropzone-ca">
+                <i class="fa fa-cloud-upload cert-icon"></i>
+                <div class="cert-info">
+                    <span class="cert-label">CA Certificate <span style="font-weight:400;color:#aaa">— optional</span></span>
+                    <span class="cert-status">Drop file here or click to select</span>
+                </div>
+                <span class="cert-clear"><i class="fa fa-times"></i></span>
+                <input type="file" class="cert-file-input" accept=".pem,.der,.crt,.cer">
+            </div>
+        </div>
+    </div>
+
+    <!-- X509 User Token -->
+    <div class="opcua-section-header">
+        <span class="opcua-section-icon green"><i class="fa fa-id-card"></i></span>
+        <h4>X509 User Token</h4>
+        <i class="fa fa-chevron-down opcua-collapse-icon"></i>
+    </div>
+    <div class="opcua-section-body">
+        <p class="opcua-hint">For certificate-based user authentication (instead of Username/Password).</p>
+
+        <input type="hidden" id="node-config-input-userCertificateFile">
+        <div class="cert-dropzone" id="dropzone-usercert">
+            <i class="fa fa-cloud-upload cert-icon"></i>
+            <div class="cert-info">
+                <span class="cert-label">User Certificate <span style="font-weight:400;color:#aaa">— optional</span></span>
+                <span class="cert-status">Drop file here or click to select</span>
+            </div>
+            <span class="cert-clear"><i class="fa fa-times"></i></span>
+            <input type="file" class="cert-file-input" accept=".pem,.der,.crt,.cer">
+        </div>
+
+        <input type="hidden" id="node-config-input-userPrivateKeyFile">
+        <div class="cert-dropzone" id="dropzone-userkey">
+            <i class="fa fa-cloud-upload cert-icon"></i>
+            <div class="cert-info">
+                <span class="cert-label">User Private Key <span style="font-weight:400;color:#aaa">— optional</span></span>
+                <span class="cert-status">Drop file here or click to select</span>
+            </div>
+            <span class="cert-clear"><i class="fa fa-times"></i></span>
+            <input type="file" class="cert-file-input" accept=".pem,.key">
+        </div>
+    </div>
+</div>
+</script>
+
+<script type="text/html" data-help-name="opcua-endpoint">
+    <p>OPC UA Endpoint configuration for client connections with connection sharing.</p>
+    <h3>Connection</h3>
+    <p>All client nodes using the same endpoint share <strong>one</strong> TCP connection to the server (ref-counted).</p>
+    <h3>Certificates (Drag &amp; Drop)</h3>
+    <p>Certificates and keys can be uploaded directly via drag &amp; drop or file selection.
+    The files are stored on the server in the <code>opcua-certs/</code> folder.</p>
+    <ul>
+        <li><strong>Client Certificate + Private Key</strong>: For encrypted connections (Sign/SignAndEncrypt)</li>
+        <li><strong>CA Certificate</strong>: Optional, for validating the server certificate</li>
+        <li><strong>User Certificate + Key</strong>: For X509-based authentication</li>
+    </ul>
+    <h3>Authentication Priority</h3>
+    <p>X509 User Token &gt; Username/Password &gt; Anonymous</p>
+</script>

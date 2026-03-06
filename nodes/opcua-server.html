@@ -1,0 +1,78 @@
+<script type="text/javascript">
+    RED.nodes.registerType('opcua-server', {
+        category: 'opcua',
+        color: '#3a8cba',
+        defaults: {
+            name: { value: '' },
+            port: { value: 4840, validate: RED.validators.number() },
+            serverName: { value: 'Node-RED OPC UA Server' },
+            maxAllowedSessionNumber: { value: 10, validate: RED.validators.number() },
+            maxConnectionsPerEndpoint: { value: 10, validate: RED.validators.number() }
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: 'opcua.svg',
+        paletteLabel: 'OPC UA Server',
+        label: function() {
+            return this.name || 'OPC UA Server';
+        },
+        labelStyle: function() {
+            return this.name ? 'node_label_italic' : '';
+        },
+        oneditprepare: function() {
+            $('#opcua-server-toggle-limits').on('click', function() {
+                $('#opcua-server-limits').slideToggle(200);
+                $(this).find('.fa').toggleClass('fa-chevron-down fa-chevron-right');
+            });
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="opcua-server">
+<div class="opcua-node-container">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-port"><i class="fa fa-plug"></i> Port</label>
+        <input type="number" id="node-input-port" min="1" max="65535" style="width:100px" placeholder="4840">
+    </div>
+    <div class="form-row">
+        <label for="node-input-serverName"><i class="fa fa-server"></i> Server Name</label>
+        <input type="text" id="node-input-serverName" placeholder="Node-RED OPC UA Server">
+    </div>
+
+    <div class="opcua-toggle-row" id="opcua-server-toggle-limits" style="display:flex;align-items:center;gap:8px;padding:6px 10px;margin:12px 0 8px;background:#f5f7fa;border-radius:6px;cursor:pointer;user-select:none;border:1px solid #e1e5ea">
+        <i class="fa fa-chevron-right" style="color:#999;font-size:11px"></i>
+        <span style="font-size:12px;font-weight:600;color:#555;flex:1">Limits</span>
+    </div>
+    <div id="opcua-server-limits" style="display:none">
+        <div class="form-row">
+            <label for="node-input-maxAllowedSessionNumber"><i class="fa fa-users"></i> Max Sessions</label>
+            <input type="number" id="node-input-maxAllowedSessionNumber" min="1" max="100" style="width:80px" placeholder="10">
+        </div>
+        <div class="form-row">
+            <label for="node-input-maxConnectionsPerEndpoint"><i class="fa fa-link"></i> Max Connections</label>
+            <input type="number" id="node-input-maxConnectionsPerEndpoint" min="1" max="100" style="width:80px" placeholder="10">
+        </div>
+    </div>
+</div>
+</script>
+
+<script type="text/html" data-help-name="opcua-server">
+    <p>OPC UA Server Node for providing OPC UA data.</p>
+    <h3>Commands</h3>
+    <p>Via <code>msg.command</code>:</p>
+    <ul>
+        <li><code>addFolder</code> — Add folder</li>
+        <li><code>addVariable</code> — Add variable</li>
+        <li><code>setValue</code> — Set value</li>
+        <li><code>deleteNode</code> — Delete node</li>
+        <li><code>addMethod</code> — Add method</li>
+        <li><code>addObject</code> — Add object</li>
+        <li><code>getServerInfo</code> — Server diagnostics</li>
+        <li><code>setWritable</code> — Make variable writable</li>
+        <li><code>raiseEvent</code> — Raise event</li>
+    </ul>
+</script>

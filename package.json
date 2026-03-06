@@ -1,0 +1,55 @@
+{
+  "name": "node-red-contrib-opcua-suite",
+  "version": "1.0.0",
+  "description": "A modern OPC UA suite for Node-RED with shared connections, batch operations, drag-and-drop certificates, and a clean msg-driven API",
+  "keywords": [
+    "node-red",
+    "opcua",
+    "opc-ua",
+    "industrial",
+    "automation",
+    "iot"
+  ],
+  "node-red": {
+    "version": ">=3.0.0",
+    "nodes": {
+      "opcua-client": "nodes/opcua-client.js",
+      "opcua-server": "nodes/opcua-server.js",
+      "opcua-item": "nodes/opcua-item.js",
+      "opcua-endpoint": "nodes/opcua-endpoint.js",
+      "opcua-event": "nodes/opcua-event.js",
+      "opcua-method": "nodes/opcua-method.js",
+      "opcua-browser": "nodes/opcua-browser.js",
+      "opcua-browse-client": "nodes/opcua-browse-client.js"
+    }
+  },
+  "scripts": {
+    "test": "mocha test/**/*.test.js --timeout 30000 --exit",
+    "test:integration": "node test-server/test-client.js",
+    "lint": "eslint nodes/*.js lib/*.js",
+    "format": "prettier --write nodes/**/*.js lib/**/*.js"
+  },
+  "author": "blanpa",
+  "license": "MIT",
+  "dependencies": {
+    "node-opcua": "^2.115.0"
+  },
+  "devDependencies": {
+    "chai": "^4.3.10",
+    "eslint": "^8.57.0",
+    "mocha": "^10.2.0",
+    "prettier": "^3.2.5",
+    "sinon": "^17.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/blanpa/node-red-contrib-opcua-suite.git"
+  },
+  "bugs": {
+    "url": "https://github.com/blanpa/node-red-contrib-opcua-suite/issues"
+  },
+  "homepage": "https://github.com/blanpa/node-red-contrib-opcua-suite#readme"
+}

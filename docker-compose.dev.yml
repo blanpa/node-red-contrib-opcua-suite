@@ -1,0 +1,27 @@
+# Development Docker Compose mit Hot-Reload
+services:
+  node-red:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: node-red-opcua-suite-dev
+    ports:
+      - "1880:1880"
+      - "9229:9229"  # Node.js Debug Port
+    volumes:
+      # Mount Source Code für Entwicklung
+      - ./nodes:/data/nodes:ro
+      - ./lib:/data/lib:ro
+      - ./data:/data
+      - ./logs:/var/log/node-red
+    environment:
+      - NODE_OPTIONS=--max-old-space-size=512 --inspect=0.0.0.0:9229
+      - TZ=Europe/Berlin
+      - NODE_ENV=development
+    restart: unless-stopped
+    networks:
+      - opcua-network
+
+networks:
+  opcua-network:
+    driver: bridge

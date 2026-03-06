@@ -1,0 +1,50 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Node modules (werden im Container installiert)
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Development files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Test files
+test
+tests
+coverage
+.nyc_output
+
+# Documentation
+docs
+*.md
+!README.md
+
+# Build artifacts
+dist
+build
+*.tsbuildinfo
+
+# Docker files (um zirkuläre Referenzen zu vermeiden)
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Data directories (werden als Volumes gemountet)
+data
+logs

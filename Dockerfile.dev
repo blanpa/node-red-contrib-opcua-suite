@@ -1,0 +1,22 @@
+# Development Dockerfile mit Hot-Reload
+FROM nodered/node-red:latest
+
+# System-Abhängigkeiten
+USER root
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    git
+
+USER node-red
+WORKDIR /data
+
+# Package.json für Dependencies
+COPY --chown=node-red:node-red package.json /data/package.json
+
+# Installiere nur Dependencies (Code wird als Volume gemountet)
+RUN npm install --production --no-audit --no-fund
+
+# Node-RED starten
+CMD ["npm", "start", "--", "--userDir", "/data"]

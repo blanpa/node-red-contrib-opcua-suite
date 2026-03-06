@@ -1,0 +1,38 @@
+services:
+  node-red:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: node-red-opcua-suite
+    ports:
+      - "1881:1880"
+    volumes:
+      - ./data:/data
+      - ./logs:/var/log/node-red
+    environment:
+      - NODE_OPTIONS=--max-old-space-size=512
+      - TZ=Europe/Berlin
+    restart: unless-stopped
+    depends_on:
+      opcua-server:
+        condition: service_started
+    networks:
+      - opcua-network
+
+  opcua-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: opcua-test-server
+    ports:
+      - "4841:4840"
+    environment:
+      - TZ=Europe/Berlin
+    entrypoint: ["node", "/opt/opcua-suite/test-server/server.js"]
+    restart: unless-stopped
+    networks:
+      - opcua-network
+
+networks:
+  opcua-network:
+    driver: bridge

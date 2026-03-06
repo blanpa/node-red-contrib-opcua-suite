@@ -1,0 +1,773 @@
+<script type="text/javascript">
+    RED.nodes.registerType('opcua-browse-client', {
+        category: 'opcua',
+        color: '#3a8cba',
+        defaults: {
+            name: { value: '' },
+            endpoint: { value: '', type: 'opcua-endpoint', required: true },
+            mode: { value: 'read' },
+            publishInterval: { value: 1000, validate: RED.validators.number() },
+            selectedItems: { value: [] }
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: 'opcua.svg',
+        paletteLabel: 'OPC UA Browse Client',
+        label: function() {
+            if (this.name) return this.name;
+            var count = this.selectedItems ? this.selectedItems.length : 0;
+            if (count === 0) return 'OPC UA Browse Client';
+            return count + ' item' + (count !== 1 ? 's' : '') + ' (' + this.mode + ')';
+        },
+        labelStyle: function() {
+            return this.name ? 'node_label_italic' : '';
+        },
+        oneditprepare: function() {
+            var node = this;
+            var selectedMap = {};
+            (node.selectedItems || []).forEach(function(item) {
+                selectedMap[item.nodeId] = JSON.parse(JSON.stringify(item));
+            });
+            // Share selectedMap with oneditsave via node object
+            node._selectedMap = selectedMap;
+
+            // ─── Icon / Color helpers ───
+
+            var nodeClassMeta = {
+                'Object':        { icon: 'fa-cube',     color: '#3a8cba' },
+                'Variable':      { icon: 'fa-tag',      color: '#2e9e5a' },
+                'Method':        { icon: 'fa-cog',      color: '#d4a017' },
+                'ObjectType':    { icon: 'fa-cubes',    color: '#7c5cbf' },
+                'VariableType':  { icon: 'fa-tags',     color: '#5c8abf' },
+                'ReferenceType': { icon: 'fa-link',     color: '#bf5c8a' },
+                'DataType':      { icon: 'fa-database', color: '#bf8a5c' },
+                'View':          { icon: 'fa-eye',      color: '#5cbf8a' }
+            };
+
+            function getMeta(nc) {
+                return nodeClassMeta[nc] || { icon: 'fa-circle-o', color: '#888' };
+            }
+
+            // ─── Mode toggle ───
+
+            function updateModeUI() {
+                var mode = $('#node-input-mode').val();
+                if (mode === 'subscribe') {
+                    $('#opcua-bc-interval-row').slideDown(150);
+                } else {
+                    $('#opcua-bc-interval-row').slideUp(150);
+                }
+            }
+            $('#node-input-mode').on('change', updateModeUI);
+            updateModeUI();
+
+            // ─── Selected items management ───
+
+            function updateSelectedCount() {
+                var count = Object.keys(selectedMap).length;
+                $('#opcua-bc-selected-count').text(count);
+                $('#opcua-bc-selected-badge').toggle(count > 0);
+                $('#opcua-bc-clear-all').toggle(count > 0);
+                updateSelectedList();
+            }
+
+            function updateSelectedList() {
+                var $list = $('#opcua-bc-selected-list');
+                $list.empty();
+                var items = Object.values(selectedMap);
+                if (items.length === 0) {
+                    $list.html('<div class="opcua-bc-empty">No items selected. Browse the server and check items to select them.</div>');
+                    return;
+                }
+                items.forEach(function(item) {
+                    var meta = getMeta(item.nodeClass);
+                    var $row = $('<div class="opcua-bc-selected-row"></div>');
+                    $row.append('<span class="opcua-bc-sel-icon"><i class="fa ' + meta.icon + '" style="color:' + meta.color + '"></i></span>');
+                    var $info = $('<div class="opcua-bc-sel-info"></div>');
+                    $info.append($('<span class="opcua-bc-sel-name"></span>').text(item.displayName || item.browseName || ''));
+                    $info.append($('<span class="opcua-bc-sel-detail"></span>').text(item.nodeClass + '  —  ' + item.nodeId));
+                    $row.append($info);
+                    var $remove = $('<button type="button" class="opcua-bc-sel-remove red-ui-button red-ui-button-small"><i class="fa fa-times"></i></button>');
+                    $remove.on('click', function() {
+                        delete selectedMap[item.nodeId];
+                        $('#opcua-bc-tree').find('input[data-nodeid="' + CSS.escape(item.nodeId) + '"]').prop('checked', false);
+                        updateSelectedCount();
+                    });
+                    $row.append($remove);
+                    $list.append($row);
+                });
+            }
+
+            $('#opcua-bc-clear-all').on('click', function() {
+                selectedMap = {};
+                node._selectedMap = selectedMap;
+                $('#opcua-bc-tree').find('input[type="checkbox"]').prop('checked', false);
+                updateSelectedCount();
+            });
+
+            // ─── Search / Filter ───
+
+            var filterTimeout = null;
+            var isFiltering = false;
+
+            $('#opcua-bc-search').on('input', function() {
+                clearTimeout(filterTimeout);
+                var term = $(this).val().toLowerCase().trim();
+                filterTimeout = setTimeout(function() {
+                    if (!term) {
+                        isFiltering = false;
+                        // Restore: show all items, restore children to their pre-filter state
+                        $('#opcua-bc-tree .opcua-bc-tree-item').show();
+                        $('#opcua-bc-tree .opcua-bc-children').each(function() {
+                            var $child = $(this);
+                            var $arrow = $child.prev('.opcua-bc-tree-item').find('.opcua-bc-expand .fa');
+                            // Collapse children that were force-opened by filter
+                            if ($child.data('filter-opened')) {
+                                $child.hide();
+                                $arrow.removeClass('fa-chevron-down').addClass('fa-chevron-right');
+                                $child.removeData('filter-opened');
+                            }
+                        });
+                        return;
+                    }
+                    isFiltering = true;
+                    // First hide everything
+                    $('#opcua-bc-tree .opcua-bc-tree-item').hide();
+                    $('#opcua-bc-tree .opcua-bc-children').hide().removeData('filter-opened');
+
+                    // Show matching items and expand their parents
+                    $('#opcua-bc-tree .opcua-bc-tree-item').each(function() {
+                        var $item = $(this);
+                        var label = $item.find('.opcua-bc-node-label').text().toLowerCase();
+                        var nodeId = ($item.attr('title') || '').toLowerCase();
+                        var nodeClass = $item.find('.opcua-bc-node-class').text().toLowerCase();
+                        if (label.indexOf(term) >= 0 || nodeId.indexOf(term) >= 0 || nodeClass.indexOf(term) >= 0) {
+                            $item.show();
+                            $item.parents('.opcua-bc-children').each(function() {
+                                var $parent = $(this);
+                                if (!$parent.is(':visible')) {
+                                    $parent.show().data('filter-opened', true);
+                                }
+                                $parent.prev('.opcua-bc-tree-item').show()
+                                    .find('.opcua-bc-expand .fa')
+                                    .removeClass('fa-chevron-right').addClass('fa-chevron-down');
+                            });
+                        }
+                    });
+                }, 200);
+            });
+
+            $('#opcua-bc-search-clear').on('click', function() {
+                $('#opcua-bc-search').val('').trigger('input');
+            });
+
+            // ─── Expand / Collapse All ───
+
+            $('#opcua-bc-expand-all').on('click', function() {
+                $('#opcua-bc-tree .opcua-bc-children').each(function() {
+                    $(this).show();
+                    $(this).prev('.opcua-bc-tree-item').find('.opcua-bc-expand .fa')
+                        .removeClass('fa-chevron-right').addClass('fa-chevron-down');
+                });
+            });
+
+            $('#opcua-bc-collapse-all').on('click', function() {
+                $('#opcua-bc-tree .opcua-bc-children').each(function() {
+                    $(this).hide();
+                    $(this).prev('.opcua-bc-tree-item').find('.opcua-bc-expand .fa')
+                        .removeClass('fa-chevron-down').addClass('fa-chevron-right');
+                });
+            });
+
+            // ─── Browse ───
+
+            var currentEndpointId = null;
+
+            $('#opcua-bc-browse-btn').on('click', function() {
+                var endpointId = $('#node-input-endpoint').val();
+                if (!endpointId || endpointId === '_ADD_') {
+                    RED.notify('Please select an endpoint first', 'warning');
+                    return;
+                }
+                currentEndpointId = endpointId;
+                $('#opcua-bc-tree').empty();
+                $('#opcua-bc-search').val('');
+                $('#opcua-bc-status').html('<i class="fa fa-spinner fa-spin"></i> Connecting to server...').show();
+                $('#opcua-bc-error').hide();
+                browseNode(endpointId, null, $('#opcua-bc-tree'), 0);
+            });
+
+            function browseNode(endpointId, nodeId, $container, depth) {
+                $.ajax({
+                    url: 'opcua-browse-client/browse',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ endpointId: endpointId, nodeId: nodeId }),
+                    success: function(data) {
+                        $('#opcua-bc-status').hide();
+                        $container.find('> .opcua-bc-loading').remove();
+                        renderBrowseResult(endpointId, data.references || [], $container, depth);
+                        if (depth === 0) {
+                            $('#opcua-bc-tree-toolbar').show();
+                        }
+                    },
+                    error: function(xhr) {
+                        $('#opcua-bc-status').hide();
+                        $container.find('> .opcua-bc-loading').remove();
+                        var msg = xhr.responseJSON ? xhr.responseJSON.error : 'Connection failed';
+                        if (depth === 0) {
+                            $('#opcua-bc-error').text(msg).show();
+                        } else {
+                            $container.append('<div class="opcua-bc-loading" style="color:#d9534f"><i class="fa fa-exclamation-triangle"></i> ' + $('<span>').text(msg).html() + '</div>');
+                        }
+                    }
+                });
+            }
+
+            function renderBrowseResult(endpointId, references, $container, depth) {
+                if (!references || references.length === 0) {
+                    if (depth === 0) {
+                        $container.html('<div class="opcua-bc-empty">No nodes found</div>');
+                    }
+                    return;
+                }
+
+                references.forEach(function(ref) {
+                    var meta = getMeta(ref.nodeClass);
+                    var hasChildren = ref.hasChildren;
+                    var isChecked = !!selectedMap[ref.nodeId];
+
+                    var $item = $('<div class="opcua-bc-tree-item" style="padding-left:' + (depth * 20) + 'px"></div>');
+                    $item.attr('title', ref.nodeId);
+
+                    // Expand arrow
+                    var $expand = $('<span class="opcua-bc-expand"></span>');
+                    if (hasChildren) {
+                        $expand.html('<i class="fa fa-chevron-right"></i>');
+                        $expand.addClass('opcua-bc-expandable');
+                    } else {
+                        $expand.html('<span style="width:14px;display:inline-block"></span>');
+                    }
+                    $item.append($expand);
+
+                    // Checkbox — ALL node types get one
+                    var $cb = $('<input type="checkbox" class="opcua-bc-checkbox">');
+                    $cb.attr('data-nodeid', ref.nodeId);
+                    $cb.prop('checked', isChecked);
+                    $cb.on('change', function(e) {
+                        e.stopPropagation();
+                        if (this.checked) {
+                            selectedMap[ref.nodeId] = {
+                                nodeId: ref.nodeId,
+                                browseName: ref.browseName,
+                                displayName: ref.displayName,
+                                nodeClass: ref.nodeClass,
+                                typeDefinition: ref.typeDefinition || '',
+                                dataType: ref.dataType || ''
+                            };
+                        } else {
+                            delete selectedMap[ref.nodeId];
+                        }
+                        updateSelectedCount();
+                    });
+                    $item.append($cb);
+
+                    // Icon
+                    $item.append('<i class="fa ' + meta.icon + ' opcua-bc-node-icon" style="color:' + meta.color + '"></i>');
+
+                    // Label
+                    var $label = $('<span class="opcua-bc-node-label"></span>');
+                    $label.text(ref.displayName || ref.browseName);
+                    if (ref.nodeClass === 'Variable') {
+                        $label.addClass('opcua-bc-variable');
+                    }
+                    $item.append($label);
+
+                    // DataType badge for Variables, TypeDefinition for Objects
+                    var extraInfo = '';
+                    if (ref.dataType && (ref.nodeClass === 'Variable' || ref.nodeClass === 'VariableType')) {
+                        extraInfo = ref.dataType;
+                    } else if (ref.typeDefinition && ref.nodeClass === 'Object') {
+                        // Clean up typeDefinition (e.g. "ns=0;i=61" -> "FolderType" or show raw)
+                        var td = ref.typeDefinition;
+                        extraInfo = td.replace(/^ns=0;i=/, 'i=');
+                    }
+                    if (extraInfo) {
+                        $item.append('<span class="opcua-bc-datatype">' + $('<span>').text(extraInfo).html() + '</span>');
+                    }
+
+                    // NodeId (small, inline)
+                    $item.append('<span class="opcua-bc-node-id-inline">' + $('<span>').text(ref.nodeId).html() + '</span>');
+
+                    // NodeClass badge
+                    var badgeColor = meta.color;
+                    $item.append('<span class="opcua-bc-node-class" style="color:' + badgeColor + ';border-color:' + badgeColor + '">' + ref.nodeClass + '</span>');
+
+                    // Toggle-select-children button for expandable nodes
+                    if (hasChildren) {
+                        var $selectAll = $('<span class="opcua-bc-select-children" title="Toggle select all direct children"><i class="fa fa-check-square-o"></i></span>');
+                        $selectAll.on('click', function(e) {
+                            e.stopPropagation();
+                            var $childContainer = $item.next('.opcua-bc-children');
+                            if (!$childContainer.length) return;
+                            var $cbs = $childContainer.find('> .opcua-bc-tree-item .opcua-bc-checkbox');
+                            // If all are checked -> uncheck all, otherwise check all
+                            var allChecked = true;
+                            $cbs.each(function() { if (!this.checked) allChecked = false; });
+                            var newState = !allChecked;
+                            $cbs.each(function() {
+                                if (this.checked !== newState) {
+                                    $(this).prop('checked', newState).trigger('change');
+                                }
+                            });
+                        });
+                        $item.append($selectAll);
+                    }
+
+                    $container.append($item);
+
+                    // Children container (lazy loaded)
+                    if (hasChildren) {
+                        var $children = $('<div class="opcua-bc-children" style="display:none"></div>');
+                        $container.append($children);
+                        var loaded = false;
+
+                        function toggleExpand() {
+                            var $icon = $expand.find('.fa');
+                            if ($children.is(':visible')) {
+                                $children.slideUp(150);
+                                $icon.removeClass('fa-chevron-down').addClass('fa-chevron-right');
+                            } else {
+                                if (!loaded) {
+                                    loaded = true;
+                                    $children.html('<div class="opcua-bc-loading"><i class="fa fa-spinner fa-spin"></i> Loading...</div>');
+                                    $children.slideDown(150);
+                                    browseNode(endpointId, ref.nodeId, $children, depth + 1);
+                                } else {
+                                    $children.slideDown(150);
+                                }
+                                $icon.removeClass('fa-chevron-right').addClass('fa-chevron-down');
+                            }
+                        }
+
+                        $expand.on('click', toggleExpand);
+                        $label.on('dblclick', toggleExpand);
+                    }
+                });
+            }
+
+            updateSelectedCount();
+        },
+        oneditsave: function() {
+            // Read directly from the authoritative selectedMap (no DOM scraping)
+            this.selectedItems = Object.values(this._selectedMap || {});
+        },
+        oneditcancel: function() {
+            // Disconnect browse session on cancel
+            var endpointId = this.endpoint;
+            if (endpointId) {
+                $.ajax({
+                    url: 'opcua-browse-client/disconnect',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ endpointId: endpointId })
+                });
+            }
+        }
+    });
+</script>
+
+<style>
+    /* ─── Browse Client Styles ─── */
+    .opcua-bc-container {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    .opcua-bc-container .form-row label {
+        font-weight: 500;
+        color: #444;
+    }
+
+    /* Browse header */
+    .opcua-bc-browse-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 14px 0 8px;
+    }
+    .opcua-bc-browse-header h4 {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 600;
+        color: #333;
+        flex: 1;
+    }
+    .opcua-bc-selected-badge {
+        background: #2e9e5a;
+        color: white;
+        border-radius: 12px;
+        padding: 2px 10px;
+        font-size: 11px;
+        font-weight: 600;
+        display: none;
+    }
+    .opcua-bc-browse-btn {
+        white-space: nowrap;
+    }
+
+    /* Tree toolbar */
+    .opcua-bc-tree-toolbar {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 4px;
+    }
+    .opcua-bc-tree-toolbar button {
+        font-size: 11px;
+    }
+
+    /* Search bar */
+    .opcua-bc-search-row {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-bottom: 6px;
+    }
+    .opcua-bc-search-row input {
+        flex: 1;
+        border-radius: 4px;
+        font-size: 12px;
+        padding: 4px 8px;
+        border: 1px solid #ddd;
+    }
+    .opcua-bc-search-row input:focus {
+        border-color: #3a8cba;
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(58,140,186,0.15);
+    }
+    .opcua-bc-search-clear {
+        border: none;
+        background: none;
+        color: #aaa;
+        cursor: pointer;
+        padding: 2px 6px;
+        font-size: 14px;
+    }
+    .opcua-bc-search-clear:hover { color: #555; }
+
+    /* Tree container */
+    #opcua-bc-tree {
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        max-height: 400px;
+        overflow-y: auto;
+        overflow-x: auto;
+        background: #fafbfc;
+        padding: 4px 0;
+        min-height: 60px;
+    }
+    .opcua-bc-tree-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 8px;
+        cursor: default;
+        font-size: 12px;
+        white-space: nowrap;
+        transition: background 0.1s;
+    }
+    .opcua-bc-tree-item:hover {
+        background: #edf2f7;
+    }
+
+    /* Expand arrow */
+    .opcua-bc-expand {
+        width: 16px;
+        text-align: center;
+        flex-shrink: 0;
+        font-size: 10px;
+        color: #888;
+    }
+    .opcua-bc-expandable { cursor: pointer; }
+    .opcua-bc-expandable:hover { color: #333; }
+
+    /* Checkbox */
+    .opcua-bc-checkbox {
+        width: auto !important;
+        margin: 0 !important;
+        flex-shrink: 0;
+        cursor: pointer;
+    }
+
+    /* Node icon */
+    .opcua-bc-node-icon {
+        font-size: 12px;
+        flex-shrink: 0;
+        width: 14px;
+        text-align: center;
+    }
+
+    /* Node label */
+    .opcua-bc-node-label {
+        color: #333;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex-shrink: 0;
+    }
+    .opcua-bc-node-label.opcua-bc-variable {
+        font-weight: 500;
+        color: #1a6e3a;
+    }
+
+    /* Inline NodeId */
+    .opcua-bc-node-id-inline {
+        font-size: 10px;
+        color: #b0b0b0;
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-left: 4px;
+    }
+
+    /* Node class badge */
+    .opcua-bc-node-class {
+        font-size: 9px;
+        padding: 1px 5px;
+        border-radius: 3px;
+        flex-shrink: 0;
+        border: 1px solid;
+        background: white;
+        font-weight: 500;
+    }
+
+    /* DataType badge */
+    .opcua-bc-datatype {
+        font-size: 9px;
+        color: #888;
+        background: #f0f4e8;
+        border: 1px solid #d5dcc8;
+        padding: 1px 5px;
+        border-radius: 3px;
+        flex-shrink: 0;
+        font-style: italic;
+    }
+
+    /* Select-all-children button */
+    .opcua-bc-select-children {
+        font-size: 11px;
+        color: #bbb;
+        cursor: pointer;
+        padding: 0 3px;
+        flex-shrink: 0;
+        transition: color 0.15s;
+    }
+    .opcua-bc-select-children:hover {
+        color: #2e9e5a;
+    }
+
+    /* Loading / Empty / Error */
+    .opcua-bc-loading {
+        padding: 6px 20px;
+        font-size: 11px;
+        color: #888;
+    }
+    .opcua-bc-empty {
+        padding: 12px 16px;
+        font-size: 12px;
+        color: #999;
+        text-align: center;
+    }
+    #opcua-bc-status {
+        padding: 8px 12px;
+        font-size: 12px;
+        color: #3a8cba;
+        display: none;
+    }
+    #opcua-bc-error {
+        padding: 8px 12px;
+        font-size: 12px;
+        color: #d9534f;
+        background: #fef2f2;
+        border: 1px solid #fca5a5;
+        border-radius: 6px;
+        margin: 4px 0;
+        display: none;
+    }
+
+    /* Selected items list */
+    .opcua-bc-selected-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 14px 0 6px;
+    }
+    .opcua-bc-selected-header h4 {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 600;
+        color: #333;
+        flex: 1;
+    }
+    #opcua-bc-selected-list {
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        max-height: 200px;
+        overflow-y: auto;
+        background: #fff;
+        padding: 2px 0;
+    }
+    .opcua-bc-selected-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 10px;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 12px;
+    }
+    .opcua-bc-selected-row:last-child { border-bottom: none; }
+    .opcua-bc-sel-icon {
+        font-size: 11px;
+        width: 16px;
+        text-align: center;
+        flex-shrink: 0;
+    }
+    .opcua-bc-sel-info {
+        flex: 1;
+        overflow: hidden;
+    }
+    .opcua-bc-sel-name {
+        display: block;
+        font-weight: 500;
+        color: #333;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .opcua-bc-sel-detail {
+        display: block;
+        font-size: 10px;
+        color: #999;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .opcua-bc-sel-remove {
+        flex-shrink: 0;
+        border: none !important;
+        background: none !important;
+        color: #ccc;
+        cursor: pointer;
+        padding: 2px 4px;
+    }
+    .opcua-bc-sel-remove:hover { color: #d9534f !important; }
+</style>
+
+<script type="text/html" data-template-name="opcua-browse-client">
+<div class="opcua-bc-container">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-endpoint"><i class="fa fa-plug"></i> Endpoint</label>
+        <input type="text" id="node-input-endpoint">
+    </div>
+    <div class="form-row">
+        <label for="node-input-mode"><i class="fa fa-cog"></i> Mode</label>
+        <select id="node-input-mode" style="width:70%">
+            <option value="read">Read (on trigger)</option>
+            <option value="subscribe">Subscribe (live updates)</option>
+        </select>
+    </div>
+    <div class="form-row" id="opcua-bc-interval-row">
+        <label for="node-input-publishInterval"><i class="fa fa-clock-o"></i> Interval</label>
+        <input type="number" id="node-input-publishInterval" min="100" max="60000" style="width:100px" placeholder="1000">
+        <span style="font-size:11px;color:#999;margin-left:4px">ms</span>
+    </div>
+
+    <!-- Browse Section -->
+    <div class="opcua-bc-browse-header">
+        <i class="fa fa-sitemap" style="color:#3a8cba"></i>
+        <h4>Server Address Space</h4>
+        <span class="opcua-bc-selected-badge" id="opcua-bc-selected-badge">
+            <span id="opcua-bc-selected-count">0</span> selected
+        </span>
+        <button type="button" id="opcua-bc-browse-btn" class="opcua-bc-browse-btn red-ui-button red-ui-button-small">
+            <i class="fa fa-refresh"></i> Browse
+        </button>
+    </div>
+
+    <!-- Search -->
+    <div class="opcua-bc-search-row">
+        <i class="fa fa-search" style="color:#aaa"></i>
+        <input type="text" id="opcua-bc-search" placeholder="Filter nodes by name or NodeId...">
+        <span id="opcua-bc-search-clear" class="opcua-bc-search-clear"><i class="fa fa-times"></i></span>
+    </div>
+
+    <!-- Tree toolbar -->
+    <div class="opcua-bc-tree-toolbar" id="opcua-bc-tree-toolbar" style="display:none">
+        <button type="button" id="opcua-bc-expand-all" class="red-ui-button red-ui-button-small" title="Expand all loaded nodes">
+            <i class="fa fa-plus-square-o"></i> Expand All
+        </button>
+        <button type="button" id="opcua-bc-collapse-all" class="red-ui-button red-ui-button-small" title="Collapse all">
+            <i class="fa fa-minus-square-o"></i> Collapse All
+        </button>
+    </div>
+
+    <div id="opcua-bc-status"><i class="fa fa-spinner fa-spin"></i> Connecting...</div>
+    <div id="opcua-bc-error"></div>
+    <div id="opcua-bc-tree"></div>
+
+    <!-- Selected Items Section -->
+    <div class="opcua-bc-selected-header">
+        <i class="fa fa-check-square" style="color:#2e9e5a"></i>
+        <h4>Selected Items</h4>
+        <button type="button" id="opcua-bc-clear-all" class="red-ui-button red-ui-button-small" style="display:none">
+            <i class="fa fa-trash"></i> Clear All
+        </button>
+    </div>
+    <div id="opcua-bc-selected-list"></div>
+</div>
+</script>
+
+<script type="text/html" data-help-name="opcua-browse-client">
+    <p>Experimental OPC UA Client with built-in address space browser.</p>
+
+    <h3>How to Use</h3>
+    <ol>
+        <li>Select an <b>Endpoint</b> configuration</li>
+        <li><b>Deploy</b> once (so the endpoint is available for browsing)</li>
+        <li>Click <b>Browse</b> to load the server's address space tree</li>
+        <li>Expand folders and <b>check</b> any node you want (Variable, Object, Method, ...)</li>
+        <li>Use the <b>select-all</b> button (<i class="fa fa-check-square-o"></i>) on folders to select all direct children</li>
+        <li>Use the <b>search bar</b> to filter by name or NodeId</li>
+        <li>Choose <b>Read</b> or <b>Subscribe</b> mode</li>
+        <li>Deploy again to activate</li>
+    </ol>
+
+    <h3>Supported Node Types</h3>
+    <p>All OPC UA node classes can be selected:</p>
+    <ul>
+        <li><b>Variable</b> — Read values, subscribe to changes</li>
+        <li><b>Object</b> — Read attributes, monitor events</li>
+        <li><b>Method</b> — Included in selection for reference</li>
+        <li><b>ObjectType, VariableType, ReferenceType, DataType, View</b></li>
+    </ul>
+
+    <h3>Modes</h3>
+    <dl>
+        <dt>Read (on trigger)</dt>
+        <dd>Send any message to read all selected nodes at once. Output: <code>msg.payload</code> = Array of results.</dd>
+        <dt>Subscribe (live updates)</dt>
+        <dd>Automatically subscribes on connect. Each value change emits a message.</dd>
+    </dl>
+
+    <h3>Operations via msg.operation</h3>
+    <ul>
+        <li><code>read</code> — Read all selected items</li>
+        <li><code>subscribe</code> — Start subscriptions</li>
+        <li><code>unsubscribe</code> — Stop all subscriptions</li>
+    </ul>
+
+    <h3>Output</h3>
+    <p><b>Read:</b> <code>msg.payload</code> = Array of <code>{nodeId, value, browseName, displayName, nodeClass, statusCode, ...}</code></p>
+    <p><b>Subscribe:</b> One message per change: <code>msg.payload</code> = value, <code>msg.nodeId</code>, <code>msg.nodeClass</code></p>
+</script>

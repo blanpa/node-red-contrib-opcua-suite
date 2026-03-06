@@ -1,0 +1,198 @@
+<script type="text/javascript">
+    RED.nodes.registerType('opcua-item', {
+        category: 'opcua',
+        color: '#3a8cba',
+        defaults: {
+            name: { value: '' },
+            collector: { value: true },
+            items: { value: [] }
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: 'opcua.svg',
+        paletteLabel: 'OPC UA Item',
+        label: function() {
+            if (this.name) return this.name;
+            var count = this.items ? this.items.length : 0;
+            if (count === 0) return 'OPC UA Item';
+            if (count === 1) return this.items[0].itemName || this.items[0].nodeId || 'OPC UA Item';
+            return count + ' items';
+        },
+        oneditprepare: function() {
+            var node = this;
+            var datatypeOpts = '<option value="">Auto</option>' +
+                '<option value="Boolean">Boolean</option>' +
+                '<option value="SByte">SByte</option>' +
+                '<option value="Int16">Int16</option>' +
+                '<option value="Int32">Int32</option>' +
+                '<option value="Int64">Int64</option>' +
+                '<option value="Byte">Byte</option>' +
+                '<option value="UInt16">UInt16</option>' +
+                '<option value="UInt32">UInt32</option>' +
+                '<option value="UInt64">UInt64</option>' +
+                '<option value="Float">Float</option>' +
+                '<option value="Double">Double</option>' +
+                '<option value="String">String</option>' +
+                '<option value="DateTime">DateTime</option>';
+
+            function addItemRow(nid, iname, dt) {
+                var row = $('<div class="opcua-il-row">' +
+                    '<input type="text" class="opcua-il-nodeId" placeholder="ns=2;s=Variable">' +
+                    '<input type="text" class="opcua-il-itemName" placeholder="Name">' +
+                    '<select class="opcua-il-datatype">' + datatypeOpts + '</select>' +
+                    '<button type="button" class="opcua-il-remove red-ui-button red-ui-button-small"><i class="fa fa-remove"></i></button>' +
+                    '</div>');
+                row.find('.opcua-il-nodeId').val(nid || '');
+                row.find('.opcua-il-itemName').val(iname || '');
+                row.find('.opcua-il-datatype').val(dt || '');
+                row.find('.opcua-il-remove').on('click', function() {
+                    row.remove();
+                    updatePreview();
+                });
+                $('#opcua-il-list').append(row);
+                updatePreview();
+            }
+
+            $('#opcua-il-add-btn').on('click', function() {
+                addItemRow('', '', '');
+            });
+
+            // Migrate from old format (nodeId/datatype/itemName/itemList)
+            var items = node.items || [];
+            if (items.length === 0) {
+                // Check old single-item fields
+                if (node.nodeId) {
+                    items.push({ nodeId: node.nodeId, itemName: node.itemName || '', datatype: node.datatype || '' });
+                }
+                // Check old itemList field
+                if (node.itemList && node.itemList.length > 0) {
+                    for (var j = 0; j < node.itemList.length; j++) {
+                        items.push(node.itemList[j]);
+                    }
+                }
+            }
+
+            for (var i = 0; i < items.length; i++) {
+                addItemRow(items[i].nodeId, items[i].itemName, items[i].datatype);
+            }
+
+            function updatePreview() {
+                var collector = $('#node-input-collector').is(':checked');
+                var count = $('#opcua-il-list').children().length;
+                var html = '';
+                if (count === 0) {
+                    html = '<span style="color:#aaa">Pass-Through (no items)</span>';
+                } else {
+                    html = '<b>' + count + ' item' + (count > 1 ? 's' : '') + '</b>';
+                }
+                html += '<br><small style="color:#888">' + (collector ? 'Collector (Batch)' : 'Legacy (Single)') + '</small>';
+                $('#opcua-item-preview').html(html);
+            }
+            $('#node-input-collector').on('change', updatePreview);
+            updatePreview();
+        },
+        oneditsave: function() {
+            var items = [];
+            $('#opcua-il-list .opcua-il-row').each(function() {
+                var nodeId = $(this).find('.opcua-il-nodeId').val();
+                if (nodeId && nodeId.trim()) {
+                    items.push({
+                        nodeId: nodeId.trim(),
+                        itemName: ($(this).find('.opcua-il-itemName').val() || '').trim(),
+                        datatype: $(this).find('.opcua-il-datatype').val() || ''
+                    });
+                }
+            });
+            this.items = items;
+        }
+    });
+</script>
+
+<style>
+    .opcua-item-preview {
+        background: #f5f7fa;
+        border: 1px solid #e1e5ea;
+        border-radius: 6px;
+        padding: 8px 12px;
+        margin: 8px 0 4px;
+        font-size: 12px;
+        line-height: 1.5;
+    }
+    .opcua-checkbox-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: #f8f9fb;
+        border: 1px solid #e5e8ec;
+        border-radius: 6px;
+        margin: 4px 0;
+        transition: background 0.15s;
+    }
+    .opcua-checkbox-row:hover { background: #f0f3f7; }
+    .opcua-checkbox-row input[type="checkbox"] { width: auto; margin: 0; }
+    .opcua-checkbox-row .opcua-cb-label { font-size: 12px; font-weight: 500; color: #444; }
+    .opcua-checkbox-row .opcua-cb-hint { font-size: 11px; color: #999; }
+    .opcua-il-row {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+        margin-bottom: 4px;
+    }
+    .opcua-il-row .opcua-il-nodeId { flex: 1; min-width: 140px; font-size: 12px; }
+    .opcua-il-row .opcua-il-itemName { width: 100px; font-size: 12px; }
+    .opcua-il-row .opcua-il-datatype { width: 90px; font-size: 12px; }
+    .opcua-il-row .opcua-il-remove { flex-shrink: 0; }
+    #opcua-il-list {
+        max-height: 300px;
+        overflow-y: auto;
+        padding: 4px 0;
+    }
+    #opcua-il-add-btn { margin-top: 4px; }
+</style>
+
+<script type="text/html" data-template-name="opcua-item">
+<div class="opcua-node-container">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+
+    <div class="form-row">
+        <label><i class="fa fa-list"></i> Items</label>
+        <div id="opcua-il-list"></div>
+        <button type="button" id="opcua-il-add-btn" class="red-ui-button red-ui-button-small"><i class="fa fa-plus"></i> Add Item</button>
+    </div>
+
+    <div class="opcua-checkbox-row">
+        <input type="checkbox" id="node-input-collector">
+        <div>
+            <div class="opcua-cb-label">Collector Mode</div>
+            <div class="opcua-cb-hint">Add items to msg.items (for batch read/write)</div>
+        </div>
+    </div>
+    <div class="opcua-item-preview" id="opcua-item-preview"></div>
+</div>
+</script>
+
+<script type="text/html" data-help-name="opcua-item">
+    <p>Defines OPC UA items (variables) for read/write operations.</p>
+
+    <h3>Items</h3>
+    <p>Add one or more items via the <b>Add Item</b> button. Each item needs a <b>NodeId</b>,
+    and optionally a <b>Name</b> and <b>DataType</b>.</p>
+
+    <h4>Chain Pattern</h4>
+    <p>Multiple Item nodes can be chained — each adds its items to <code>msg.items</code>:</p>
+    <pre>[Inject] → [Item: Temp] → [Item: Press] → [Client]</pre>
+
+    <h4>Batch Pattern</h4>
+    <p>Or configure all items in a single node:</p>
+    <pre>[Inject] → [Items: Temp, Press, Flow] → [Client]</pre>
+
+    <h3>Collector Mode (default: active)</h3>
+    <p>Adds items to the <code>msg.items</code> array for batch operations.</p>
+
+    <h3>Legacy Mode (Collector off)</h3>
+    <p>Sets <code>msg.topic</code> and <code>msg.datatype</code> directly — only uses the first item.</p>
+</script>

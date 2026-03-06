@@ -1,0 +1,156 @@
+<script type="text/javascript">
+    RED.nodes.registerType('opcua-client', {
+        category: 'opcua',
+        color: '#3a8cba',
+        defaults: {
+            name: { value: '' },
+            endpoint: { value: '', type: 'opcua-endpoint', required: true },
+            defaultOperation: { value: 'read' },
+            applicationName: { value: 'Node-RED OPC UA Client' },
+            maxReconnectAttempts: { value: 10 },
+            reconnectDelay: { value: 5000 }
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: 'opcua.svg',
+        paletteLabel: 'OPC UA Client',
+        label: function() {
+            return this.name || 'OPC UA Client';
+        },
+        labelStyle: function() {
+            return this.name ? 'node_label_italic' : '';
+        },
+        oneditprepare: function() {
+            // Toggle advanced section
+            $('#opcua-client-toggle-advanced').on('click', function() {
+                $('#opcua-client-advanced').slideToggle(200);
+                $(this).find('.fa').toggleClass('fa-chevron-down fa-chevron-right');
+            });
+        }
+    });
+</script>
+
+<style>
+    .opcua-node-container .form-row label {
+        font-weight: 500;
+        color: #444;
+    }
+    .opcua-node-container select,
+    .opcua-node-container input[type="text"],
+    .opcua-node-container input[type="number"] {
+        border-radius: 4px;
+    }
+    .opcua-toggle-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        margin: 12px 0 8px;
+        background: #f5f7fa;
+        border-radius: 6px;
+        cursor: pointer;
+        user-select: none;
+        border: 1px solid #e1e5ea;
+        transition: background 0.15s;
+    }
+    .opcua-toggle-row:hover { background: #edf0f5; }
+    .opcua-toggle-row span { font-size: 12px; font-weight: 600; color: #555; flex:1; }
+    .opcua-toggle-row .fa { color: #999; font-size: 11px; }
+    .opcua-op-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0;
+    }
+    .opcua-op-grid option { padding: 4px 8px; }
+</style>
+
+<script type="text/html" data-template-name="opcua-client">
+<div class="opcua-node-container">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-endpoint"><i class="fa fa-plug"></i> Endpoint</label>
+        <input type="text" id="node-input-endpoint" placeholder="Endpoint">
+    </div>
+    <div class="form-row">
+        <label for="node-input-defaultOperation"><i class="fa fa-cog"></i> Default Operation</label>
+        <select id="node-input-defaultOperation" style="width:70%">
+            <option value="read">Read</option>
+            <option value="readmultiple">Read Multiple</option>
+            <option value="write">Write</option>
+            <option value="writemultiple">Write Multiple</option>
+            <option value="subscribe">Subscribe</option>
+            <option value="unsubscribe">Unsubscribe</option>
+            <option value="browse">Browse</option>
+            <option value="method">Method Call</option>
+            <option value="history">History Read</option>
+            <option value="getendpoints">Get Endpoints</option>
+            <option value="readattribute">Read Attribute</option>
+            <option value="registernodes">Register Nodes</option>
+            <option value="translatebrowsepath">Translate Browse Path</option>
+        </select>
+    </div>
+
+    <div class="opcua-toggle-row" id="opcua-client-toggle-advanced">
+        <i class="fa fa-chevron-right"></i>
+        <span>Advanced Settings</span>
+    </div>
+    <div id="opcua-client-advanced" style="display:none">
+        <div class="form-row">
+            <label for="node-input-applicationName"><i class="fa fa-info-circle"></i> Application Name</label>
+            <input type="text" id="node-input-applicationName" placeholder="Node-RED OPC UA Client" style="width:70%">
+        </div>
+        <div class="form-row">
+            <label for="node-input-maxReconnectAttempts"><i class="fa fa-refresh"></i> Max Reconnects</label>
+            <input type="number" id="node-input-maxReconnectAttempts" min="0" max="100" style="width:80px;" placeholder="10">
+        </div>
+        <div class="form-row">
+            <label for="node-input-reconnectDelay"><i class="fa fa-clock-o"></i> Reconnect Delay</label>
+            <input type="number" id="node-input-reconnectDelay" min="1000" max="60000" style="width:100px;" placeholder="5000">
+            <span style="font-size:11px;color:#999;margin-left:4px">ms</span>
+        </div>
+    </div>
+</div>
+</script>
+
+<script type="text/html" data-help-name="opcua-client">
+    <p>OPC UA Client Node — Read, Write, Subscribe, Browse (single and batch).</p>
+
+    <h3>Operations</h3>
+    <p>Via <code>msg.operation</code> or default operation in the configuration:</p>
+
+    <h4>Read (single)</h4>
+    <ul>
+        <li><code>msg.topic</code> / <code>msg.nodeId</code> — NodeId</li>
+        <li>Output: <code>msg.payload</code> = value</li>
+    </ul>
+
+    <h4>Read Multiple (Batch)</h4>
+    <ul>
+        <li><code>msg.operation = "readmultiple"</code></li>
+        <li><code>msg.items</code> — Array: <code>[{nodeId: "ns=2;s=Var1"}, ...]</code></li>
+        <li>Or <code>msg.payload</code> — Object: <code>{"Name": "ns=2;s=Var1", ...}</code></li>
+    </ul>
+
+    <h4>Write (single)</h4>
+    <ul>
+        <li><code>msg.topic</code> / <code>msg.nodeId</code> — NodeId</li>
+        <li><code>msg.payload</code> — value</li>
+        <li><code>msg.datatype</code> — Optional: DataType (e.g. "Int32", "Double")</li>
+    </ul>
+
+    <h4>Write Multiple (Batch)</h4>
+    <ul>
+        <li><code>msg.operation = "writemultiple"</code></li>
+        <li><code>msg.items</code> — Array: <code>[{nodeId: "ns=2;s=Var1", value: 42, datatype: "Int32"}, ...]</code></li>
+        <li>Or <code>msg.payload</code> — Object: <code>{"ns=2;s=Var1": {value: 42, datatype: "Int32"}, ...}</code></li>
+    </ul>
+
+    <h4>Subscribe / Browse / Method / History</h4>
+    <p>See example flows for all supported operations.</p>
+
+    <h3>Item Collector Pattern</h3>
+    <p>Chain <b>OPC UA Item</b> nodes in series before the client. Each item adds itself to the <code>msg.items</code> array for batch operations.</p>
+</script>

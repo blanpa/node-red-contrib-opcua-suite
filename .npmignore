@@ -1,0 +1,44 @@
+# Version control
+.git/
+.github/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test files
+test/
+test-server/
+coverage/
+.nyc_output/
+
+# Documentation (users can find on GitHub)
+docs/
+
+# Docker
+Dockerfile*
+docker-compose*
+docker-start.sh
+
+# Build / Dev tools
+Makefile
+
+# Extra markdown docs (keep README.md)
+DOCKER.md
+QUICKSTART.md
+
+# Examples (available on GitHub)
+examples/
+
+# Environment
+.env*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

@@ -1,0 +1,77 @@
+<script type="text/javascript">
+    RED.nodes.registerType('opcua-browser', {
+        category: 'opcua',
+        color: '#3a8cba',
+        defaults: {
+            name: { value: '' },
+            endpoint: { value: '', type: 'opcua-endpoint', required: true },
+            startNodeId: { value: 'RootFolder' },
+            recursive: { value: false },
+            maxDepth: { value: 10, validate: RED.validators.number() }
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: 'opcua.svg',
+        paletteLabel: 'OPC UA Browser',
+        label: function() {
+            return this.name || 'OPC UA Browser';
+        },
+        oneditprepare: function() {
+            function toggleRecursive() {
+                var checked = $('#node-input-recursive').is(':checked');
+                if (checked) {
+                    $('#opcua-browser-depth-row').slideDown(150);
+                } else {
+                    $('#opcua-browser-depth-row').slideUp(150);
+                }
+            }
+            $('#node-input-recursive').on('change', toggleRecursive);
+            toggleRecursive();
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="opcua-browser">
+<div class="opcua-node-container">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-endpoint"><i class="fa fa-plug"></i> Endpoint</label>
+        <input type="text" id="node-input-endpoint">
+    </div>
+    <div class="form-row">
+        <label for="node-input-startNodeId"><i class="fa fa-folder-open"></i> Start NodeId</label>
+        <input type="text" id="node-input-startNodeId" placeholder="RootFolder" style="width:70%">
+    </div>
+    <div class="opcua-checkbox-row" style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#f8f9fb;border:1px solid #e5e8ec;border-radius:6px;margin:8px 0">
+        <input type="checkbox" id="node-input-recursive" style="width:auto;margin:0">
+        <div>
+            <div style="font-size:12px;font-weight:500;color:#444">Recursive browse</div>
+            <div style="font-size:11px;color:#999">Browse full subtree</div>
+        </div>
+    </div>
+    <div class="form-row" id="opcua-browser-depth-row">
+        <label for="node-input-maxDepth"><i class="fa fa-level-down"></i> Max Depth</label>
+        <input type="number" id="node-input-maxDepth" min="1" max="20" style="width:80px" placeholder="10">
+    </div>
+</div>
+</script>
+
+<script type="text/html" data-help-name="opcua-browser">
+    <p>OPC UA Browser Node for browsing the OPC UA address space.</p>
+    <h3>Input</h3>
+    <p>The NodeId can be set via <code>msg.topic</code> or <code>msg.nodeId</code>.
+    If not set, the configured start NodeId is used.</p>
+    <h3>Output</h3>
+    <p><code>msg.payload</code> contains an array of references:</p>
+    <ul>
+        <li><code>browseName</code> — Node name</li>
+        <li><code>nodeId</code> — NodeId as string</li>
+        <li><code>nodeClass</code> — Node class (Object, Variable, etc.)</li>
+        <li><code>typeDefinition</code> — Type definition</li>
+    </ul>
+    <h3>Recursive</h3>
+    <p>When recursive mode is enabled, the result is delivered in <code>msg.recursiveResult</code> as a tree structure.</p>
+</script>

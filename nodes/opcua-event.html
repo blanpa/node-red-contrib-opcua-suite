@@ -1,0 +1,58 @@
+<script type="text/javascript">
+    RED.nodes.registerType('opcua-event', {
+        category: 'opcua',
+        color: '#3a8cba',
+        defaults: {
+            name: { value: '' },
+            endpoint: { value: '', type: 'opcua-endpoint', required: true },
+            sourceNodeId: { value: 'i=2253' },
+            eventType: { value: 'BaseEventType' }
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: 'opcua.svg',
+        paletteLabel: 'OPC UA Event',
+        label: function() { return this.name || 'OPC UA Event'; }
+    });
+</script>
+
+<script type="text/html" data-template-name="opcua-event">
+<div class="opcua-node-container">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-endpoint"><i class="fa fa-plug"></i> Endpoint</label>
+        <input type="text" id="node-input-endpoint">
+    </div>
+    <div class="form-row">
+        <label for="node-input-sourceNodeId"><i class="fa fa-crosshairs"></i> Source NodeId</label>
+        <input type="text" id="node-input-sourceNodeId" placeholder="i=2253 (Server Node)" style="width:70%">
+    </div>
+    <div class="form-row">
+        <label for="node-input-eventType"><i class="fa fa-bell"></i> Event Type</label>
+        <input type="text" id="node-input-eventType" placeholder="BaseEventType" style="width:70%">
+        <div style="font-size:11px;color:#999;margin-top:2px;padding-left:105px">e.g. BaseEventType, AlarmConditionType</div>
+    </div>
+</div>
+</script>
+
+<script type="text/html" data-help-name="opcua-event">
+    <p>Subscribes to OPC UA events and alarms.</p>
+    <h3>Input</h3>
+    <ul>
+        <li><code>msg.action = "subscribe"</code> — Start event subscription (default)</li>
+        <li><code>msg.action = "unsubscribe"</code> — Stop event subscription</li>
+        <li><code>msg.sourceNodeId</code> — NodeId to monitor (default: Server)</li>
+    </ul>
+    <h3>Output</h3>
+    <p>For each event a message is sent with:</p>
+    <ul>
+        <li><code>msg.payload.eventType</code></li>
+        <li><code>msg.payload.severity</code></li>
+        <li><code>msg.payload.message</code></li>
+        <li><code>msg.payload.time</code></li>
+        <li><code>msg.payload.sourceName</code></li>
+    </ul>
+</script>

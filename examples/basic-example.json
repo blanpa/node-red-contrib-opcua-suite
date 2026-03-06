@@ -1,0 +1,222 @@
+[
+    {
+        "id": "opcua-endpoint-1",
+        "type": "opcua-endpoint",
+        "name": "Local Server",
+        "endpointUrl": "opc.tcp://localhost:4840",
+        "securityMode": "None",
+        "securityPolicy": "None"
+    },
+
+    {"id":"comment-single","type":"comment","name":"── Einzelne Read/Write ──","x":150,"y":40,"wires":[]},
+
+    {
+        "id": "inject-read",
+        "type": "inject",
+        "name": "Read Single",
+        "props": [{"p":"topic","vt":"str","v":"ns=2;s=Temperature"},{"p":"operation","vt":"str","v":"read"}],
+        "x": 100,
+        "y": 80,
+        "wires": [["opcua-client-1"]]
+    },
+    {
+        "id": "inject-write",
+        "type": "inject",
+        "name": "Write Single",
+        "props": [{"p":"topic","vt":"str","v":"ns=2;s=Temperature"},{"p":"payload","vt":"num","v":"25.5"},{"p":"operation","vt":"str","v":"write"},{"p":"datatype","vt":"str","v":"Double"}],
+        "x": 100,
+        "y": 120,
+        "wires": [["opcua-client-1"]]
+    },
+    {
+        "id": "opcua-client-1",
+        "type": "opcua-client",
+        "name": "OPC UA Client",
+        "endpoint": "opcua-endpoint-1",
+        "defaultOperation": "read",
+        "x": 320,
+        "y": 100,
+        "wires": [["debug-1"]]
+    },
+    {
+        "id": "debug-1",
+        "type": "debug",
+        "name": "Result",
+        "active": true,
+        "tosidebar": true,
+        "complete": "true",
+        "x": 520,
+        "y": 100,
+        "wires": []
+    },
+
+    {"id":"comment-multi-read","type":"comment","name":"── Multiple Read (Item Collector) ──","x":180,"y":200,"wires":[]},
+
+    {
+        "id": "inject-multiread",
+        "type": "inject",
+        "name": "Trigger Multi-Read",
+        "props": [{"p":"operation","vt":"str","v":"readmultiple"}],
+        "x": 120,
+        "y": 240,
+        "wires": [["item-temp"]]
+    },
+    {
+        "id": "item-temp",
+        "type": "opcua-item",
+        "name": "Temperature",
+        "items": [{ "nodeId": "ns=2;s=Temperature", "datatype": "Double", "itemName": "Temperature" }],
+        "collector": true,
+        "x": 310,
+        "y": 240,
+        "wires": [["item-pressure"]]
+    },
+    {
+        "id": "item-pressure",
+        "type": "opcua-item",
+        "name": "Pressure",
+        "items": [{ "nodeId": "ns=2;s=Pressure", "datatype": "Double", "itemName": "Pressure" }],
+        "collector": true,
+        "x": 490,
+        "y": 240,
+        "wires": [["opcua-client-multi"]]
+    },
+    {
+        "id": "opcua-client-multi",
+        "type": "opcua-client",
+        "name": "Batch Client",
+        "endpoint": "opcua-endpoint-1",
+        "defaultOperation": "readmultiple",
+        "x": 670,
+        "y": 240,
+        "wires": [["debug-multi"]]
+    },
+    {
+        "id": "debug-multi",
+        "type": "debug",
+        "name": "Multi Result",
+        "active": true,
+        "tosidebar": true,
+        "complete": "true",
+        "x": 850,
+        "y": 240,
+        "wires": []
+    },
+
+    {"id":"comment-multi-item-list","type":"comment","name":"── Multiple Read (Item List — one node) ──","x":200,"y":330,"wires":[]},
+
+    {
+        "id": "inject-itemlist",
+        "type": "inject",
+        "name": "Trigger Item-List Read",
+        "props": [{"p":"operation","vt":"str","v":"readmultiple"}],
+        "x": 140,
+        "y": 370,
+        "wires": [["item-list-node"]]
+    },
+    {
+        "id": "item-list-node",
+        "type": "opcua-item",
+        "name": "All Sensors",
+        "items": [
+            { "nodeId": "ns=2;s=Temperature", "datatype": "Double", "itemName": "Temperature" },
+            { "nodeId": "ns=2;s=Pressure", "datatype": "Double", "itemName": "Pressure" },
+            { "nodeId": "ns=2;s=Flow", "datatype": "Float", "itemName": "Flow Rate" },
+            { "nodeId": "ns=2;s=Status", "datatype": "Boolean", "itemName": "Status" }
+        ],
+        "collector": true,
+        "x": 360,
+        "y": 370,
+        "wires": [["opcua-client-itemlist"]]
+    },
+    {
+        "id": "opcua-client-itemlist",
+        "type": "opcua-client",
+        "name": "Batch Client (List)",
+        "endpoint": "opcua-endpoint-1",
+        "defaultOperation": "readmultiple",
+        "x": 570,
+        "y": 370,
+        "wires": [["debug-itemlist"]]
+    },
+    {
+        "id": "debug-itemlist",
+        "type": "debug",
+        "name": "List Result",
+        "active": true,
+        "tosidebar": true,
+        "complete": "true",
+        "x": 760,
+        "y": 370,
+        "wires": []
+    },
+
+    {"id":"comment-multi-write","type":"comment","name":"── Multiple Write (Function Node) ──","x":180,"y":460,"wires":[]},
+
+    {
+        "id": "inject-multiwrite",
+        "type": "inject",
+        "name": "Trigger Multi-Write",
+        "props": [],
+        "x": 130,
+        "y": 500,
+        "wires": [["func-multiwrite"]]
+    },
+    {
+        "id": "func-multiwrite",
+        "type": "function",
+        "name": "Build Write Items",
+        "func": "msg.operation = 'writemultiple';\nmsg.items = [\n    { nodeId: 'ns=2;s=Temperature', value: 25.5, datatype: 'Double' },\n    { nodeId: 'ns=2;s=Pressure', value: 1013.25, datatype: 'Double' },\n    { nodeId: 'ns=2;s=Status', value: true, datatype: 'Boolean' }\n];\nreturn msg;",
+        "outputs": 1,
+        "x": 340,
+        "y": 500,
+        "wires": [["opcua-client-multiwrite"]]
+    },
+    {
+        "id": "opcua-client-multiwrite",
+        "type": "opcua-client",
+        "name": "Batch Write Client",
+        "endpoint": "opcua-endpoint-1",
+        "defaultOperation": "writemultiple",
+        "x": 560,
+        "y": 500,
+        "wires": [["debug-multiwrite"]]
+    },
+    {
+        "id": "debug-multiwrite",
+        "type": "debug",
+        "name": "Write Result",
+        "active": true,
+        "tosidebar": true,
+        "complete": "true",
+        "x": 760,
+        "y": 500,
+        "wires": []
+    },
+
+    {"id":"comment-server","type":"comment","name":"── OPC UA Server ──","x":140,"y":590,"wires":[]},
+
+    {
+        "id": "opcua-server-1",
+        "type": "opcua-server",
+        "name": "OPC UA Server",
+        "port": 4840,
+        "serverName": "Node-RED OPC UA Server",
+        "maxAllowedSessionNumber": 10,
+        "maxConnectionsPerEndpoint": 10,
+        "x": 200,
+        "y": 630,
+        "wires": [["debug-server"]]
+    },
+    {
+        "id": "debug-server",
+        "type": "debug",
+        "name": "Server Output",
+        "active": true,
+        "tosidebar": true,
+        "complete": "true",
+        "x": 420,
+        "y": 630,
+        "wires": []
+    }
+]
