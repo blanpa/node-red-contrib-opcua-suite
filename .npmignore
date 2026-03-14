@@ -40,5 +40,14 @@ examples/
 .DS_Store
 Thumbs.db
 
+# Claude / IDE
+.claude/
+
+# Docker ignore
+.dockerignore
+
+# Node-RED data (runtime state, flows, certs)
+data/
+
 # Logs
 *.log

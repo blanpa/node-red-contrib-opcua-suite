@@ -18,5 +18,8 @@ COPY --chown=node-red:node-red package.json /data/package.json
 # Installiere nur Dependencies (Code wird als Volume gemountet)
 RUN npm install --production --no-audit --no-fund
 
+# Basis-Image-Entrypoint erwartet sein Skript im ursprünglichen WORKDIR
+WORKDIR /usr/src/node-red
+
 # Node-RED starten
 CMD ["npm", "start", "--", "--userDir", "/data"]

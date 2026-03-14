@@ -1,0 +1,12 @@
+# Test: Originales Node-RED-Image + Paket von npm (nicht lokal)
+FROM nodered/node-red:latest-minimal
+
+USER root
+RUN apk add --no-cache python3 make g++
+
+USER node-red
+# Paket in Node-RED userDir installieren (npm legt node_modules in $PWD an)
+WORKDIR /data
+RUN npm install node-red-contrib-opcua-suite --no-audit --no-fund
+# Basis-Image-Entrypoint erwartet ./entrypoint.sh im ursprünglichen WORKDIR
+WORKDIR /usr/src/node-red
