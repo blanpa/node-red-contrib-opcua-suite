@@ -7,17 +7,35 @@ services:
     container_name: node-red-opcua-suite-dev
     ports:
       - "1880:1880"
-      - "9229:9229"  # Node.js Debug Port
+      - "9229:9229"
     volumes:
-      # Mount Source Code für Entwicklung
-      - ./nodes:/data/nodes:ro
-      - ./lib:/data/lib:ro
+      # Node-RED userDir — Flows, Settings, Credentials etc.
       - ./data:/data
+      # Quellcode separat nach /opt/opcua-suite mounten.
+      # NICHT nach /data/lib — das kollidiert mit Node-REDs internem /data/lib/flows!
+      - ./nodes:/opt/opcua-suite/nodes:ro
+      - ./lib:/opt/opcua-suite/lib:ro
+      - ./package.json:/opt/opcua-suite/package.json:ro
+      # Logs
       - ./logs:/var/log/node-red
     environment:
       - NODE_OPTIONS=--max-old-space-size=512 --inspect=0.0.0.0:9229
       - TZ=Europe/Berlin
       - NODE_ENV=development
+    restart: unless-stopped
+    networks:
+      - opcua-network
+
+  opcua-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: opcua-server
+    ports:
+      - "4841:4840"
+    environment:
+      - TZ=Europe/Berlin
+    entrypoint: ["node", "/opt/opcua-suite/test-server/server.js"]
     restart: unless-stopped
     networks:
       - opcua-network

@@ -1,32 +1,34 @@
 <script type="text/javascript">
-    RED.nodes.registerType('opcua-client', {
-        category: 'opcua',
-        color: '#3a8cba',
+    RED.nodes.registerType("opcua-client", {
+        category: "opcua",
+        color: "#3a8cba",
         defaults: {
-            name: { value: '' },
-            endpoint: { value: '', type: 'opcua-endpoint', required: true },
-            defaultOperation: { value: 'read' },
-            applicationName: { value: 'Node-RED OPC UA Client' },
+            name: { value: "" },
+            endpoint: { value: "", type: "opcua-endpoint", required: true },
+            defaultOperation: { value: "read" },
+            applicationName: { value: "Node-RED OPC UA Client" },
             maxReconnectAttempts: { value: 10 },
-            reconnectDelay: { value: 5000 }
+            reconnectDelay: { value: 5000 },
         },
         inputs: 1,
         outputs: 1,
-        icon: 'opcua.svg',
-        paletteLabel: 'OPC UA Client',
-        label: function() {
-            return this.name || 'OPC UA Client';
+        icon: "opcua.svg",
+        paletteLabel: "OPC UA Client",
+        label: function () {
+            return this.name || "OPC UA Client";
         },
-        labelStyle: function() {
-            return this.name ? 'node_label_italic' : '';
+        labelStyle: function () {
+            return this.name ? "node_label_italic" : "";
         },
-        oneditprepare: function() {
+        oneditprepare: function () {
             // Toggle advanced section
-            $('#opcua-client-toggle-advanced').on('click', function() {
-                $('#opcua-client-advanced').slideToggle(200);
-                $(this).find('.fa').toggleClass('fa-chevron-down fa-chevron-right');
+            $("#opcua-client-toggle-advanced").on("click", function () {
+                $("#opcua-client-advanced").slideToggle(200);
+                $(this)
+                    .find(".fa")
+                    .toggleClass("fa-chevron-down fa-chevron-right");
             });
-        }
+        },
     });
 </script>
 
@@ -53,73 +55,127 @@
         border: 1px solid #e1e5ea;
         transition: background 0.15s;
     }
-    .opcua-toggle-row:hover { background: #edf0f5; }
-    .opcua-toggle-row span { font-size: 12px; font-weight: 600; color: #555; flex:1; }
-    .opcua-toggle-row .fa { color: #999; font-size: 11px; }
+    .opcua-toggle-row:hover {
+        background: #edf0f5;
+    }
+    .opcua-toggle-row span {
+        font-size: 12px;
+        font-weight: 600;
+        color: #555;
+        flex: 1;
+    }
+    .opcua-toggle-row .fa {
+        color: #999;
+        font-size: 11px;
+    }
     .opcua-op-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 0;
     }
-    .opcua-op-grid option { padding: 4px 8px; }
+    .opcua-op-grid option {
+        padding: 4px 8px;
+    }
 </style>
 
 <script type="text/html" data-template-name="opcua-client">
-<div class="opcua-node-container">
-    <div class="form-row">
-        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
-        <input type="text" id="node-input-name" placeholder="Name">
-    </div>
-    <div class="form-row">
-        <label for="node-input-endpoint"><i class="fa fa-plug"></i> Endpoint</label>
-        <input type="text" id="node-input-endpoint" placeholder="Endpoint">
-    </div>
-    <div class="form-row">
-        <label for="node-input-defaultOperation"><i class="fa fa-cog"></i> Default Operation</label>
-        <select id="node-input-defaultOperation" style="width:70%">
-            <option value="read">Read</option>
-            <option value="readmultiple">Read Multiple</option>
-            <option value="write">Write</option>
-            <option value="writemultiple">Write Multiple</option>
-            <option value="subscribe">Subscribe</option>
-            <option value="unsubscribe">Unsubscribe</option>
-            <option value="browse">Browse</option>
-            <option value="method">Method Call</option>
-            <option value="history">History Read</option>
-            <option value="getendpoints">Get Endpoints</option>
-            <option value="readattribute">Read Attribute</option>
-            <option value="registernodes">Register Nodes</option>
-            <option value="translatebrowsepath">Translate Browse Path</option>
-        </select>
-    </div>
+    <div class="opcua-node-container">
+        <div class="form-row">
+            <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+            <input type="text" id="node-input-name" placeholder="Name" />
+        </div>
+        <div class="form-row">
+            <label for="node-input-endpoint"
+                ><i class="fa fa-plug"></i> Endpoint</label
+            >
+            <input
+                type="text"
+                id="node-input-endpoint"
+                placeholder="Endpoint"
+            />
+        </div>
+        <div class="form-row">
+            <label for="node-input-defaultOperation"
+                ><i class="fa fa-cog"></i> Default Operation</label
+            >
+            <select id="node-input-defaultOperation" style="width:70%">
+                <option value="read">Read</option>
+                <option value="readmultiple">Read Multiple</option>
+                <option value="write">Write</option>
+                <option value="writemultiple">Write Multiple</option>
+                <option value="subscribe">Subscribe</option>
+                <option value="unsubscribe">Unsubscribe</option>
+                <option value="browse">Browse</option>
+                <option value="method">Method Call</option>
+                <option value="history">History Read</option>
+                <option value="getendpoints">Get Endpoints</option>
+                <option value="readattribute">Read Attribute</option>
+                <option value="registernodes">Register Nodes</option>
+                <option value="translatebrowsepath">
+                    Translate Browse Path
+                </option>
+            </select>
+        </div>
 
-    <div class="opcua-toggle-row" id="opcua-client-toggle-advanced">
-        <i class="fa fa-chevron-right"></i>
-        <span>Advanced Settings</span>
+        <div class="opcua-toggle-row" id="opcua-client-toggle-advanced">
+            <i class="fa fa-chevron-right"></i>
+            <span>Advanced Settings</span>
+        </div>
+        <div id="opcua-client-advanced" style="display:none">
+            <div class="form-row">
+                <label for="node-input-applicationName"
+                    ><i class="fa fa-info-circle"></i> Application Name</label
+                >
+                <input
+                    type="text"
+                    id="node-input-applicationName"
+                    placeholder="Node-RED OPC UA Client"
+                    style="width:70%"
+                />
+            </div>
+            <div class="form-row">
+                <label for="node-input-maxReconnectAttempts"
+                    ><i class="fa fa-refresh"></i> Max Reconnects</label
+                >
+                <input
+                    type="number"
+                    id="node-input-maxReconnectAttempts"
+                    min="0"
+                    max="100"
+                    style="width:80px;"
+                    placeholder="10"
+                />
+            </div>
+            <div class="form-row">
+                <label for="node-input-reconnectDelay"
+                    ><i class="fa fa-clock-o"></i> Reconnect Delay</label
+                >
+                <input
+                    type="number"
+                    id="node-input-reconnectDelay"
+                    min="1000"
+                    max="60000"
+                    style="width:100px;"
+                    placeholder="5000"
+                />
+                <span style="font-size:11px;color:#999;margin-left:4px"
+                    >ms</span
+                >
+            </div>
+        </div>
     </div>
-    <div id="opcua-client-advanced" style="display:none">
-        <div class="form-row">
-            <label for="node-input-applicationName"><i class="fa fa-info-circle"></i> Application Name</label>
-            <input type="text" id="node-input-applicationName" placeholder="Node-RED OPC UA Client" style="width:70%">
-        </div>
-        <div class="form-row">
-            <label for="node-input-maxReconnectAttempts"><i class="fa fa-refresh"></i> Max Reconnects</label>
-            <input type="number" id="node-input-maxReconnectAttempts" min="0" max="100" style="width:80px;" placeholder="10">
-        </div>
-        <div class="form-row">
-            <label for="node-input-reconnectDelay"><i class="fa fa-clock-o"></i> Reconnect Delay</label>
-            <input type="number" id="node-input-reconnectDelay" min="1000" max="60000" style="width:100px;" placeholder="5000">
-            <span style="font-size:11px;color:#999;margin-left:4px">ms</span>
-        </div>
-    </div>
-</div>
 </script>
 
 <script type="text/html" data-help-name="opcua-client">
-    <p>OPC UA Client Node — Read, Write, Subscribe, Browse (single and batch).</p>
+    <p>
+        OPC UA Client Node — Read, Write, Subscribe, Browse (single and batch).
+    </p>
 
     <h3>Operations</h3>
-    <p>Via <code>msg.operation</code> or default operation in the configuration:</p>
+    <p>
+        Via <code>msg.operation</code> or default operation in the
+        configuration:
+    </p>
 
     <h4>Read (single)</h4>
     <ul>
@@ -130,27 +186,106 @@
     <h4>Read Multiple (Batch)</h4>
     <ul>
         <li><code>msg.operation = "readmultiple"</code></li>
-        <li><code>msg.items</code> — Array: <code>[{nodeId: "ns=2;s=Var1"}, ...]</code></li>
-        <li>Or <code>msg.payload</code> — Object: <code>{"Name": "ns=2;s=Var1", ...}</code></li>
+        <li>
+            <code>msg.items</code> — Array:
+            <code>[{nodeId: "ns=2;s=Var1"}, ...]</code>
+        </li>
+        <li>
+            Or <code>msg.payload</code> — Object:
+            <code>{"Name": "ns=2;s=Var1", ...}</code>
+        </li>
     </ul>
 
     <h4>Write (single)</h4>
     <ul>
         <li><code>msg.topic</code> / <code>msg.nodeId</code> — NodeId</li>
-        <li><code>msg.payload</code> — value</li>
-        <li><code>msg.datatype</code> — Optional: DataType (e.g. "Int32", "Double")</li>
+        <li>
+            <code>msg.payload</code> — value (plain value or ExtensionObject,
+            see below)
+        </li>
+        <li>
+            <code>msg.datatype</code> — Optional: DataType (e.g. "Int32",
+            "Double", "ExtensionObject")
+        </li>
     </ul>
 
     <h4>Write Multiple (Batch)</h4>
     <ul>
         <li><code>msg.operation = "writemultiple"</code></li>
-        <li><code>msg.items</code> — Array: <code>[{nodeId: "ns=2;s=Var1", value: 42, datatype: "Int32"}, ...]</code></li>
-        <li>Or <code>msg.payload</code> — Object: <code>{"ns=2;s=Var1": {value: 42, datatype: "Int32"}, ...}</code></li>
+        <li>
+            <code>msg.items</code> — Array:
+            <code
+                >[{nodeId: "ns=2;s=Var1", value: 42, datatype: "Int32"},
+                ...]</code
+            >
+        </li>
+        <li>
+            Or <code>msg.payload</code> — Object:
+            <code>{"ns=2;s=Var1": {value: 42, datatype: "Int32"}, ...}</code>
+        </li>
     </ul>
 
     <h4>Subscribe / Browse / Method / History</h4>
     <p>See example flows for all supported operations.</p>
 
+    <h3>ExtensionObject (Structured Types) Support</h3>
+    <p>
+        OPC UA <b>ExtensionObjects</b> (structured/complex data types) are fully
+        supported for read, write, and subscribe operations.
+    </p>
+
+    <h4>Reading ExtensionObjects</h4>
+    <p>
+        When reading a node whose value is an ExtensionObject, the structured
+        data is automatically serialized to a plain JSON object in
+        <code>msg.payload</code>. The <code>msg.dataType</code> will be
+        <code>"ExtensionObject"</code>. A <code>_typeName</code> field indicates
+        the OPC UA type name.
+    </p>
+    <p>
+        If the server's type definition cannot be resolved, an opaque
+        representation with base64-encoded raw bytes is returned (<code
+            >_opaque: true</code
+        >).
+    </p>
+
+    <h4>Writing ExtensionObjects</h4>
+    <p>
+        To write a structured type, set
+        <code>msg.datatype = "ExtensionObject"</code> and provide:
+    </p>
+    <ul>
+        <li>
+            <code>msg.dataTypeNodeId</code> — The NodeId of the structured
+            DataType definition (e.g. <code>"ns=2;i=3003"</code>)
+        </li>
+        <li>
+            <code>msg.payload</code> — A plain JSON object with the field
+            values: <code>{ field1: 42, field2: "hello" }</code>
+        </li>
+    </ul>
+    <p>Example:</p>
+    <pre>
+msg = {
+    operation: "write",
+    nodeId: "ns=2;s=MyStructVar",
+    datatype: "ExtensionObject",
+    dataTypeNodeId: "ns=2;i=3003",
+    payload: {
+        temperature: 25.5,
+        unit: "Celsius",
+        timestamp: "2024-01-01T00:00:00Z"
+    }
+}</pre
+    >
+    <p>
+        For batch writes, include <code>datatype: "ExtensionObject"</code> and
+        <code>dataTypeNodeId</code> in each item object.
+    </p>
+
     <h3>Item Collector Pattern</h3>
-    <p>Chain <b>OPC UA Item</b> nodes in series before the client. Each item adds itself to the <code>msg.items</code> array for batch operations.</p>
+    <p>
+        Chain <b>OPC UA Item</b> nodes in series before the client. Each item
+        adds itself to the <code>msg.items</code> array for batch operations.
+    </p>
 </script>

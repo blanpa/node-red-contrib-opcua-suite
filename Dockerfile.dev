@@ -7,19 +7,27 @@ RUN apk add --no-cache \
     python3 \
     make \
     g++ \
-    git
+    git \
+    su-exec
+
+# Verzeichnis fuer den Plugin-Quellcode
+RUN mkdir -p /opt/opcua-suite && chown -R node-red:node-red /opt/opcua-suite
 
 USER node-red
-WORKDIR /data
 
-# Package.json für Dependencies
-COPY --chown=node-red:node-red package.json /data/package.json
+# Plugin package.json + Quellcode kopieren und Dependencies installieren.
+COPY --chown=node-red:node-red package.json /opt/opcua-suite/package.json
+COPY --chown=node-red:node-red lib /opt/opcua-suite/lib
+COPY --chown=node-red:node-red nodes /opt/opcua-suite/nodes
 
-# Installiere nur Dependencies (Code wird als Volume gemountet)
-RUN npm install --production --no-audit --no-fund
+RUN cd /opt/opcua-suite && npm install --production --no-audit --no-fund
 
-# Basis-Image-Entrypoint erwartet sein Skript im ursprünglichen WORKDIR
+# Entrypoint-Script — wird als root ausgefuehrt, dann su-exec auf node-red
+COPY docker-entrypoint-dev.sh /usr/local/bin/docker-entrypoint-dev.sh
+USER root
+RUN chmod +x /usr/local/bin/docker-entrypoint-dev.sh
+
 WORKDIR /usr/src/node-red
 
-# Node-RED starten
-CMD ["npm", "start", "--", "--userDir", "/data"]
+# ENTRYPOINT laeuft als root (chown etc.), dann su-exec -> node-red
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint-dev.sh"]
