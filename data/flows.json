@@ -63,6 +63,14 @@
         "info": "Tests all OPC UA security modes, policies, and certificate-based authentication."
     },
     {
+        "id": "0b61f7f1316bba6f",
+        "type": "tab",
+        "label": "Extension Object",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
         "id": "ep1",
         "type": "opcua-endpoint",
         "name": "Test Server",
@@ -315,8 +323,11 @@
         "type": "opcua-client",
         "z": "tab-read",
         "name": "Read Client",
-        "endpoint": "ep1",
+        "endpoint": "ep-sign-b256",
         "defaultOperation": "read",
+        "applicationName": "",
+        "maxReconnectAttempts": "",
+        "reconnectDelay": "",
         "x": 400,
         "y": 120,
         "wires": [
@@ -389,6 +400,9 @@
         "name": "Multi-Read Client",
         "endpoint": "ep1",
         "defaultOperation": "readmultiple",
+        "applicationName": "",
+        "maxReconnectAttempts": "",
+        "reconnectDelay": "",
         "x": 630,
         "y": 260,
         "wires": [
@@ -635,111 +649,6 @@
                 "client-read"
             ]
         ]
-    },
-    {
-        "id": "955fc4b2cea0aa35",
-        "type": "opcua-browse-client",
-        "z": "tab-read",
-        "name": "",
-        "endpoint": "ep-sign-b256",
-        "mode": "read",
-        "publishInterval": 1000,
-        "selectedItems": [
-            {
-                "nodeId": "ns=1;s=Machine.Motor.Speed",
-                "browseName": "Speed",
-                "displayName": "Speed",
-                "nodeClass": "Variable",
-                "typeDefinition": "ns=0;i=63"
-            },
-            {
-                "nodeId": "ns=1;s=Machine.Motor.Current",
-                "browseName": "Current",
-                "displayName": "Current",
-                "nodeClass": "Variable",
-                "typeDefinition": "ns=0;i=63"
-            },
-            {
-                "nodeId": "ns=1;s=Machine.Motor.Temperature",
-                "browseName": "Temperature",
-                "displayName": "Temperature",
-                "nodeClass": "Variable",
-                "typeDefinition": "ns=0;i=63"
-            },
-            {
-                "nodeId": "ns=1;s=Machine.Motor.Running",
-                "browseName": "Running",
-                "displayName": "Running",
-                "nodeClass": "Variable",
-                "typeDefinition": "ns=0;i=63"
-            },
-            {
-                "nodeId": "ns=1;s=Machine.Pump.FlowRate",
-                "browseName": "FlowRate",
-                "displayName": "FlowRate",
-                "nodeClass": "Variable",
-                "typeDefinition": "ns=0;i=63"
-            },
-            {
-                "nodeId": "ns=1;s=Machine.Pump.Pressure",
-                "browseName": "Pressure",
-                "displayName": "Pressure",
-                "nodeClass": "Variable",
-                "typeDefinition": "ns=0;i=63"
-            }
-        ],
-        "x": 300,
-        "y": 700,
-        "wires": [
-            [
-                "9341df50ed1d401c"
-            ]
-        ]
-    },
-    {
-        "id": "42fdd7c252be10bb",
-        "type": "inject",
-        "z": "tab-read",
-        "name": "",
-        "props": [
-            {
-                "p": "payload"
-            },
-            {
-                "p": "topic",
-                "vt": "str"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 80,
-        "y": 700,
-        "wires": [
-            [
-                "955fc4b2cea0aa35"
-            ]
-        ]
-    },
-    {
-        "id": "9341df50ed1d401c",
-        "type": "debug",
-        "z": "tab-read",
-        "name": "debug 1",
-        "active": true,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
-        "complete": "false",
-        "statusVal": "",
-        "statusType": "auto",
-        "x": 500,
-        "y": 700,
-        "wires": []
     },
     {
         "id": "comment-w1",
@@ -1698,6 +1607,9 @@
         "z": "tab-browse",
         "name": "Browser",
         "endpoint": "ep1",
+        "startNodeId": "",
+        "recursive": false,
+        "maxDepth": "",
         "x": 380,
         "y": 360,
         "wires": [
@@ -3971,6 +3883,264 @@
         "name": "ℹ Certs in /data/opcua-certs/. Server auto-accepts unknown certs. Test users: admin/admin123, operator/operator123, viewer/viewer123",
         "x": 420,
         "y": 1040,
+        "wires": []
+    },
+    {
+        "id": "c3aebfab0819bd34",
+        "type": "opcua-browse-client",
+        "z": "0b61f7f1316bba6f",
+        "name": "",
+        "endpoint": "ep1",
+        "mode": "subscribe",
+        "publishInterval": "100",
+        "selectedItems": [
+            {
+                "nodeId": "ns=1;s=Structure.SensorReading",
+                "browseName": "SensorReading",
+                "displayName": "SensorReading",
+                "nodeClass": "Variable",
+                "typeDefinition": "ns=0;i=63",
+                "dataType": "ExtensionObject (SensorReadingType)"
+            }
+        ],
+        "x": 390,
+        "y": 220,
+        "wires": [
+            [
+                "3127424844975b87"
+            ]
+        ]
+    },
+    {
+        "id": "9bc458012b2fcf48",
+        "type": "inject",
+        "z": "0b61f7f1316bba6f",
+        "name": "Inject",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 130,
+        "y": 220,
+        "wires": [
+            [
+                "c3aebfab0819bd34"
+            ]
+        ]
+    },
+    {
+        "id": "3127424844975b87",
+        "type": "debug",
+        "z": "0b61f7f1316bba6f",
+        "name": "debug 3",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 680,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "e0834876a44abd1c",
+        "type": "opcua-client",
+        "z": "0b61f7f1316bba6f",
+        "name": "",
+        "endpoint": "ep1",
+        "defaultOperation": "write",
+        "applicationName": "Node-RED OPC UA Client",
+        "maxReconnectAttempts": 10,
+        "reconnectDelay": 5000,
+        "x": 720,
+        "y": 340,
+        "wires": [
+            [
+                "a611471a4e8abb4e"
+            ]
+        ]
+    },
+    {
+        "id": "fba887aff40dc09f",
+        "type": "function",
+        "z": "0b61f7f1316bba6f",
+        "name": "Write Extension Object",
+        "func": "msg = {\n    operation: \"write\",\n    nodeId: \"ns=1;s=Structure.SensorReading\",\n    datatype: \"ExtensionObject\",\n    dataTypeNodeId: \"ns=1;s=SensorReadingType\",\n    payload: {temperature:22.5,humidity:48.7,pressure:Math.random(),sensorId:\"SENSOR-001\",timestamp:\"2026-03-15T17:29:01.670Z\"}\n}\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 340,
+        "wires": [
+            [
+                "e0834876a44abd1c"
+            ]
+        ]
+    },
+    {
+        "id": "304ac3e6a3be405a",
+        "type": "inject",
+        "z": "0b61f7f1316bba6f",
+        "name": "Inject",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 130,
+        "y": 340,
+        "wires": [
+            [
+                "fba887aff40dc09f"
+            ]
+        ]
+    },
+    {
+        "id": "a611471a4e8abb4e",
+        "type": "debug",
+        "z": "0b61f7f1316bba6f",
+        "name": "debug 5",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 980,
+        "y": 340,
+        "wires": []
+    },
+    {
+        "id": "53baebf5a1e48430",
+        "type": "opcua-browse-client",
+        "z": "0b61f7f1316bba6f",
+        "name": "",
+        "endpoint": "ep1",
+        "mode": "read",
+        "publishInterval": "100",
+        "selectedItems": [
+            {
+                "nodeId": "ns=1;s=Structure.SensorReading",
+                "browseName": "SensorReading",
+                "displayName": "SensorReading",
+                "nodeClass": "Variable",
+                "typeDefinition": "ns=0;i=63",
+                "dataType": "ExtensionObject (SensorReadingType)"
+            }
+        ],
+        "x": 370,
+        "y": 120,
+        "wires": [
+            [
+                "3feb1e1493b2061b"
+            ]
+        ]
+    },
+    {
+        "id": "c8d3c5a155a4c5c4",
+        "type": "inject",
+        "z": "0b61f7f1316bba6f",
+        "name": "Inject",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 130,
+        "y": 120,
+        "wires": [
+            [
+                "53baebf5a1e48430"
+            ]
+        ]
+    },
+    {
+        "id": "3feb1e1493b2061b",
+        "type": "debug",
+        "z": "0b61f7f1316bba6f",
+        "name": "debug 4",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 680,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "33c90702fb706090",
+        "type": "comment",
+        "z": "0b61f7f1316bba6f",
+        "name": "══ 1. Read Extension object ══",
+        "info": "",
+        "x": 210,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "8aaade3ef7dbcd79",
+        "type": "comment",
+        "z": "0b61f7f1316bba6f",
+        "name": "══ 2. subscribe Extension object ══",
+        "info": "",
+        "x": 220,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "ef49e9f68119c619",
+        "type": "comment",
+        "z": "0b61f7f1316bba6f",
+        "name": "══ 3. write Extension object ══",
+        "info": "",
+        "x": 210,
+        "y": 300,
         "wires": []
     }
 ]

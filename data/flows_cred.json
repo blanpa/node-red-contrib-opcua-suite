@@ -14,5 +14,6 @@
     "ep-senc-admin": {
         "userName": "admin",
         "password": "admin123"
-    }
+    },
+    "ep1": {}
 }
