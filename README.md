@@ -93,6 +93,22 @@ msg.payload = 25.5;
 msg.datatype = "Double";  // optional: auto-detected from JS type
 ```
 
+#### Write ExtensionObject
+
+```js
+// Write a structured type (ExtensionObject) to a variable.
+// Requires datatype = "ExtensionObject" and dataTypeNodeId pointing to the DataType definition.
+msg.operation = "write";
+msg.nodeId = "ns=2;s=MyStructVariable";
+msg.datatype = "ExtensionObject";
+msg.dataTypeNodeId = "ns=2;i=3003";  // NodeId of the DataType definition
+msg.payload = {
+    temperature: 25.5,
+    unit: "°C",
+    timestamp: "2026-03-16T12:00:00Z"
+};
+```
+
 #### Write Multiple (Batch)
 
 ```js
@@ -109,6 +125,23 @@ msg.payload = {
     "ns=1;s=Scalar.Double": { value: 42.0, datatype: "Double" },
     "ns=1;s=Scalar.Int32": { value: 100, datatype: "Int32" }
 };
+
+// Batch write with ExtensionObjects
+msg.operation = "writemultiple";
+msg.items = [
+    {
+        nodeId: "ns=2;s=MyStructVariable",
+        datatype: "ExtensionObject",
+        dataTypeNodeId: "ns=2;i=3003",
+        value: { temperature: 25.5, unit: "°C" }
+    },
+    {
+        nodeId: "ns=2;s=AnotherStruct",
+        datatype: "ExtensionObject",
+        dataTypeNodeId: "ns=2;i=3010",
+        value: { x: 1.0, y: 2.0, z: 3.0 }
+    }
+];
 ```
 
 #### Subscribe / Unsubscribe
