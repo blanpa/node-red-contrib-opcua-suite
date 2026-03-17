@@ -41,9 +41,12 @@ jobs:
 
       - name: Request OIDC token for npm
         id: id-token
-        uses: actions/id-token-provider@v2
-        with:
-          audience: 'https://registry.npmjs.org'
+        run: |
+          echo "id_token=$(curl -sS -L -X POST \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"audience":"https://registry.npmjs.org"}' \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL" | jq -r '.value')" >> $GITHUB_OUTPUT
 
       - name: Publish to npm
         run: npm publish --access public
