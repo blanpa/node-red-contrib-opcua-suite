@@ -20,7 +20,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
@@ -39,16 +39,5 @@ jobs:
       - name: Run tests
         run: npm test
 
-      - name: Request OIDC token for npm
-        id: id-token
-        run: |
-          echo "id_token=$(curl -sS -L -X POST \
-            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d '{"audience":"https://registry.npmjs.org"}' \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL" | jq -r '.value')" >> $GITHUB_OUTPUT
-
       - name: Publish to npm
         run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ steps.id-token.outputs.id_token }}
