@@ -1,0 +1,72 @@
+[
+    {
+        "id": "ex01-endpoint",
+        "type": "opcua-endpoint",
+        "name": "Local Server",
+        "endpointUrl": "opc.tcp://localhost:4840",
+        "securityMode": "None",
+        "securityPolicy": "None"
+    },
+    {
+        "id": "ex01-tab",
+        "type": "tab",
+        "label": "Read Single Variable",
+        "info": "Read a single OPC UA variable. The inject node sets msg.topic to the NodeId, the client reads it."
+    },
+    {
+        "id": "ex01-comment",
+        "type": "comment",
+        "z": "ex01-tab",
+        "name": "Click the inject button to read a variable. Edit the endpoint to match your server.",
+        "x": 320,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "ex01-inject",
+        "type": "inject",
+        "z": "ex01-tab",
+        "name": "Read Temperature",
+        "props": [
+            { "p": "topic", "vt": "str", "v": "ns=2;s=Temperature" }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 160,
+        "y": 120,
+        "wires": [["ex01-client"]]
+    },
+    {
+        "id": "ex01-client",
+        "type": "opcua-client",
+        "z": "ex01-tab",
+        "name": "",
+        "endpoint": "ex01-endpoint",
+        "defaultOperation": "read",
+        "x": 380,
+        "y": 120,
+        "wires": [["ex01-debug"]]
+    },
+    {
+        "id": "ex01-debug",
+        "type": "debug",
+        "z": "ex01-tab",
+        "name": "Value",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "payload",
+        "statusType": "auto",
+        "x": 570,
+        "y": 120,
+        "wires": []
+    }
+]

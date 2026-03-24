@@ -1,27 +1,67 @@
 # node-red-contrib-opcua-suite
 
-A modern, high-performance OPC UA suite for Node-RED — built for real industrial use.
+An OPC UA suite for Node-RED.
 
-## Why This Instead of node-red-contrib-opcua?
+## Features
 
-| Feature | node-red-contrib-opcua | **opcua-suite** |
-|---|---|---|
-| **Connection Sharing** | Each node = own TCP connection | All nodes share ONE connection per endpoint (ref-counted) |
-| **Batch Read/Write** | One message per variable | Single OPC UA service call via `msg.items` or payload object |
-| **Item Collector** | Not available | Chain `opcua-item` nodes visually for batch operations |
-| **Certificate Upload** | Manual file paths only | **Drag & drop** upload in the editor UI |
-| **Reconnect** | Basic retry | `keepSessionAlive` + `after_reconnection` session recovery + `connection_failed` fallback (same as node-opcua internally) |
-| **Architecture** | Separate nodes per operation | All-in-One client + dedicated Browser/Method/Event nodes |
-| **msg.payload Object Format** | Not supported | `{"Temperature": "ns=1;s=Temp"}` for reads, `{"ns=1;s=Temp": {value: 25.5}}` for writes |
-| **Method Calls** | Basic | Full typed input/output arguments with auto-detection |
-| **History Read** | Limited | Full time-range queries with `maxValues` |
-| **Discovery** | Not available | `getendpoints`, `registernodes`, `unregisternodes`, `translatebrowsepath` |
-| **Status Propagation** | Per-node | Shared endpoint broadcasts connected/disconnected/reconnecting to ALL nodes |
-| **Node Count** | 6+ nodes for basic ops | 7 focused nodes covering everything |
+- **Shared connections** — All nodes referencing the same endpoint share one TCP connection (ref-counted)
+- **Batch read/write** — Single OPC UA service call via `msg.items` or payload object
+- **Item collector** — Chain `opcua-item` nodes visually for batch operations
+- **Drag & drop certificates** — Upload certs directly in the editor UI
+- **Reconnect handling** — `keepSessionAlive` + session recovery + connection fallback
+- **All-in-one client** — Read, write, subscribe, browse, method, history in one node
+- **ExtensionObject support** — Read/write structured types with automatic serialization
+- **Discovery** — `getendpoints`, `registernodes`, `translatebrowsepath`
+- **Status propagation** — Shared endpoint broadcasts connection state to all nodes
 
-### Connection Sharing in Detail
+## Installation
 
-With `node-red-contrib-opcua`, 9 OPC UA nodes = 9 TCP connections to your server. With this suite, 9 nodes referencing the same endpoint = **1 TCP connection**, ref-counted. The endpoint config node manages the shared `OpcUaClientManager`. When the last node closes, the connection is released.
+```bash
+cd ~/.node-red
+npm install node-red-contrib-opcua-suite
+```
+
+## Quick Start
+
+### 1. Read a variable
+
+```
+[inject] → [OPC UA Client] → [debug]
+```
+
+Set `msg.topic` to a NodeId (e.g. `ns=2;s=Temperature`) in the inject node. Set the client's default operation to **Read**. Done.
+
+### 2. Batch read multiple variables
+
+```
+[inject] → [Item: Temp] → [Item: Pressure] → [OPC UA Client] → [debug]
+```
+
+Each **OPC UA Item** node adds its variables to `msg.items`. The client reads them all in **one** OPC UA service call. No function node needed.
+
+### 3. Write a value
+
+```
+[inject] → [OPC UA Client] → [debug]
+```
+
+Set `msg.payload` to the value (e.g. `25.5`) and `msg.topic` to the NodeId in the inject node. Set the client's default operation to **Write**. DataType is auto-detected from the JS type.
+
+### 4. Subscribe to live changes
+
+```
+[inject] → [OPC UA Client] → [debug]
+```
+
+Set `msg.topic` to the NodeId and the client's default operation to **Subscribe**. Click inject once — every value change on the server produces a new message.
+
+> Import ready-to-use flows from **Menu → Import → Examples → node-red-contrib-opcua-suite**.
+
+## Nodes
+
+### opcua-endpoint (Config Node)
+
+Shared connection configuration. All nodes referencing the same endpoint share **one** TCP connection.
 
 ```
 [Client: Read] ──┐
@@ -32,19 +72,6 @@ With `node-red-contrib-opcua`, 9 OPC UA nodes = 9 TCP connections to your server
 [Event]         ──┘
 ```
 
-## Installation
-
-```bash
-cd ~/.node-red
-npm install node-red-contrib-opcua-suite
-```
-
-## Nodes
-
-### opcua-endpoint (Config Node)
-
-Shared connection configuration. All client/browser/method/event nodes referencing the same endpoint share ONE TCP connection.
-
 | Field | Description |
 |---|---|
 | Endpoint URL | `opc.tcp://localhost:4840` |
@@ -53,148 +80,108 @@ Shared connection configuration. All client/browser/method/event nodes referenci
 | Username / Password | Optional credentials |
 | Certificates | Drag & drop upload for client cert, private key, CA cert, X509 user token |
 
+Authentication priority: X509 User Token > Username/Password > Anonymous.
+
 ### opcua-client (All-in-One)
 
-Single node for all OPC UA operations. Set via `msg.operation` or default in config.
+Single node for all OPC UA operations. Set via `msg.operation` or the default operation in the node config.
 
-#### Read
+| Operation | msg.topic / msg.nodeId | msg.payload | Description |
+|---|---|---|---|
+| `read` | NodeId | — | Read a single variable |
+| `readmultiple` | — | — | Read all items in `msg.items` |
+| `write` | NodeId | Value to write | Write a single variable |
+| `writemultiple` | — | — | Write all items in `msg.items` |
+| `subscribe` | NodeId | — | Subscribe to value changes |
+| `unsubscribe` | NodeId | — | Stop subscription |
+| `browse` | NodeId (default: RootFolder) | — | Browse address space |
+| `method` | — | Input arguments | Call a method (needs `msg.objectNodeId` + `msg.methodNodeId`) |
+| `history` | NodeId | — | Read historical values (needs `msg.startTime` + `msg.endTime`) |
+| `getendpoints` | — | — | Discover server endpoints |
+| `readattribute` | NodeId | — | Read BrowseName, DisplayName, etc. |
+| `registernodes` | — | — | Register nodes for fast access |
+| `translatebrowsepath` | — | Browse path | Translate browse path to NodeId |
 
-```js
-msg.operation = "read";
-msg.nodeId = "ns=2;s=Temperature";  // or msg.topic
-// Output: msg.payload = value, msg.statusCode, msg.sourceTimestamp
-```
-
-#### Read Multiple (Batch)
-
-```js
-// Array format
-msg.operation = "readmultiple";
-msg.items = [
-    { nodeId: "ns=2;s=Var1", name: "Temperature" },
-    { nodeId: "ns=2;s=Var2", name: "Pressure" }
-];
-
-// Object format (friendly names as keys)
-msg.operation = "readmultiple";
-msg.payload = {
-    "Temperature": "ns=1;s=Scalar.Double",
-    "Counter": "ns=1;s=Scalar.Int32"
-};
-// Output: msg.payload = [{nodeId, value, dataType, statusCode, itemName}, ...]
-```
-
-#### Write
-
-```js
-msg.operation = "write";
-msg.nodeId = "ns=2;s=Temperature";
-msg.payload = 25.5;
-msg.datatype = "Double";  // optional: auto-detected from JS type
-```
-
-#### Write ExtensionObject
-
-```js
-// Write a structured type (ExtensionObject) to a variable.
-// Requires datatype = "ExtensionObject" and dataTypeNodeId pointing to the DataType definition.
-msg.operation = "write";
-msg.nodeId = "ns=2;s=MyStructVariable";
-msg.datatype = "ExtensionObject";
-msg.dataTypeNodeId = "ns=2;i=3003";  // NodeId of the DataType definition
-msg.payload = {
-    temperature: 25.5,
-    unit: "°C",
-    timestamp: "2026-03-16T12:00:00Z"
-};
-```
-
-#### Write Multiple (Batch)
-
-```js
-// Array format
-msg.operation = "writemultiple";
-msg.items = [
-    { nodeId: "ns=2;s=Var1", value: 25.5, datatype: "Double" },
-    { nodeId: "ns=2;s=Var2", value: true, datatype: "Boolean" }
-];
-
-// Object format (nodeIds as keys)
-msg.operation = "writemultiple";
-msg.payload = {
-    "ns=1;s=Scalar.Double": { value: 42.0, datatype: "Double" },
-    "ns=1;s=Scalar.Int32": { value: 100, datatype: "Int32" }
-};
-
-// Batch write with ExtensionObjects
-msg.operation = "writemultiple";
-msg.items = [
-    {
-        nodeId: "ns=2;s=MyStructVariable",
-        datatype: "ExtensionObject",
-        dataTypeNodeId: "ns=2;i=3003",
-        value: { temperature: 25.5, unit: "°C" }
-    },
-    {
-        nodeId: "ns=2;s=AnotherStruct",
-        datatype: "ExtensionObject",
-        dataTypeNodeId: "ns=2;i=3010",
-        value: { x: 1.0, y: 2.0, z: 3.0 }
-    }
-];
-```
-
-#### Subscribe / Unsubscribe
-
-```js
-msg.operation = "subscribe";
-msg.nodeId = "ns=2;s=Temperature";
-msg.interval = 500;  // sampling interval ms (default: 1000)
-
-msg.operation = "unsubscribe";
-msg.nodeId = "ns=2;s=Temperature";
-```
-
-#### Browse / Method / History / Discovery
-
-```js
-msg.operation = "browse";       // Browse address space
-msg.operation = "method";       // Call OPC UA method
-msg.operation = "history";      // Read historical values
-msg.operation = "getendpoints"; // Discover server endpoints
-msg.operation = "readattribute";       // Read BrowseName, DisplayName, etc.
-msg.operation = "registernodes";       // Register nodes for fast access
-msg.operation = "unregisternodes";     // Unregister nodes
-msg.operation = "translatebrowsepath"; // Translate browse path to NodeId
-```
+When `msg.items` is present, the client automatically switches to batch mode — even if the operation is set to `read` or `write`.
 
 ### opcua-item (Item Collector)
 
-Chain multiple items in series before a client node for visual batch operations.
+Defines OPC UA items (variables) for batch operations. Each item needs a **NodeId** and optionally a **Name** and **DataType**.
 
+**Chain pattern** — multiple Item nodes in series, each adds to `msg.items`:
 ```
-[Inject] → [Item: Temp] → [Item: Pressure] → [Item: Speed] → [Client (readmultiple)]
+[inject] → [Item: Temp] → [Item: Pressure] → [Item: Speed] → [Client]
 ```
 
-Each item adds `{nodeId, datatype, itemName}` to `msg.items`. The client reads/writes all items in a single OPC UA service call.
+**List pattern** — all items in a single node:
+```
+[inject] → [Item: Temp, Pressure, Speed] → [Client]
+```
+
+In **Collector Mode** (default), items are appended to `msg.items` for batch operations. In **Legacy Mode** (collector off), only the first item is set on `msg.topic` / `msg.datatype` for single operations.
 
 ### opcua-browser
 
-Dedicated browse node with optional recursive browsing. References an endpoint directly.
+Browses the OPC UA address space. Send a NodeId via `msg.topic` to browse from that node, or leave empty to start from `RootFolder`.
+
+| Input | Description |
+|---|---|
+| `msg.topic` / `msg.nodeId` | Starting NodeId (default: `RootFolder`) |
+| `msg.recursive` | Set to `true` for recursive browsing |
+
+Output: `msg.payload` contains an array of references with `browseName`, `nodeId`, `nodeClass`, and `typeDefinition`.
+
+### opcua-browse-client
+
+Interactive address space browser with an **editor tree view**. Select variables visually in the editor, then read or subscribe to them at runtime. No NodeIds to type — just click.
+
+Modes:
+- **Read** — trigger via inject to read all selected items
+- **Subscribe** — automatically subscribes on deploy, emits a message per value change
 
 ### opcua-method
 
-Dedicated method call node. Object/Method NodeIds configurable or via msg. References an endpoint directly.
+Calls an OPC UA method. Configure the **Object NodeId** and **Method NodeId** in the node or pass them via `msg.objectNodeId` / `msg.methodNodeId`.
+
+Input arguments via `msg.payload` as an array:
+```json
+[{"dataType": "Double", "value": 3.14}, {"dataType": "String", "value": "hello"}]
+```
+
+Or simple values (datatype auto-detected): `[3.14, "hello", true]`
+
+Output: `msg.payload` = array of return values, `msg.statusCode` = method status.
 
 ### opcua-event
 
-Subscribes to OPC UA events (BaseEventType, AlarmConditionType, etc.). References an endpoint directly.
+Subscribes to OPC UA events and alarms.
+
+| Config | Description |
+|---|---|
+| Source NodeId | Node to monitor (default: `i=2253` — Server node) |
+| Event Type | e.g. `BaseEventType`, `AlarmConditionType` |
+
+Send `msg.action = "subscribe"` to start, `msg.action = "unsubscribe"` to stop. Each event produces a message with `eventType`, `severity`, `message`, `time`, and `sourceName`.
 
 ### opcua-server
 
-Embedded OPC UA server. Create address space at runtime via `msg.command`: `addVariable`, `addFolder`, `addObject`, `addMethod`, `setValue`, `setWritable`, `raiseEvent`, `getServerInfo`.
+Embedded OPC UA server. Starts automatically on deploy. Build the address space at runtime via `msg.command`:
 
-## NodeId Formats
+| Command | Required fields | Description |
+|---|---|---|
+| `addFolder` | `msg.folderName` | Create a folder in the address space |
+| `addVariable` | `msg.variableName`, `msg.datatype` | Add a variable (optional: `msg.initialValue`) |
+| `addObject` | `msg.objectName` | Add an object node |
+| `addMethod` | `msg.methodName` | Add a callable method |
+| `setValue` | `msg.nodeId`, `msg.payload` | Update a variable's value |
+| `setWritable` | `msg.nodeId` | Make a variable writable by clients |
+| `deleteNode` | `msg.nodeId` | Remove a node |
+| `raiseEvent` | `msg.sourceNodeId`, `msg.message` | Raise an event |
+| `getServerInfo` | — | Get session count, endpoint URL, server state |
+
+## Reference
+
+### NodeId Formats
 
 | Format | Example |
 |---|---|
@@ -204,7 +191,7 @@ Embedded OPC UA server. Create address space at runtime via `msg.command`: `addV
 | Short | `i=84`, `s=MyVar` (ns=0) |
 | Well-known | `RootFolder`, `ObjectsFolder`, `TypesFolder`, `Server` |
 
-## DataType Auto-Detection
+### DataType Auto-Detection
 
 | JS Type | OPC UA DataType |
 |---|---|
@@ -215,6 +202,36 @@ Embedded OPC UA server. Create address space at runtime via `msg.command`: `addV
 | `Date` | DateTime |
 
 Explicit override: `msg.datatype = "UInt16"` or in item config.
+
+### ExtensionObjects (Structured Types)
+
+**Reading:** ExtensionObjects are automatically serialized to plain JSON in `msg.payload`. The `msg.dataType` will be `"ExtensionObject"` with a `_typeName` field.
+
+**Writing:** Set `msg.datatype = "ExtensionObject"` and `msg.dataTypeNodeId` to the DataType definition NodeId:
+```json
+{
+    "topic": "ns=2;s=MyStructVar",
+    "datatype": "ExtensionObject",
+    "dataTypeNodeId": "ns=2;i=3003",
+    "payload": { "temperature": 25.5, "unit": "Celsius" }
+}
+```
+
+## Examples
+
+Import ready-to-use flows in the Node-RED editor: **Menu → Import → Examples → node-red-contrib-opcua-suite**.
+
+Available examples:
+1. **Read Single Variable** — inject → client → debug
+2. **Batch Read with Item Collector** — inject → item → item → client → debug
+3. **Write a Value** — inject → client → debug
+4. **Subscribe to Changes** — inject → client → debug
+5. **Browse Address Space** — inject → browser → debug
+6. **Event Subscription** — inject → event → debug
+7. **Call a Method** — inject → method → debug
+8. **Server with Variables** — inject → server → debug
+
+All examples work **without function nodes**.
 
 ## Docker
 

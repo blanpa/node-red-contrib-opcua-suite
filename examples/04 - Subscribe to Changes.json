@@ -1,0 +1,92 @@
+[
+    {
+        "id": "ex04-endpoint",
+        "type": "opcua-endpoint",
+        "name": "Local Server",
+        "endpointUrl": "opc.tcp://localhost:4840",
+        "securityMode": "None",
+        "securityPolicy": "None"
+    },
+    {
+        "id": "ex04-tab",
+        "type": "tab",
+        "label": "Subscribe to Changes",
+        "info": "Subscribe to live value changes. Click inject once to start the subscription. Every time the value changes on the server, a new message arrives at the debug node."
+    },
+    {
+        "id": "ex04-comment",
+        "type": "comment",
+        "z": "ex04-tab",
+        "name": "Click inject to start subscription — messages arrive whenever the value changes",
+        "x": 330,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "ex04-inject-sub",
+        "type": "inject",
+        "z": "ex04-tab",
+        "name": "Subscribe",
+        "props": [
+            { "p": "topic", "vt": "str", "v": "ns=2;s=Temperature" }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 130,
+        "y": 120,
+        "wires": [["ex04-client"]]
+    },
+    {
+        "id": "ex04-inject-unsub",
+        "type": "inject",
+        "z": "ex04-tab",
+        "name": "Unsubscribe",
+        "props": [
+            { "p": "topic", "vt": "str", "v": "ns=2;s=Temperature" },
+            { "p": "operation", "vt": "str", "v": "unsubscribe" }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 140,
+        "y": 180,
+        "wires": [["ex04-client"]]
+    },
+    {
+        "id": "ex04-client",
+        "type": "opcua-client",
+        "z": "ex04-tab",
+        "name": "",
+        "endpoint": "ex04-endpoint",
+        "defaultOperation": "subscribe",
+        "x": 380,
+        "y": 140,
+        "wires": [["ex04-debug"]]
+    },
+    {
+        "id": "ex04-debug",
+        "type": "debug",
+        "z": "ex04-tab",
+        "name": "Live Values",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "payload",
+        "statusType": "auto",
+        "x": 580,
+        "y": 140,
+        "wires": []
+    }
+]

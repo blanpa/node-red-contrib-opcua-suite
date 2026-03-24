@@ -1,0 +1,146 @@
+[
+    {
+        "id": "ex08-tab",
+        "type": "tab",
+        "label": "OPC UA Server",
+        "info": "Create an OPC UA server, add variables, and update their values. The server starts automatically on deploy."
+    },
+    {
+        "id": "ex08-comment1",
+        "type": "comment",
+        "z": "ex08-tab",
+        "name": "Server starts on deploy. Use inject nodes to add variables and set values.",
+        "x": 310,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "ex08-server",
+        "type": "opcua-server",
+        "z": "ex08-tab",
+        "name": "My Server",
+        "port": 4840,
+        "serverName": "Node-RED OPC UA Server",
+        "maxAllowedSessionNumber": 10,
+        "maxConnectionsPerEndpoint": 10,
+        "x": 430,
+        "y": 200,
+        "wires": [["ex08-debug"]]
+    },
+    {
+        "id": "ex08-debug",
+        "type": "debug",
+        "z": "ex08-tab",
+        "name": "Server Output",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "payload",
+        "statusType": "auto",
+        "x": 630,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "ex08-comment2",
+        "type": "comment",
+        "z": "ex08-tab",
+        "name": "Step 1: Add a folder and variable (click in order)",
+        "x": 260,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "ex08-inject-folder",
+        "type": "inject",
+        "z": "ex08-tab",
+        "name": "Add Folder \"Sensors\"",
+        "props": [
+            { "p": "command", "vt": "str", "v": "addFolder" },
+            { "p": "folderName", "vt": "str", "v": "Sensors" }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 170,
+        "y": 160,
+        "wires": [["ex08-server"]]
+    },
+    {
+        "id": "ex08-inject-var",
+        "type": "inject",
+        "z": "ex08-tab",
+        "name": "Add Variable \"Temperature\"",
+        "props": [
+            { "p": "command", "vt": "str", "v": "addVariable" },
+            { "p": "variableName", "vt": "str", "v": "Temperature" },
+            { "p": "datatype", "vt": "str", "v": "Double" },
+            { "p": "initialValue", "vt": "num", "v": "20.0" }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 180,
+        "y": 220,
+        "wires": [["ex08-server"]]
+    },
+    {
+        "id": "ex08-comment3",
+        "type": "comment",
+        "z": "ex08-tab",
+        "name": "Step 2: Update the variable value",
+        "x": 220,
+        "y": 290,
+        "wires": []
+    },
+    {
+        "id": "ex08-inject-setval",
+        "type": "inject",
+        "z": "ex08-tab",
+        "name": "Set Temperature = 25.5",
+        "props": [
+            { "p": "command", "vt": "str", "v": "setValue" },
+            { "p": "payload", "vt": "num", "v": "25.5" }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 180,
+        "y": 340,
+        "wires": [["ex08-server"]]
+    },
+    {
+        "id": "ex08-inject-info",
+        "type": "inject",
+        "z": "ex08-tab",
+        "name": "Get Server Info",
+        "props": [
+            { "p": "command", "vt": "str", "v": "getServerInfo" }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 160,
+        "y": 400,
+        "wires": [["ex08-server"]]
+    }
+]

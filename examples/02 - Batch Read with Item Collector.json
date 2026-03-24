@@ -1,0 +1,157 @@
+[
+    {
+        "id": "ex02-endpoint",
+        "type": "opcua-endpoint",
+        "name": "Local Server",
+        "endpointUrl": "opc.tcp://localhost:4840",
+        "securityMode": "None",
+        "securityPolicy": "None"
+    },
+    {
+        "id": "ex02-tab",
+        "type": "tab",
+        "label": "Batch Read (Item Collector)",
+        "info": "Chain multiple Item nodes to build a batch read. Each Item node adds its variables to msg.items. The client reads them all in one OPC UA service call."
+    },
+    {
+        "id": "ex02-comment1",
+        "type": "comment",
+        "z": "ex02-tab",
+        "name": "Chain Pattern: each Item node adds to msg.items, client reads all at once",
+        "x": 300,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "ex02-inject",
+        "type": "inject",
+        "z": "ex02-tab",
+        "name": "Trigger",
+        "props": [],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 110,
+        "y": 120,
+        "wires": [["ex02-item1"]]
+    },
+    {
+        "id": "ex02-item1",
+        "type": "opcua-item",
+        "z": "ex02-tab",
+        "name": "Temperature",
+        "items": [{ "nodeId": "ns=2;s=Temperature", "datatype": "Double", "itemName": "Temperature" }],
+        "collector": true,
+        "x": 280,
+        "y": 120,
+        "wires": [["ex02-item2"]]
+    },
+    {
+        "id": "ex02-item2",
+        "type": "opcua-item",
+        "z": "ex02-tab",
+        "name": "Pressure",
+        "items": [{ "nodeId": "ns=2;s=Pressure", "datatype": "Double", "itemName": "Pressure" }],
+        "collector": true,
+        "x": 450,
+        "y": 120,
+        "wires": [["ex02-client"]]
+    },
+    {
+        "id": "ex02-client",
+        "type": "opcua-client",
+        "z": "ex02-tab",
+        "name": "",
+        "endpoint": "ex02-endpoint",
+        "defaultOperation": "read",
+        "x": 630,
+        "y": 120,
+        "wires": [["ex02-debug"]]
+    },
+    {
+        "id": "ex02-debug",
+        "type": "debug",
+        "z": "ex02-tab",
+        "name": "Results",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 810,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "ex02-comment2",
+        "type": "comment",
+        "z": "ex02-tab",
+        "name": "Alternative: all items in one node",
+        "x": 210,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "ex02-inject2",
+        "type": "inject",
+        "z": "ex02-tab",
+        "name": "Trigger",
+        "props": [],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 110,
+        "y": 280,
+        "wires": [["ex02-items-all"]]
+    },
+    {
+        "id": "ex02-items-all",
+        "type": "opcua-item",
+        "z": "ex02-tab",
+        "name": "All Sensors",
+        "items": [
+            { "nodeId": "ns=2;s=Temperature", "datatype": "Double", "itemName": "Temperature" },
+            { "nodeId": "ns=2;s=Pressure", "datatype": "Double", "itemName": "Pressure" },
+            { "nodeId": "ns=2;s=Flow", "datatype": "Float", "itemName": "Flow Rate" }
+        ],
+        "collector": true,
+        "x": 280,
+        "y": 280,
+        "wires": [["ex02-client2"]]
+    },
+    {
+        "id": "ex02-client2",
+        "type": "opcua-client",
+        "z": "ex02-tab",
+        "name": "",
+        "endpoint": "ex02-endpoint",
+        "defaultOperation": "read",
+        "x": 460,
+        "y": 280,
+        "wires": [["ex02-debug2"]]
+    },
+    {
+        "id": "ex02-debug2",
+        "type": "debug",
+        "z": "ex02-tab",
+        "name": "Results",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 640,
+        "y": 280,
+        "wires": []
+    }
+]

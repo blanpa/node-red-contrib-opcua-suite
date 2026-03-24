@@ -1,0 +1,92 @@
+[
+    {
+        "id": "ex06-endpoint",
+        "type": "opcua-endpoint",
+        "name": "Local Server",
+        "endpointUrl": "opc.tcp://localhost:4840",
+        "securityMode": "None",
+        "securityPolicy": "None"
+    },
+    {
+        "id": "ex06-tab",
+        "type": "tab",
+        "label": "Event Subscription",
+        "info": "Subscribe to OPC UA events. The Event node monitors a source node (default: Server node i=2253) for events of a given type."
+    },
+    {
+        "id": "ex06-comment",
+        "type": "comment",
+        "z": "ex06-tab",
+        "name": "Click inject to start listening for events. Each event produces a message.",
+        "x": 310,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "ex06-inject-sub",
+        "type": "inject",
+        "z": "ex06-tab",
+        "name": "Start",
+        "props": [
+            { "p": "action", "vt": "str", "v": "subscribe" }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 110,
+        "y": 120,
+        "wires": [["ex06-event"]]
+    },
+    {
+        "id": "ex06-inject-unsub",
+        "type": "inject",
+        "z": "ex06-tab",
+        "name": "Stop",
+        "props": [
+            { "p": "action", "vt": "str", "v": "unsubscribe" }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 110,
+        "y": 180,
+        "wires": [["ex06-event"]]
+    },
+    {
+        "id": "ex06-event",
+        "type": "opcua-event",
+        "z": "ex06-tab",
+        "name": "",
+        "endpoint": "ex06-endpoint",
+        "sourceNodeId": "i=2253",
+        "eventType": "BaseEventType",
+        "x": 330,
+        "y": 140,
+        "wires": [["ex06-debug"]]
+    },
+    {
+        "id": "ex06-debug",
+        "type": "debug",
+        "z": "ex06-tab",
+        "name": "Events",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "payload.severity",
+        "statusType": "auto",
+        "x": 530,
+        "y": 140,
+        "wires": []
+    }
+]

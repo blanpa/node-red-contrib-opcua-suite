@@ -1,0 +1,92 @@
+[
+    {
+        "id": "ex07-endpoint",
+        "type": "opcua-endpoint",
+        "name": "Local Server",
+        "endpointUrl": "opc.tcp://localhost:4840",
+        "securityMode": "None",
+        "securityPolicy": "None"
+    },
+    {
+        "id": "ex07-tab",
+        "type": "tab",
+        "label": "Call a Method",
+        "info": "Call an OPC UA method. The Object and Method NodeIds are configured in the node. Input arguments are passed via msg.payload as an array."
+    },
+    {
+        "id": "ex07-comment",
+        "type": "comment",
+        "z": "ex07-tab",
+        "name": "Edit the Method node to set your Object/Method NodeIds, then inject to call",
+        "x": 320,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "ex07-inject",
+        "type": "inject",
+        "z": "ex07-tab",
+        "name": "Call with args",
+        "props": [
+            { "p": "payload", "vt": "json", "v": "[{\"dataType\":\"Double\",\"value\":3.14},{\"dataType\":\"String\",\"value\":\"hello\"}]" }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 150,
+        "y": 120,
+        "wires": [["ex07-method"]]
+    },
+    {
+        "id": "ex07-inject2",
+        "type": "inject",
+        "z": "ex07-tab",
+        "name": "Call without args",
+        "props": [
+            { "p": "payload", "vt": "json", "v": "[]" }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 160,
+        "y": 180,
+        "wires": [["ex07-method"]]
+    },
+    {
+        "id": "ex07-method",
+        "type": "opcua-method",
+        "z": "ex07-tab",
+        "name": "",
+        "endpoint": "ex07-endpoint",
+        "objectNodeId": "ns=1;s=MyObject",
+        "methodNodeId": "ns=1;s=MyMethod",
+        "x": 390,
+        "y": 140,
+        "wires": [["ex07-debug"]]
+    },
+    {
+        "id": "ex07-debug",
+        "type": "debug",
+        "z": "ex07-tab",
+        "name": "Method Result",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "statusCode",
+        "statusType": "auto",
+        "x": 590,
+        "y": 140,
+        "wires": []
+    }
+]

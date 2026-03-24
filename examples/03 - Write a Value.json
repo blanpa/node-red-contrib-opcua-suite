@@ -1,0 +1,113 @@
+[
+    {
+        "id": "ex03-endpoint",
+        "type": "opcua-endpoint",
+        "name": "Local Server",
+        "endpointUrl": "opc.tcp://localhost:4840",
+        "securityMode": "None",
+        "securityPolicy": "None"
+    },
+    {
+        "id": "ex03-tab",
+        "type": "tab",
+        "label": "Write a Value",
+        "info": "Write a value to an OPC UA variable. The inject sets the value in msg.payload and the NodeId in msg.topic."
+    },
+    {
+        "id": "ex03-comment",
+        "type": "comment",
+        "z": "ex03-tab",
+        "name": "Set msg.payload to the value and msg.topic to the NodeId",
+        "x": 280,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "ex03-inject",
+        "type": "inject",
+        "z": "ex03-tab",
+        "name": "Write 25.5",
+        "props": [
+            { "p": "payload", "vt": "num", "v": "25.5" },
+            { "p": "topic", "vt": "str", "v": "ns=2;s=Temperature" }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 140,
+        "y": 120,
+        "wires": [["ex03-client"]]
+    },
+    {
+        "id": "ex03-inject2",
+        "type": "inject",
+        "z": "ex03-tab",
+        "name": "Write true",
+        "props": [
+            { "p": "payload", "vt": "bool", "v": "true" },
+            { "p": "topic", "vt": "str", "v": "ns=2;s=Status" }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 140,
+        "y": 180,
+        "wires": [["ex03-client"]]
+    },
+    {
+        "id": "ex03-inject3",
+        "type": "inject",
+        "z": "ex03-tab",
+        "name": "Write \"hello\"",
+        "props": [
+            { "p": "payload", "vt": "str", "v": "hello" },
+            { "p": "topic", "vt": "str", "v": "ns=2;s=Message" }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 140,
+        "y": 240,
+        "wires": [["ex03-client"]]
+    },
+    {
+        "id": "ex03-client",
+        "type": "opcua-client",
+        "z": "ex03-tab",
+        "name": "",
+        "endpoint": "ex03-endpoint",
+        "defaultOperation": "write",
+        "x": 380,
+        "y": 180,
+        "wires": [["ex03-debug"]]
+    },
+    {
+        "id": "ex03-debug",
+        "type": "debug",
+        "z": "ex03-tab",
+        "name": "Write Result",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "statusCode",
+        "targetType": "msg",
+        "statusVal": "statusCode",
+        "statusType": "auto",
+        "x": 590,
+        "y": 180,
+        "wires": []
+    }
+]

@@ -1,0 +1,107 @@
+[
+    {
+        "id": "ex05-endpoint",
+        "type": "opcua-endpoint",
+        "name": "Local Server",
+        "endpointUrl": "opc.tcp://localhost:4840",
+        "securityMode": "None",
+        "securityPolicy": "None"
+    },
+    {
+        "id": "ex05-tab",
+        "type": "tab",
+        "label": "Browse Address Space",
+        "info": "Browse the OPC UA server's address space. Send a NodeId via msg.topic to browse from that node, or leave empty to browse from RootFolder."
+    },
+    {
+        "id": "ex05-comment",
+        "type": "comment",
+        "z": "ex05-tab",
+        "name": "Browse from different starting points — leave msg.topic empty for RootFolder",
+        "x": 320,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "ex05-inject-root",
+        "type": "inject",
+        "z": "ex05-tab",
+        "name": "Browse Root",
+        "props": [],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 140,
+        "y": 120,
+        "wires": [["ex05-browser"]]
+    },
+    {
+        "id": "ex05-inject-objects",
+        "type": "inject",
+        "z": "ex05-tab",
+        "name": "Browse Objects",
+        "props": [
+            { "p": "topic", "vt": "str", "v": "i=85" }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 140,
+        "y": 180,
+        "wires": [["ex05-browser"]]
+    },
+    {
+        "id": "ex05-inject-server",
+        "type": "inject",
+        "z": "ex05-tab",
+        "name": "Browse Server",
+        "props": [
+            { "p": "topic", "vt": "str", "v": "i=2253" }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 140,
+        "y": 240,
+        "wires": [["ex05-browser"]]
+    },
+    {
+        "id": "ex05-browser",
+        "type": "opcua-browser",
+        "z": "ex05-tab",
+        "name": "",
+        "endpoint": "ex05-endpoint",
+        "x": 380,
+        "y": 180,
+        "wires": [["ex05-debug"]]
+    },
+    {
+        "id": "ex05-debug",
+        "type": "debug",
+        "z": "ex05-tab",
+        "name": "References",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "browseResult.count",
+        "statusType": "auto",
+        "x": 580,
+        "y": 180,
+        "wires": []
+    }
+]
