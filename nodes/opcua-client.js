@@ -77,6 +77,10 @@ module.exports = function (RED) {
     node.on("input", async function (msg, send, done) {
       try {
         if (!clientManager.isConnected) {
+          // Reset reconnect counter so user-triggered messages always get
+          // a fresh set of connection attempts (prevents permanent stuck state
+          // after max reconnect attempts were exhausted).
+          clientManager.reconnectAttempts = 0;
           await clientManager.connect();
         }
 
