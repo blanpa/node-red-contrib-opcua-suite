@@ -515,6 +515,140 @@ describe("OpcUaClientManager", function () {
     });
   });
 
+  // ─── read (fallback for non-Variable nodes) ───
+
+  describe("read", function () {
+    let mgr;
+
+    beforeEach(function () {
+      mgr = new OpcUaClientManager({ endpointUrl: "opc.tcp://localhost:4840" });
+      mgr.isConnected = true;
+    });
+
+    it("should return value for a Variable node", async function () {
+      mgr.session = {
+        read: sinon.stub().resolves({
+          value: { value: 42, dataType: 6 },
+          statusCode: { value: 0, name: "Good", toString: () => "Good (0x00000000)" },
+          sourceTimestamp: new Date(),
+          serverTimestamp: new Date(),
+        }),
+      };
+
+      const result = await mgr.read("ns=2;s=MyVar");
+      expect(result.value).to.equal(42);
+      expect(result.statusCode).to.equal("Good (0x00000000)");
+    });
+
+    it("should fall back to attribute read for Object nodes (BadAttributeIdInvalid)", async function () {
+      const browseNameResult = { value: { value: { name: "MyObject" }, dataType: 0 }, statusCode: { value: 0, toString: () => "Good" }, sourceTimestamp: new Date(), serverTimestamp: new Date() };
+      const displayNameResult = { value: { value: { text: "My Object" }, dataType: 0 }, statusCode: { value: 0, toString: () => "Good" }, sourceTimestamp: new Date(), serverTimestamp: new Date() };
+      const descriptionResult = { value: { value: { text: "An OPC UA object" }, dataType: 0 }, statusCode: { value: 0, toString: () => "Good" }, sourceTimestamp: new Date(), serverTimestamp: new Date() };
+      const nodeClassResult = { value: { value: 1 }, statusCode: { value: 0, toString: () => "Good" }, sourceTimestamp: new Date(), serverTimestamp: new Date() };
+
+      mgr.session = {
+        read: sinon.stub(),
+      };
+
+      // First call: Value attribute read returns BadAttributeIdInvalid
+      mgr.session.read.onFirstCall().resolves({
+        value: { value: null },
+        statusCode: { value: 0x80350000, name: "BadAttributeIdInvalid", toString: () => "BadAttributeIdInvalid (0x80350000)" },
+        sourceTimestamp: null,
+        serverTimestamp: null,
+      });
+
+      // Second call: fallback multi-attribute read
+      mgr.session.read.onSecondCall().resolves([
+        nodeClassResult,
+        browseNameResult,
+        displayNameResult,
+        descriptionResult,
+      ]);
+
+      const result = await mgr.read("ns=2;s=MyObjectNode");
+      expect(result.statusCode).to.equal("Good (0x00000000)");
+      expect(result.dataType).to.equal("Object");
+      expect(result.value).to.have.property("nodeClass", 1);
+      expect(result.value).to.have.property("browseName", "MyObject");
+      expect(result.value).to.have.property("displayName", "My Object");
+      expect(result.value).to.have.property("description", "An OPC UA object");
+    });
+
+    it("should propagate other bad status codes without fallback", async function () {
+      mgr.session = {
+        read: sinon.stub().resolves({
+          value: { value: null, dataType: undefined },
+          statusCode: { value: 0x80010000, name: "BadUnexpectedError", toString: () => "BadUnexpectedError (0x80010000)" },
+          sourceTimestamp: null,
+          serverTimestamp: null,
+        }),
+      };
+
+      const result = await mgr.read("ns=2;s=SomeNode");
+      // Should NOT fall back — just return the bad result
+      expect(result.statusCode).to.equal("BadUnexpectedError (0x80010000)");
+      expect(result.value).to.be.null;
+      // session.read should only be called once (no fallback)
+      expect(mgr.session.read.calledOnce).to.be.true;
+    });
+  });
+
+  // ─── readMultiple (fallback for non-Variable nodes) ───
+
+  describe("readMultiple", function () {
+    let mgr;
+
+    beforeEach(function () {
+      mgr = new OpcUaClientManager({ endpointUrl: "opc.tcp://localhost:4840" });
+      mgr.isConnected = true;
+    });
+
+    it("should fall back per-item for Object nodes in a batch", async function () {
+      mgr.session = {
+        read: sinon.stub(),
+      };
+
+      // First call: batch read returns mixed results
+      mgr.session.read.onFirstCall().resolves([
+        // Item 0: Variable — good
+        {
+          value: { value: 99, dataType: 6 },
+          statusCode: { value: 0, name: "Good", toString: () => "Good (0x00000000)" },
+          sourceTimestamp: new Date(),
+          serverTimestamp: new Date(),
+        },
+        // Item 1: Object — BadAttributeIdInvalid
+        {
+          value: { value: null },
+          statusCode: { value: 0x80350000, name: "BadAttributeIdInvalid", toString: () => "BadAttributeIdInvalid (0x80350000)" },
+          sourceTimestamp: null,
+          serverTimestamp: null,
+        },
+      ]);
+
+      // Second call: fallback attribute read for item 1
+      mgr.session.read.onSecondCall().resolves([
+        { value: { value: 1 }, statusCode: { value: 0, toString: () => "Good" }, sourceTimestamp: new Date(), serverTimestamp: new Date() },
+        { value: { value: { name: "Obj" } }, statusCode: { value: 0, toString: () => "Good" }, sourceTimestamp: new Date(), serverTimestamp: new Date() },
+        { value: { value: { text: "Object Node" } }, statusCode: { value: 0, toString: () => "Good" }, sourceTimestamp: new Date(), serverTimestamp: new Date() },
+        { value: { value: { text: null } }, statusCode: { value: 0, toString: () => "Good" }, sourceTimestamp: new Date(), serverTimestamp: new Date() },
+      ]);
+
+      const results = await mgr.readMultiple(["ns=2;s=Var1", "ns=2;s=ObjNode"]);
+      expect(results).to.have.lengthOf(2);
+
+      // Variable item should be normal
+      expect(results[0].value).to.equal(99);
+      expect(results[0].statusCode).to.equal("Good (0x00000000)");
+
+      // Object item should have fallen back
+      expect(results[1].dataType).to.equal("Object");
+      expect(results[1].value).to.have.property("browseName", "Obj");
+      expect(results[1].value).to.have.property("displayName", "Object Node");
+    });
+  });
+
   // ─── scheduleReconnect ───
 
   describe("scheduleReconnect", function () {
@@ -555,6 +689,19 @@ describe("OpcUaClientManager", function () {
       const firstTimer = mgr.reconnectTimer;
       mgr.scheduleReconnect();
       expect(mgr.reconnectTimer).to.equal(firstTimer);
+      expect(mgr.reconnectAttempts).to.equal(1);
+    });
+
+    it("should schedule again after reconnectAttempts is manually reset", function () {
+      // Simulate exhausting all attempts
+      mgr.reconnectAttempts = 3;
+      mgr.scheduleReconnect();
+      expect(mgr.reconnectTimer).to.be.null; // stuck — won't schedule
+
+      // Simulate what the input handler fix does: reset before connect
+      mgr.reconnectAttempts = 0;
+      mgr.scheduleReconnect();
+      expect(mgr.reconnectTimer).to.not.be.null; // recovers
       expect(mgr.reconnectAttempts).to.equal(1);
     });
   });
