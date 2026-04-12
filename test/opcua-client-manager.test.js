@@ -204,6 +204,26 @@ describe("OpcUaClientManager", function () {
       expect(() => mgr._ensureConnected()).to.not.throw();
     });
 
+    it("should throw and mark disconnected when session is reconnecting", function () {
+      const mgr = new OpcUaClientManager({
+        endpointUrl: "opc.tcp://localhost:4840",
+      });
+      mgr.isConnected = true;
+      mgr.session = { isReconnecting: true };
+      expect(() => mgr._ensureConnected()).to.throw("Session is no longer valid");
+      expect(mgr.isConnected).to.be.false;
+    });
+
+    it("should throw and mark disconnected when session has been closed", function () {
+      const mgr = new OpcUaClientManager({
+        endpointUrl: "opc.tcp://localhost:4840",
+      });
+      mgr.isConnected = true;
+      mgr.session = { hasBeenClosed: true };
+      expect(() => mgr._ensureConnected()).to.throw("Session is no longer valid");
+      expect(mgr.isConnected).to.be.false;
+    });
+
     // ─── serializeExtensionObject (utility function) ───
 
     describe("serializeExtensionObject (from opcua-utils)", function () {
@@ -515,6 +535,55 @@ describe("OpcUaClientManager", function () {
     });
   });
 
+  // ─── _withTimeout ───
+
+  describe("_withTimeout", function () {
+    let mgr;
+
+    beforeEach(function () {
+      mgr = new OpcUaClientManager({ endpointUrl: "opc.tcp://localhost:4840" });
+    });
+
+    it("should resolve when the operation completes before timeout", async function () {
+      const result = await mgr._withTimeout(
+        Promise.resolve("ok"),
+        1000,
+        "test",
+      );
+      expect(result).to.equal("ok");
+    });
+
+    it("should reject with timeout error when operation hangs", async function () {
+      mgr.isConnected = true;
+      const neverResolves = new Promise(() => {}); // hangs forever
+      try {
+        await mgr._withTimeout(neverResolves, 50, "testOp");
+        throw new Error("should not reach here");
+      } catch (err) {
+        expect(err.message).to.include("Operation timed out after 50ms: testOp");
+        expect(mgr.isConnected).to.be.false;
+      }
+    });
+
+    it("should propagate the original rejection if operation fails before timeout", async function () {
+      try {
+        await mgr._withTimeout(
+          Promise.reject(new Error("original error")),
+          1000,
+          "test",
+        );
+        throw new Error("should not reach here");
+      } catch (err) {
+        expect(err.message).to.equal("original error");
+      }
+    });
+
+    it("should pass through when timeout is 0 or negative", async function () {
+      const result = await mgr._withTimeout(Promise.resolve("ok"), 0, "test");
+      expect(result).to.equal("ok");
+    });
+  });
+
   // ─── read (fallback for non-Variable nodes) ───
 
   describe("read", function () {
@@ -573,6 +642,21 @@ describe("OpcUaClientManager", function () {
       expect(result.value).to.have.property("browseName", "MyObject");
       expect(result.value).to.have.property("displayName", "My Object");
       expect(result.value).to.have.property("description", "An OPC UA object");
+    });
+
+    it("should reject with timeout error when session.read hangs", async function () {
+      mgr.operationTimeout = 50; // 50ms for test speed
+      mgr.session = {
+        read: sinon.stub().returns(new Promise(() => {})), // never resolves
+      };
+
+      try {
+        await mgr.read("ns=2;s=HangingNode");
+        throw new Error("should not reach here");
+      } catch (err) {
+        expect(err.message).to.include("timed out");
+        expect(mgr.isConnected).to.be.false;
+      }
     });
 
     it("should propagate other bad status codes without fallback", async function () {
