@@ -214,7 +214,17 @@ describe("OpcUaClientManager", function () {
       expect(mgr.isConnected).to.be.false;
     });
 
-    it("should throw and mark disconnected when session has been closed", function () {
+    it("should throw and mark disconnected when session has been closed (function)", function () {
+      const mgr = new OpcUaClientManager({
+        endpointUrl: "opc.tcp://localhost:4840",
+      });
+      mgr.isConnected = true;
+      mgr.session = { hasBeenClosed: () => true };
+      expect(() => mgr._ensureConnected()).to.throw("Session is no longer valid");
+      expect(mgr.isConnected).to.be.false;
+    });
+
+    it("should throw and mark disconnected when session has been closed (property)", function () {
       const mgr = new OpcUaClientManager({
         endpointUrl: "opc.tcp://localhost:4840",
       });
@@ -222,6 +232,15 @@ describe("OpcUaClientManager", function () {
       mgr.session = { hasBeenClosed: true };
       expect(() => mgr._ensureConnected()).to.throw("Session is no longer valid");
       expect(mgr.isConnected).to.be.false;
+    });
+
+    it("should not throw when hasBeenClosed() returns false", function () {
+      const mgr = new OpcUaClientManager({
+        endpointUrl: "opc.tcp://localhost:4840",
+      });
+      mgr.isConnected = true;
+      mgr.session = { hasBeenClosed: () => false };
+      expect(() => mgr._ensureConnected()).to.not.throw();
     });
 
     // ─── serializeExtensionObject (utility function) ───
