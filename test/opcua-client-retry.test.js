@@ -399,4 +399,79 @@ describe("opcua-client session retry", function () {
     expect(send.calledOnce).to.be.true;
     expect(done.calledOnce).to.be.true;
   });
+
+  it("should force reconnect even if isConnected is still true (stale session)", async function () {
+    // Simulates the case where isConnected is true but the session is
+    // actually invalid (e.g. another node's reconnect set isConnected
+    // back to true with a still-broken session).
+    let callCount = 0;
+    mgr.read.callsFake(async () => {
+      callCount++;
+      if (callCount === 1) {
+        // First call: session is stale, but isConnected is still true
+        throw new Error("Session is no longer valid");
+      }
+      // Second call: after forceReconnect, session is fresh
+      return {
+        value: { value: 77, dataType: 6 },
+        statusCode: {
+          value: 0,
+          name: "Good",
+          toString: () => "Good (0x00000000)",
+        },
+        sourceTimestamp: new Date(),
+        serverTimestamp: new Date(),
+      };
+    });
+
+    const node = {};
+    ctor.call(node, { id: "c11", endpoint: "ep1" });
+
+    const msg = { topic: "ns=2;s=Var" };
+    const send = sinon.stub();
+    const done = sinon.stub();
+
+    await node._events["input"][0](msg, send, done);
+
+    // forceReconnect sets isConnected=false before calling connect(),
+    // so connect() is always called regardless of prior state
+    expect(mgr.connect.calledOnce).to.be.true;
+    expect(send.calledOnce).to.be.true;
+    expect(done.calledOnce).to.be.true;
+    expect(done.firstCall.args).to.have.lengthOf(0);
+  });
+
+  it("should force a full reconnect, not skip due to isConnected race", async function () {
+    // Even if isConnected remains true (not reset by _ensureConnected
+    // because the error came from a deeper layer), forceReconnect must
+    // tear down and reconnect.
+    mgr.read.onFirstCall().callsFake(async () => {
+      // isConnected stays true — simulating a race where another async
+      // path reconnected, but the session object is still stale.
+      throw new Error("Session is no longer valid");
+    });
+    mgr.read.onSecondCall().resolves({
+      value: { value: 42, dataType: 6 },
+      statusCode: {
+        value: 0,
+        name: "Good",
+        toString: () => "Good (0x00000000)",
+      },
+      sourceTimestamp: new Date(),
+      serverTimestamp: new Date(),
+    });
+
+    const node = {};
+    ctor.call(node, { id: "c12", endpoint: "ep1" });
+
+    await node._events["input"][0](
+      { topic: "ns=2;s=Var" },
+      sinon.stub(),
+      sinon.stub(),
+    );
+
+    // Key assertion: connect() must be called even though isConnected
+    // was never set to false by the read mock.
+    expect(mgr.connect.calledOnce).to.be.true;
+  });
 });

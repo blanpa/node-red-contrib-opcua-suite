@@ -159,12 +159,18 @@ module.exports = function (RED) {
 
     async function ensureConnected() {
       if (!clientManager.isConnected) {
-        // Reset reconnect counter so user-triggered messages always get
-        // a fresh set of connection attempts (prevents permanent stuck state
-        // after max reconnect attempts were exhausted).
         clientManager.reconnectAttempts = 0;
         await clientManager.connect();
       }
+    }
+
+    async function forceReconnect() {
+      // Mark disconnected so connect() tears down the old client/session
+      // and builds a completely fresh connection, even if another code path
+      // has already flipped isConnected back to true with a stale session.
+      clientManager.isConnected = false;
+      clientManager.reconnectAttempts = 0;
+      await clientManager.connect();
     }
 
     node.on("input", async function (msg, send, done) {
@@ -184,7 +190,7 @@ module.exports = function (RED) {
           if (isSessionInvalidError(error)) {
             node.warn("Session lost – reconnecting and retrying operation...");
             node.status({ fill: "yellow", shape: "ring", text: "reconnecting..." });
-            await ensureConnected();
+            await forceReconnect();
             result = await executeOperation(msg, operation, send);
           } else {
             throw error;
