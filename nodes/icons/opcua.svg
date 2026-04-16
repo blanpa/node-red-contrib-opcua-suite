@@ -1,4 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 60" width="40" height="60">
-  <text x="20" y="34" text-anchor="middle" fill="#ffffff" font-family="Arial,Helvetica,sans-serif" font-size="9" font-weight="bold" letter-spacing="0.3">OPC</text>
-  <text x="20" y="46" text-anchor="middle" fill="#ffffff" font-family="Arial,Helvetica,sans-serif" font-size="9" font-weight="bold" letter-spacing="0.3">UA</text>
+  <text x="20" y="26" text-anchor="middle" dominant-baseline="central" fill="#ffffff" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="bold" letter-spacing="0.5">OPC</text>
+  <text x="20" y="40" text-anchor="middle" dominant-baseline="central" fill="#ffffff" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="bold" letter-spacing="0.5">UA</text>
 </svg>

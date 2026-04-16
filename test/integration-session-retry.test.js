@@ -230,7 +230,7 @@ describe("Integration: session retry with real OPC UA server", function () {
       expect(node.error.called).to.be.false;
 
       // Verify the warn was triggered
-      expect(node.warn.calledOnce).to.be.true;
+      expect(node.warn.called).to.be.true;
       expect(node.warn.firstCall.args[0]).to.include("reconnecting");
 
       // Verify status went yellow then green
@@ -302,7 +302,7 @@ describe("Integration: session retry with real OPC UA server", function () {
     expect(send.calledOnce).to.be.true;
     expect(done.calledOnce).to.be.true;
     expect(node.error.called).to.be.false;
-    expect(node.warn.calledOnce).to.be.true;
+    expect(node.warn.called).to.be.true;
 
     const payload = send.firstCall.args[0].payload;
     expect(payload).to.be.an("array").with.lengthOf(2);
@@ -356,7 +356,7 @@ describe("Integration: session retry with real OPC UA server", function () {
     expect(send.calledOnce).to.be.true;
     expect(done.calledOnce).to.be.true;
     expect(node.error.called).to.be.false;
-    expect(node.warn.calledOnce).to.be.true;
+    expect(node.warn.called).to.be.true;
 
     // Verify the write actually worked by reading back
     const r = await mgr.read("ns=1;s=TestInt");

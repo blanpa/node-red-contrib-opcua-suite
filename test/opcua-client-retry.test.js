@@ -121,7 +121,7 @@ describe("opcua-client session retry", function () {
 
     expect(mgr.read.calledTwice).to.be.true;
     expect(mgr.connect.calledOnce).to.be.true;
-    expect(node.warn.calledOnce).to.be.true;
+    expect(node.warn.called).to.be.true;
     expect(node.warn.firstCall.args[0]).to.include("reconnecting");
     expect(send.calledOnce).to.be.true;
     expect(done.calledOnce).to.be.true;
@@ -162,6 +162,67 @@ describe("opcua-client session retry", function () {
     expect(done.calledOnce).to.be.true;
   });
 
+  it('should retry when error is "premature disconnection"', async function () {
+    mgr.read.onFirstCall().callsFake(async () => {
+      mgr.isConnected = false;
+      throw new Error("premature disconnection 1");
+    });
+    mgr.read.onSecondCall().resolves({
+      value: { value: 77, dataType: 6 },
+      statusCode: {
+        value: 0,
+        name: "Good",
+        toString: () => "Good (0x00000000)",
+      },
+      sourceTimestamp: new Date(),
+      serverTimestamp: new Date(),
+    });
+
+    const node = {};
+    ctor.call(node, { id: "c2b", endpoint: "ep1" });
+
+    const msg = { topic: "ns=2;s=Var" };
+    const send = sinon.stub();
+    const done = sinon.stub();
+
+    await node._events["input"][0](msg, send, done);
+
+    expect(mgr.read.calledTwice).to.be.true;
+    expect(mgr.connect.calledOnce).to.be.true;
+    expect(send.calledOnce).to.be.true;
+    expect(done.calledOnce).to.be.true;
+  });
+
+  it('should retry when error is "Secure Channel Closed"', async function () {
+    mgr.read.onFirstCall().callsFake(async () => {
+      mgr.isConnected = false;
+      throw new Error("The connection may have been rejected by server,\n Err = (Secure Channel Closed)");
+    });
+    mgr.read.onSecondCall().resolves({
+      value: { value: 88, dataType: 6 },
+      statusCode: {
+        value: 0,
+        name: "Good",
+        toString: () => "Good (0x00000000)",
+      },
+      sourceTimestamp: new Date(),
+      serverTimestamp: new Date(),
+    });
+
+    const node = {};
+    ctor.call(node, { id: "c2c", endpoint: "ep1" });
+
+    const msg = { topic: "ns=2;s=Var" };
+    const send = sinon.stub();
+    const done = sinon.stub();
+
+    await node._events["input"][0](msg, send, done);
+
+    expect(mgr.read.calledTwice).to.be.true;
+    expect(mgr.connect.calledOnce).to.be.true;
+    expect(send.calledOnce).to.be.true;
+  });
+
   it("should fail after retry if reconnect also fails", async function () {
     mgr.read.onFirstCall().callsFake(async () => {
       mgr.isConnected = false;
@@ -170,7 +231,7 @@ describe("opcua-client session retry", function () {
     mgr.connect.rejects(new Error("Connection refused"));
 
     const node = {};
-    ctor.call(node, { id: "c3", endpoint: "ep1" });
+    ctor.call(node, { id: "c3", endpoint: "ep1", retryAttempts: 1 });
 
     const msg = { topic: "ns=2;s=Var" };
     const send = sinon.stub();

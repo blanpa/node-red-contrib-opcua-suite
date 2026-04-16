@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.0.6 (2026-04-16)
+
+### Fixed
+
+- **Reconnect on low-level connection errors** – In addition to `"Session is no longer valid"` and `"Not connected"`, the retry path now also triggers on `premature disconnection`, `Secure Channel Closed`, `Server end point are not known yet`, `connection may have been rejected`, and `socket has been disconnected`. Previously these errors went straight to the catch block without reconnect and produced `msg.payload: undefined` in the debug panel. ([#9](https://github.com/blanpa/node-red-contrib-opcua-suite/issues/9))
+- **Retry covers `ensureConnected()` failures** – The retry wrapper now also handles connection setup errors, not just errors thrown inside `executeOperation()`. This makes the recovery transparent when the first re-read after a server restart fails at the connect step.
+- **Single-flight reconnect lock** – A shared `reconnectPromise` prevents multiple parallel `forceReconnect` calls when several messages (e.g. from a 2s continuous-read inject) arrive during an outage. Only one reconnect runs at a time; concurrent messages wait for it.
+
+### Added
+
+- **Infinite reconnect by default** – The retry loop now retries forever with exponential backoff (2s, 4s, 6s, … capped at 30s). Continuous-read flows recover automatically from server restarts of arbitrary length.
+- **`Retry Attempts` setting** (Advanced Settings) – Configurable per node. `0` (default) = infinite; positive values bound the number of retries per message.
+- **`Verbose Log` checkbox** (node settings) – Toggles `[warn]` logging of `Connection lost …`, `Reconnect attempt N/∞ failed …`, and `Reconnected to OPC UA server (attempt N/∞)` messages. Operation errors (`[error]`) are always logged.
+- **Retry tests for new error patterns** – 2 new unit tests covering `"premature disconnection"` and `"Secure Channel Closed"` reconnect paths.
+
+### Changed
+
+- **`opcua.svg` icon** – Larger, vertically centered `OPC UA` label (font size 9 → 13, `dominant-baseline="central"`) for improved readability in the flow editor.
+
 ## 0.0.5 (2026-04-16)
 
 ### Fixed

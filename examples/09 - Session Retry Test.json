@@ -1,0 +1,237 @@
+[
+    {
+        "id": "ex09-endpoint",
+        "type": "opcua-endpoint",
+        "name": "Test Server",
+        "endpointUrl": "opc.tcp://opcua-server:4840/UA/TestServer",
+        "securityMode": "None",
+        "securityPolicy": "None"
+    },
+    {
+        "id": "ex09-tab",
+        "type": "tab",
+        "label": "Session Retry Test",
+        "info": "Tests automatic session retry: reads a value, then reads again after session loss.\n\n1. Click 'Read Once' to verify the connection works.\n2. Click 'Continuous Read' to start periodic reads (every 2s).\n3. Restart the OPC UA server (docker restart opcua-server).\n4. Watch the debug output: you should see a brief 'reconnecting...' warning followed by successful reads — no manual intervention needed.\n5. Click 'Stop' to stop periodic reads.\n6. 'Batch Read' tests readmultiple with the same retry logic."
+    },
+    {
+        "id": "ex09-comment",
+        "type": "comment",
+        "z": "ex09-tab",
+        "name": "Session Retry Test — restart the OPC UA server while reads are running",
+        "x": 350,
+        "y": 40,
+        "wires": []
+    },
+
+    {
+        "id": "ex09-inject-once",
+        "type": "inject",
+        "z": "ex09-tab",
+        "name": "Read Once",
+        "props": [
+            { "p": "topic", "vt": "str", "v": "ns=1;s=Scalar.Int32" }
+        ],
+        "repeat": "",
+        "once": false,
+        "x": 140,
+        "y": 120,
+        "wires": [["ex09-client"]]
+    },
+    {
+        "id": "ex09-inject-loop",
+        "type": "inject",
+        "z": "ex09-tab",
+        "name": "Continuous Read (every 2s)",
+        "props": [
+            { "p": "topic", "vt": "str", "v": "ns=1;s=Dynamic.Sinus" }
+        ],
+        "repeat": "2",
+        "once": false,
+        "x": 200,
+        "y": 180,
+        "wires": [["ex09-client"]]
+    },
+    {
+        "id": "ex09-inject-stop",
+        "type": "inject",
+        "z": "ex09-tab",
+        "name": "Stop",
+        "props": [],
+        "repeat": "",
+        "once": false,
+        "x": 130,
+        "y": 240,
+        "wires": [[]],
+        "info": "Deploy to stop the continuous inject."
+    },
+
+    {
+        "id": "ex09-client",
+        "type": "opcua-client",
+        "z": "ex09-tab",
+        "name": "OPC UA Client",
+        "endpoint": "ex09-endpoint",
+        "defaultOperation": "read",
+        "x": 440,
+        "y": 150,
+        "wires": [["ex09-debug-value", "ex09-debug-status"]]
+    },
+
+    {
+        "id": "ex09-debug-value",
+        "type": "debug",
+        "z": "ex09-tab",
+        "name": "Value",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "payload",
+        "statusType": "auto",
+        "x": 650,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "ex09-debug-status",
+        "type": "debug",
+        "z": "ex09-tab",
+        "name": "Full msg",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "complete": "true",
+        "targetType": "full",
+        "x": 650,
+        "y": 180,
+        "wires": []
+    },
+
+    {
+        "id": "ex09-comment2",
+        "type": "comment",
+        "z": "ex09-tab",
+        "name": "── Batch Read (readmultiple) ──",
+        "x": 210,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "ex09-inject-batch",
+        "type": "inject",
+        "z": "ex09-tab",
+        "name": "Batch Read (3 items)",
+        "props": [
+            { "p": "operation", "vt": "str", "v": "readmultiple" },
+            {
+                "p": "items", "vt": "json",
+                "v": "[{\"nodeId\":\"ns=1;s=Scalar.Int32\"},{\"nodeId\":\"ns=1;s=Scalar.Double\"},{\"nodeId\":\"ns=1;s=Scalar.String\"}]"
+            }
+        ],
+        "repeat": "",
+        "once": false,
+        "x": 180,
+        "y": 380,
+        "wires": [["ex09-client-batch"]]
+    },
+    {
+        "id": "ex09-inject-batch-loop",
+        "type": "inject",
+        "z": "ex09-tab",
+        "name": "Continuous Batch (every 2s)",
+        "props": [
+            { "p": "operation", "vt": "str", "v": "readmultiple" },
+            {
+                "p": "items", "vt": "json",
+                "v": "[{\"nodeId\":\"ns=1;s=Dynamic.Sinus\"},{\"nodeId\":\"ns=1;s=Dynamic.Ramp\"},{\"nodeId\":\"ns=1;s=Dynamic.Toggle\"}]"
+            }
+        ],
+        "repeat": "2",
+        "once": false,
+        "x": 200,
+        "y": 440,
+        "wires": [["ex09-client-batch"]]
+    },
+    {
+        "id": "ex09-client-batch",
+        "type": "opcua-client",
+        "z": "ex09-tab",
+        "name": "OPC UA Client (Batch)",
+        "endpoint": "ex09-endpoint",
+        "defaultOperation": "read",
+        "x": 460,
+        "y": 410,
+        "wires": [["ex09-debug-batch"]]
+    },
+    {
+        "id": "ex09-debug-batch",
+        "type": "debug",
+        "z": "ex09-tab",
+        "name": "Batch Result",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "count",
+        "statusType": "auto",
+        "x": 690,
+        "y": 410,
+        "wires": []
+    },
+
+    {
+        "id": "ex09-comment3",
+        "type": "comment",
+        "z": "ex09-tab",
+        "name": "── Write Test ──",
+        "x": 170,
+        "y": 520,
+        "wires": []
+    },
+    {
+        "id": "ex09-inject-write",
+        "type": "inject",
+        "z": "ex09-tab",
+        "name": "Write 99.9",
+        "props": [
+            { "p": "topic", "vt": "str", "v": "ns=1;s=Writable.Temperature" },
+            { "p": "payload", "vt": "num", "v": "99.9" },
+            { "p": "datatype", "vt": "str", "v": "Double" },
+            { "p": "operation", "vt": "str", "v": "write" }
+        ],
+        "repeat": "",
+        "once": false,
+        "x": 160,
+        "y": 580,
+        "wires": [["ex09-client-write"]]
+    },
+    {
+        "id": "ex09-client-write",
+        "type": "opcua-client",
+        "z": "ex09-tab",
+        "name": "OPC UA Client (Write)",
+        "endpoint": "ex09-endpoint",
+        "defaultOperation": "write",
+        "x": 460,
+        "y": 580,
+        "wires": [["ex09-debug-write"]]
+    },
+    {
+        "id": "ex09-debug-write",
+        "type": "debug",
+        "z": "ex09-tab",
+        "name": "Write Result",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "complete": "true",
+        "targetType": "full",
+        "x": 690,
+        "y": 580,
+        "wires": []
+    }
+]

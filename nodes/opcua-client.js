@@ -17,6 +17,7 @@ module.exports = function (RED) {
   function OpcUaClientNode(config) {
     RED.nodes.createNode(this, config);
     const node = this;
+    const verboseLog = config.verboseLog !== false;
 
     const endpointConfig = RED.nodes.getNode(config.endpoint);
     if (!endpointConfig) {
@@ -60,7 +61,7 @@ module.exports = function (RED) {
           node.status({ fill: "yellow", shape: "ring", text: "connecting..." });
           break;
         case "error":
-          node.error(`OPC UA error: ${error ? error.message : "unknown"}`);
+          if (verboseLog) node.error(`OPC UA error: ${error ? error.message : "unknown"}`);
           node.status({ fill: "red", shape: "ring", text: "error" });
           break;
       }
@@ -151,10 +152,16 @@ module.exports = function (RED) {
       return result;
     }
 
-    function isSessionInvalidError(error) {
-      const msg = error && error.message;
-      return msg === "Session is no longer valid" ||
-        msg === "Not connected";
+    function isConnectionLostError(error) {
+      if (!error || !error.message) return false;
+      const m = error.message;
+      return m === "Session is no longer valid" ||
+        m === "Not connected" ||
+        m.includes("premature disconnection") ||
+        m.includes("Secure Channel Closed") ||
+        m.includes("connection may have been rejected") ||
+        m.includes("Server end point") ||
+        m.includes("socket has been disconnected");
     }
 
     async function ensureConnected() {
@@ -164,31 +171,63 @@ module.exports = function (RED) {
       }
     }
 
+    const RECONNECT_BASE_DELAY_MS = 2000;
+    const RECONNECT_MAX_DELAY_MS = 30000;
+    const retryAttempts = Number(config.retryAttempts) || 0;
+    let reconnectPromise = null;
+
     async function forceReconnect() {
-      // Mark disconnected so connect() tears down the old client/session
-      // and builds a completely fresh connection, even if another code path
-      // has already flipped isConnected back to true with a stale session.
+      if (reconnectPromise) return reconnectPromise;
+      reconnectPromise = _doForceReconnect();
+      try {
+        await reconnectPromise;
+      } finally {
+        reconnectPromise = null;
+      }
+    }
+
+    async function _doForceReconnect() {
       clientManager.isConnected = false;
       clientManager.reconnectAttempts = 0;
-      await clientManager.connect();
+
+      const infinite = retryAttempts <= 0;
+      const totalLabel = infinite ? "∞" : String(retryAttempts);
+
+      for (let attempt = 1; infinite || attempt <= retryAttempts; attempt++) {
+        try {
+          await clientManager.connect();
+          if (verboseLog) node.warn(`Reconnected to OPC UA server (attempt ${attempt}/${totalLabel})`);
+          return;
+        } catch (err) {
+          if (!infinite && attempt === retryAttempts) throw err;
+          const delay = Math.min(RECONNECT_BASE_DELAY_MS * attempt, RECONNECT_MAX_DELAY_MS);
+          if (verboseLog) node.warn(`Reconnect attempt ${attempt}/${totalLabel} failed – retrying in ${delay}ms...`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          clientManager.isConnected = false;
+          clientManager.reconnectAttempts = 0;
+        }
+      }
     }
 
     node.on("input", async function (msg, send, done) {
-      try {
+      const operation = (
+        msg.operation ||
+        config.defaultOperation ||
+        "read"
+      ).toLowerCase();
+
+      async function tryOnce() {
         await ensureConnected();
+        return await executeOperation(msg, operation, send);
+      }
 
-        const operation = (
-          msg.operation ||
-          config.defaultOperation ||
-          "read"
-        ).toLowerCase();
-
+      try {
         let result;
         try {
-          result = await executeOperation(msg, operation, send);
+          result = await tryOnce();
         } catch (error) {
-          if (isSessionInvalidError(error)) {
-            node.warn("Session lost – reconnecting and retrying operation...");
+          if (isConnectionLostError(error)) {
+            if (verboseLog) node.warn(`Connection lost (${error.message}) – reconnecting...`);
             node.status({ fill: "yellow", shape: "ring", text: "reconnecting..." });
             await forceReconnect();
             result = await executeOperation(msg, operation, send);
@@ -198,7 +237,6 @@ module.exports = function (RED) {
         }
 
         if (result === undefined) {
-          // subscribe handled its own send/done
           done();
           return;
         }
