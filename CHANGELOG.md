@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.0.5 (2026-04-16)
+
+### Fixed
+
+- **Automatic retry on session loss** – When an OPC UA session becomes invalid mid-operation (e.g. server restart, network interruption), the client now automatically reconnects and retries the operation once instead of failing immediately. Previously the current message was lost and only the *next* message would trigger a reconnect.
+
+### Changed
+
+- **`opcua-client`** – Refactored input handler into `executeOperation()`, `ensureConnected()` and `isSessionInvalidError()` for cleaner retry logic. Node status transitions through yellow/reconnecting before returning to green/connected on success.
+
+### Added
+
+- **Session retry tests** – 10 new tests covering retry on read/readmultiple/write, reconnect failure, non-session error passthrough, reconnect counter reset, and status transitions.
+
 ## 0.0.4 (2026-04-12)
 
 ### Added

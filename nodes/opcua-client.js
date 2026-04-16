@@ -74,96 +74,131 @@ module.exports = function (RED) {
 
     // ─── Input Handler ───
 
+    async function executeOperation(msg, operation, send) {
+      let result;
+
+      switch (operation) {
+        case "read":
+          result = await handleRead(msg, clientManager);
+          break;
+
+        case "readmultiple":
+          result = await handleReadMultiple(msg, clientManager);
+          break;
+
+        case "write":
+          result = await handleWrite(msg, clientManager);
+          break;
+
+        case "writemultiple":
+          result = await handleWriteMultiple(msg, clientManager);
+          break;
+
+        case "subscribe":
+          await handleSubscribe(
+            msg,
+            clientManager,
+            send,
+            node,
+            subscription,
+            monitorItems,
+            (sub) => {
+              subscription = sub;
+            },
+          );
+          return undefined;
+
+        case "unsubscribe":
+          result = await handleUnsubscribe(msg, monitorItems);
+          break;
+
+        case "browse":
+          result = await handleBrowse(msg, clientManager);
+          break;
+
+        case "method":
+          result = await handleMethod(msg, clientManager);
+          break;
+
+        case "history":
+          result = await handleHistory(msg, clientManager);
+          break;
+
+        case "getendpoints":
+          result = await handleGetEndpoints(msg, clientManager);
+          break;
+
+        case "readattribute":
+          result = await handleReadAttribute(msg, clientManager);
+          break;
+
+        case "registernodes":
+          result = await handleRegisterNodes(msg, clientManager);
+          break;
+
+        case "unregisternodes":
+          result = await handleUnregisterNodes(msg, clientManager);
+          break;
+
+        case "translatebrowsepath":
+          result = await handleTranslateBrowsePath(msg, clientManager);
+          break;
+
+        default:
+          throw new Error(`Unknown operation: ${operation}`);
+      }
+
+      return result;
+    }
+
+    function isSessionInvalidError(error) {
+      const msg = error && error.message;
+      return msg === "Session is no longer valid" ||
+        msg === "Not connected";
+    }
+
+    async function ensureConnected() {
+      if (!clientManager.isConnected) {
+        // Reset reconnect counter so user-triggered messages always get
+        // a fresh set of connection attempts (prevents permanent stuck state
+        // after max reconnect attempts were exhausted).
+        clientManager.reconnectAttempts = 0;
+        await clientManager.connect();
+      }
+    }
+
     node.on("input", async function (msg, send, done) {
       try {
-        if (!clientManager.isConnected) {
-          // Reset reconnect counter so user-triggered messages always get
-          // a fresh set of connection attempts (prevents permanent stuck state
-          // after max reconnect attempts were exhausted).
-          clientManager.reconnectAttempts = 0;
-          await clientManager.connect();
-        }
+        await ensureConnected();
 
         const operation = (
           msg.operation ||
           config.defaultOperation ||
           "read"
         ).toLowerCase();
+
         let result;
+        try {
+          result = await executeOperation(msg, operation, send);
+        } catch (error) {
+          if (isSessionInvalidError(error)) {
+            node.warn("Session lost – reconnecting and retrying operation...");
+            node.status({ fill: "yellow", shape: "ring", text: "reconnecting..." });
+            await ensureConnected();
+            result = await executeOperation(msg, operation, send);
+          } else {
+            throw error;
+          }
+        }
 
-        switch (operation) {
-          case "read":
-            result = await handleRead(msg, clientManager);
-            break;
-
-          case "readmultiple":
-            result = await handleReadMultiple(msg, clientManager);
-            break;
-
-          case "write":
-            result = await handleWrite(msg, clientManager);
-            break;
-
-          case "writemultiple":
-            result = await handleWriteMultiple(msg, clientManager);
-            break;
-
-          case "subscribe":
-            await handleSubscribe(
-              msg,
-              clientManager,
-              send,
-              node,
-              subscription,
-              monitorItems,
-              (sub) => {
-                subscription = sub;
-              },
-            );
-            done();
-            return;
-
-          case "unsubscribe":
-            result = await handleUnsubscribe(msg, monitorItems);
-            break;
-
-          case "browse":
-            result = await handleBrowse(msg, clientManager);
-            break;
-
-          case "method":
-            result = await handleMethod(msg, clientManager);
-            break;
-
-          case "history":
-            result = await handleHistory(msg, clientManager);
-            break;
-
-          case "getendpoints":
-            result = await handleGetEndpoints(msg, clientManager);
-            break;
-
-          case "readattribute":
-            result = await handleReadAttribute(msg, clientManager);
-            break;
-
-          case "registernodes":
-            result = await handleRegisterNodes(msg, clientManager);
-            break;
-
-          case "unregisternodes":
-            result = await handleUnregisterNodes(msg, clientManager);
-            break;
-
-          case "translatebrowsepath":
-            result = await handleTranslateBrowsePath(msg, clientManager);
-            break;
-
-          default:
-            throw new Error(`Unknown operation: ${operation}`);
+        if (result === undefined) {
+          // subscribe handled its own send/done
+          done();
+          return;
         }
 
         Object.assign(msg, result);
+        node.status({ fill: "green", shape: "dot", text: "connected" });
         send(msg);
         done();
       } catch (error) {
