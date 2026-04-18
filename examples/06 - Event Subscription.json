@@ -2,23 +2,23 @@
     {
         "id": "ex06-endpoint",
         "type": "opcua-endpoint",
-        "name": "Local Server",
-        "endpointUrl": "opc.tcp://localhost:4840",
+        "name": "Test Server",
+        "endpointUrl": "opc.tcp://localhost:4841/UA/TestServer",
         "securityMode": "None",
         "securityPolicy": "None"
     },
     {
         "id": "ex06-tab",
         "type": "tab",
-        "label": "Event Subscription",
-        "info": "Subscribe to OPC UA events. The Event node monitors a source node (default: Server node i=2253) for events of a given type."
+        "label": "06 - Event Subscription",
+        "info": "Subscribe to OPC UA events. The Event node monitors a source node (default: Server node i=2253) for events of a given type.\n\nThis example uses the included Docker test server. Start it with:\n\n    docker compose up -d\n\nClick \"Start\" to begin listening, then click \"Trigger Event\" to make the test server raise an event."
     },
     {
         "id": "ex06-comment",
         "type": "comment",
         "z": "ex06-tab",
-        "name": "Click inject to start listening for events. Each event produces a message.",
-        "x": 310,
+        "name": "Click \"Start\" to listen, then \"Trigger Event\" to raise one. Each event produces a message.",
+        "x": 360,
         "y": 40,
         "wires": []
     },

@@ -2,8 +2,8 @@
     {
         "id": "ex08-tab",
         "type": "tab",
-        "label": "OPC UA Server",
-        "info": "Create an OPC UA server, add variables, and update their values. The server starts automatically on deploy."
+        "label": "08 - Server with Variables",
+        "info": "Create an OPC UA server, add a folder and a variable, and update its value. The server starts automatically on deploy.\n\nClick the inject nodes in order:\n1. Add Folder \"Sensors\"\n2. Add Variable \"Temperature\" (inside Sensors)\n3. Set Temperature = 25.5\n4. (optional) Get Server Info"
     },
     {
         "id": "ex08-comment1",
@@ -60,7 +60,8 @@
         "name": "Add Folder \"Sensors\"",
         "props": [
             { "p": "command", "vt": "str", "v": "addFolder" },
-            { "p": "folderName", "vt": "str", "v": "Sensors" }
+            { "p": "folderName", "vt": "str", "v": "Sensors" },
+            { "p": "nodeId", "vt": "str", "v": "ns=1;s=Sensors" }
         ],
         "repeat": "",
         "crontab": "",
@@ -81,6 +82,8 @@
         "props": [
             { "p": "command", "vt": "str", "v": "addVariable" },
             { "p": "variableName", "vt": "str", "v": "Temperature" },
+            { "p": "parentNodeId", "vt": "str", "v": "ns=1;s=Sensors" },
+            { "p": "nodeId", "vt": "str", "v": "ns=1;s=Temperature" },
             { "p": "datatype", "vt": "str", "v": "Double" },
             { "p": "initialValue", "vt": "num", "v": "20.0" }
         ],
@@ -111,15 +114,17 @@
         "name": "Set Temperature = 25.5",
         "props": [
             { "p": "command", "vt": "str", "v": "setValue" },
-            { "p": "payload", "vt": "num", "v": "25.5" }
+            { "p": "nodeId", "vt": "str", "v": "ns=1;s=Temperature" },
+            { "p": "datatype", "vt": "str", "v": "Double" },
+            { "p": "payload", "v": "25.5", "vt": "num" }
         ],
         "repeat": "",
         "crontab": "",
         "once": false,
         "onceDelay": 0.1,
         "topic": "",
-        "payload": "",
-        "payloadType": "date",
+        "payload": "25.5",
+        "payloadType": "num",
         "x": 180,
         "y": 340,
         "wires": [["ex08-server"]]

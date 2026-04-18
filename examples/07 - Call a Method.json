@@ -2,23 +2,23 @@
     {
         "id": "ex07-endpoint",
         "type": "opcua-endpoint",
-        "name": "Local Server",
-        "endpointUrl": "opc.tcp://localhost:4840",
+        "name": "Test Server",
+        "endpointUrl": "opc.tcp://localhost:4841/UA/TestServer",
         "securityMode": "None",
         "securityPolicy": "None"
     },
     {
         "id": "ex07-tab",
         "type": "tab",
-        "label": "Call a Method",
-        "info": "Call an OPC UA method. The Object and Method NodeIds are configured in the node. Input arguments are passed via msg.payload as an array."
+        "label": "07 - Call a Method",
+        "info": "Call an OPC UA method. The Object and Method NodeIds are configured in the node. Input arguments are passed via msg.payload as an array of {dataType, value}.\n\nThis example uses the included Docker test server. Start it with:\n\n    docker compose up -d\n\nThe test server provides:\n  - ns=1;s=Methods.Add (A:Double, B:Double) → Result:Double\n  - ns=1;s=Methods.Multiply (A:Double, B:Double) → Result:Double\n\nResult is in msg.payload (array of output values)."
     },
     {
         "id": "ex07-comment",
         "type": "comment",
         "z": "ex07-tab",
-        "name": "Edit the Method node to set your Object/Method NodeIds, then inject to call",
-        "x": 320,
+        "name": "Add(2, 3) and Multiply(4, 5) on the included test server",
+        "x": 290,
         "y": 40,
         "wires": []
     },
@@ -26,9 +26,32 @@
         "id": "ex07-inject",
         "type": "inject",
         "z": "ex07-tab",
-        "name": "Call with args",
+        "name": "Add(2, 3)",
         "props": [
-            { "p": "payload", "vt": "json", "v": "[{\"dataType\":\"Double\",\"value\":3.14},{\"dataType\":\"String\",\"value\":\"hello\"}]" }
+            { "p": "payload", "vt": "json", "v": "[{\"dataType\":\"Double\",\"value\":2},{\"dataType\":\"Double\",\"value\":3}]" },
+            { "p": "methodNodeId", "vt": "str", "v": "ns=1;s=Methods.Add" },
+            { "p": "objectNodeId", "vt": "str", "v": "ns=1;s=Methods" }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 140,
+        "y": 120,
+        "wires": [["ex07-method"]]
+    },
+    {
+        "id": "ex07-inject2",
+        "type": "inject",
+        "z": "ex07-tab",
+        "name": "Multiply(4, 5)",
+        "props": [
+            { "p": "payload", "vt": "json", "v": "[{\"dataType\":\"Double\",\"value\":4},{\"dataType\":\"Double\",\"value\":5}]" },
+            { "p": "methodNodeId", "vt": "str", "v": "ns=1;s=Methods.Multiply" },
+            { "p": "objectNodeId", "vt": "str", "v": "ns=1;s=Methods" }
         ],
         "repeat": "",
         "crontab": "",
@@ -38,25 +61,6 @@
         "payload": "",
         "payloadType": "date",
         "x": 150,
-        "y": 120,
-        "wires": [["ex07-method"]]
-    },
-    {
-        "id": "ex07-inject2",
-        "type": "inject",
-        "z": "ex07-tab",
-        "name": "Call without args",
-        "props": [
-            { "p": "payload", "vt": "json", "v": "[]" }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 160,
         "y": 180,
         "wires": [["ex07-method"]]
     },
@@ -66,10 +70,10 @@
         "z": "ex07-tab",
         "name": "",
         "endpoint": "ex07-endpoint",
-        "objectNodeId": "ns=1;s=MyObject",
-        "methodNodeId": "ns=1;s=MyMethod",
+        "objectNodeId": "ns=1;s=Methods",
+        "methodNodeId": "ns=1;s=Methods.Add",
         "x": 390,
-        "y": 140,
+        "y": 150,
         "wires": [["ex07-debug"]]
     },
     {
@@ -81,12 +85,12 @@
         "tosidebar": true,
         "console": false,
         "tostatus": true,
-        "complete": "true",
-        "targetType": "full",
-        "statusVal": "statusCode",
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "payload",
         "statusType": "auto",
-        "x": 590,
-        "y": 140,
+        "x": 600,
+        "y": 150,
         "wires": []
     }
 ]

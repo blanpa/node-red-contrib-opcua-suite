@@ -2,23 +2,23 @@
     {
         "id": "ex04-endpoint",
         "type": "opcua-endpoint",
-        "name": "Local Server",
-        "endpointUrl": "opc.tcp://localhost:4840",
+        "name": "Test Server",
+        "endpointUrl": "opc.tcp://localhost:4841/UA/TestServer",
         "securityMode": "None",
         "securityPolicy": "None"
     },
     {
         "id": "ex04-tab",
         "type": "tab",
-        "label": "Subscribe to Changes",
-        "info": "Subscribe to live value changes. Click inject once to start the subscription. Every time the value changes on the server, a new message arrives at the debug node."
+        "label": "04 - Subscribe to Changes",
+        "info": "Subscribe to live value changes. Click inject once to start the subscription. Every time the value changes on the server, a new message arrives at the debug node.\n\nThis example uses the included Docker test server. Start it with:\n\n    docker compose up -d\n\nThe Dynamic.* NodeIds are continuously updated by the test server, so you immediately see live values."
     },
     {
         "id": "ex04-comment",
         "type": "comment",
         "z": "ex04-tab",
-        "name": "Click inject to start subscription — messages arrive whenever the value changes",
-        "x": 330,
+        "name": "Click \"Subscribe Sinus\" to start — messages arrive every time the value changes",
+        "x": 320,
         "y": 40,
         "wires": []
     },
@@ -26,9 +26,9 @@
         "id": "ex04-inject-sub",
         "type": "inject",
         "z": "ex04-tab",
-        "name": "Subscribe",
+        "name": "Subscribe Sinus",
         "props": [
-            { "p": "topic", "vt": "str", "v": "ns=2;s=Temperature" }
+            { "p": "topic", "vt": "str", "v": "ns=1;s=Dynamic.Sinus" }
         ],
         "repeat": "",
         "crontab": "",
@@ -37,17 +37,36 @@
         "topic": "",
         "payload": "",
         "payloadType": "date",
-        "x": 130,
+        "x": 150,
         "y": 120,
+        "wires": [["ex04-client"]]
+    },
+    {
+        "id": "ex04-inject-sub2",
+        "type": "inject",
+        "z": "ex04-tab",
+        "name": "Subscribe Ramp",
+        "props": [
+            { "p": "topic", "vt": "str", "v": "ns=1;s=Dynamic.Ramp" }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 150,
+        "y": 180,
         "wires": [["ex04-client"]]
     },
     {
         "id": "ex04-inject-unsub",
         "type": "inject",
         "z": "ex04-tab",
-        "name": "Unsubscribe",
+        "name": "Unsubscribe Sinus",
         "props": [
-            { "p": "topic", "vt": "str", "v": "ns=2;s=Temperature" },
+            { "p": "topic", "vt": "str", "v": "ns=1;s=Dynamic.Sinus" },
             { "p": "operation", "vt": "str", "v": "unsubscribe" }
         ],
         "repeat": "",
@@ -57,8 +76,8 @@
         "topic": "",
         "payload": "",
         "payloadType": "date",
-        "x": 140,
-        "y": 180,
+        "x": 160,
+        "y": 240,
         "wires": [["ex04-client"]]
     },
     {
@@ -68,8 +87,8 @@
         "name": "",
         "endpoint": "ex04-endpoint",
         "defaultOperation": "subscribe",
-        "x": 380,
-        "y": 140,
+        "x": 400,
+        "y": 180,
         "wires": [["ex04-debug"]]
     },
     {
@@ -85,8 +104,8 @@
         "targetType": "full",
         "statusVal": "payload",
         "statusType": "auto",
-        "x": 580,
-        "y": 140,
+        "x": 600,
+        "y": 180,
         "wires": []
     }
 ]

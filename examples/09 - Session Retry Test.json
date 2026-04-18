@@ -10,7 +10,7 @@
     {
         "id": "ex09-tab",
         "type": "tab",
-        "label": "Session Retry Test",
+        "label": "09 - Session Retry Test",
         "info": "Tests automatic session retry: reads a value, then reads again after session loss.\n\n1. Click 'Read Once' to verify the connection works.\n2. Click 'Continuous Read' to start periodic reads (every 2s).\n3. Restart the OPC UA server (docker restart opcua-server).\n4. Watch the debug output: you should see a brief 'reconnecting...' warning followed by successful reads — no manual intervention needed.\n5. Click 'Stop' to stop periodic reads.\n6. 'Batch Read' tests readmultiple with the same retry logic."
     },
     {

@@ -2,23 +2,23 @@
     {
         "id": "ex01-endpoint",
         "type": "opcua-endpoint",
-        "name": "Local Server",
-        "endpointUrl": "opc.tcp://localhost:4840",
+        "name": "Test Server",
+        "endpointUrl": "opc.tcp://localhost:4841/UA/TestServer",
         "securityMode": "None",
         "securityPolicy": "None"
     },
     {
         "id": "ex01-tab",
         "type": "tab",
-        "label": "Read Single Variable",
-        "info": "Read a single OPC UA variable. The inject node sets msg.topic to the NodeId, the client reads it."
+        "label": "01 - Read Single Variable",
+        "info": "Read a single OPC UA variable. The inject node sets msg.topic to the NodeId, the client reads it.\n\nThis example uses the included Docker test server. Start it with:\n\n    docker compose up -d\n\nThe test server listens on opc.tcp://localhost:4841/UA/TestServer and provides demo NodeIds in namespace 1 (e.g. ns=1;s=Scalar.Double).\n\nTo use your own server, edit the endpoint URL on the OPC UA Client config node."
     },
     {
         "id": "ex01-comment",
         "type": "comment",
         "z": "ex01-tab",
-        "name": "Click the inject button to read a variable. Edit the endpoint to match your server.",
-        "x": 320,
+        "name": "Click an inject button to read a variable from the test server",
+        "x": 280,
         "y": 40,
         "wires": []
     },
@@ -26,9 +26,9 @@
         "id": "ex01-inject",
         "type": "inject",
         "z": "ex01-tab",
-        "name": "Read Temperature",
+        "name": "Read Scalar.Double",
         "props": [
-            { "p": "topic", "vt": "str", "v": "ns=2;s=Temperature" }
+            { "p": "topic", "vt": "str", "v": "ns=1;s=Scalar.Double" }
         ],
         "repeat": "",
         "crontab": "",
@@ -42,6 +42,44 @@
         "wires": [["ex01-client"]]
     },
     {
+        "id": "ex01-inject-int",
+        "type": "inject",
+        "z": "ex01-tab",
+        "name": "Read Scalar.Int32",
+        "props": [
+            { "p": "topic", "vt": "str", "v": "ns=1;s=Scalar.Int32" }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 160,
+        "y": 180,
+        "wires": [["ex01-client"]]
+    },
+    {
+        "id": "ex01-inject-str",
+        "type": "inject",
+        "z": "ex01-tab",
+        "name": "Read Scalar.String",
+        "props": [
+            { "p": "topic", "vt": "str", "v": "ns=1;s=Scalar.String" }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 160,
+        "y": 240,
+        "wires": [["ex01-client"]]
+    },
+    {
         "id": "ex01-client",
         "type": "opcua-client",
         "z": "ex01-tab",
@@ -49,7 +87,7 @@
         "endpoint": "ex01-endpoint",
         "defaultOperation": "read",
         "x": 380,
-        "y": 120,
+        "y": 180,
         "wires": [["ex01-debug"]]
     },
     {
@@ -66,7 +104,7 @@
         "statusVal": "payload",
         "statusType": "auto",
         "x": 570,
-        "y": 120,
+        "y": 180,
         "wires": []
     }
 ]

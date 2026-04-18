@@ -351,4 +351,151 @@ describe('opcua-server node', function() {
             });
         });
     });
+
+    // Regression test for issue #12: addVariable with the default parent
+    // ObjectsFolder used to call namespace.addVariable({ componentOf: ... })
+    // which node-opcua rejects with:
+    //   "Only Organizes References are used to relate Objects to the
+    //    'Objects' standard Object."
+    // For the standard ObjectsFolder we must use { organizedBy: ... }.
+    describe('addVariable parent reference (issue #12)', function() {
+        let capturedAddVariable;
+        let capturedAddMethod;
+        const opcuaPath = require.resolve('node-opcua');
+        let originalOpcua;
+
+        beforeEach(function() {
+            capturedAddVariable = null;
+            capturedAddMethod = null;
+            originalOpcua = require.cache[opcuaPath];
+            const fakeNamespace = {
+                index: 1,
+                addFolder: () => ({ nodeId: { toString: () => 'ns=1;s=Folder' } }),
+                addVariable: (opts) => {
+                    capturedAddVariable = opts;
+                    if ('componentOf' in opts && isStandardObjects(opts.componentOf)) {
+                        throw new Error(
+                            "Only Organizes References are used to relate Objects to the 'Objects' standard Object."
+                        );
+                    }
+                    return { nodeId: { toString: () => 'ns=1;s=Var' } };
+                },
+                addMethod: (opts) => {
+                    capturedAddMethod = opts;
+                    if ('componentOf' in opts && isStandardObjects(opts.componentOf)) {
+                        throw new Error(
+                            "Only Organizes References are used to relate Objects to the 'Objects' standard Object."
+                        );
+                    }
+                    return { nodeId: { toString: () => 'ns=1;s=Method' } };
+                },
+                addObject: () => ({ nodeId: { toString: () => 'ns=1;s=Obj' } })
+            };
+            function isStandardObjects(id) {
+                const s = String(id);
+                return s === 'ObjectsFolder' || s === 'i=85' || s === 'ns=0;i=85';
+            }
+            require.cache[opcuaPath] = {
+                id: opcuaPath,
+                filename: opcuaPath,
+                loaded: true,
+                exports: {
+                    OPCUAServer: function() {
+                        this.initialize = () => Promise.resolve();
+                        this.start = () => Promise.resolve();
+                        this.shutdown = () => Promise.resolve();
+                        this.getEndpointUrl = () => 'opc.tcp://test:4840/UA/NodeRED';
+                        this.engine = {
+                            addressSpace: { getOwnNamespace: () => fakeNamespace }
+                        };
+                    },
+                    Variant: function(o) { Object.assign(this, o); },
+                    DataType: { Double: 11, String: 12 },
+                    StatusCodes: { Good: { toString: () => 'Good' } },
+                    coerceLocalizedText: (t) => t,
+                    AccessLevelFlag: { CurrentRead: 1, CurrentWrite: 2 }
+                }
+            };
+            const p = path.resolve(__dirname, '..', 'nodes', 'opcua-server.js');
+            delete require.cache[require.resolve(p)];
+        });
+
+        afterEach(function() {
+            if (originalOpcua) {
+                require.cache[opcuaPath] = originalOpcua;
+            } else {
+                delete require.cache[opcuaPath];
+            }
+        });
+
+        function buildServerNode() {
+            const RED = createRED({});
+            const p = path.resolve(__dirname, '..', 'nodes', 'opcua-server.js');
+            require(p)(RED);
+            const Ctor = RED.nodes._types['opcua-server'].constructor;
+            const node = {};
+            Ctor.call(node, { port: 4840, serverName: 'Test' });
+            return node;
+        }
+
+        async function waitForServerReady(node) {
+            for (let i = 0; i < 50 && !node.server; i++) {
+                await new Promise(r => setImmediate(r));
+            }
+        }
+
+        it('uses organizedBy when adding a variable to the standard ObjectsFolder', async function() {
+            const node = buildServerNode();
+            await waitForServerReady(node);
+
+            const handler = node._events.input[0];
+            const msg = {
+                command: 'addVariable',
+                variableName: 'Temperature',
+                datatype: 'Double',
+                initialValue: 20.0
+            };
+            await handler(msg, () => {}, () => {});
+
+            expect(capturedAddVariable).to.not.be.null;
+            expect(capturedAddVariable).to.have.property('organizedBy', 'ObjectsFolder');
+            expect(capturedAddVariable).to.not.have.property('componentOf');
+        });
+
+        it('uses componentOf when adding a variable under a user-created folder', async function() {
+            const node = buildServerNode();
+            await waitForServerReady(node);
+
+            const handler = node._events.input[0];
+            const msg = {
+                command: 'addVariable',
+                variableName: 'Temperature',
+                parentNodeId: 'ns=1;s=Sensors',
+                datatype: 'Double',
+                initialValue: 20.0
+            };
+            await handler(msg, () => {}, () => {});
+
+            expect(capturedAddVariable).to.have.property('componentOf', 'ns=1;s=Sensors');
+            expect(capturedAddVariable).to.not.have.property('organizedBy');
+        });
+
+        it('uses organizedBy when adding a method to the standard ObjectsFolder', async function() {
+            const node = buildServerNode();
+            await waitForServerReady(node);
+
+            const handler = node._events.input[0];
+            const msg = {
+                command: 'addMethod',
+                methodName: 'Reset',
+                inputArguments: [],
+                outputArguments: []
+            };
+            await handler(msg, () => {}, () => {});
+
+            expect(capturedAddMethod).to.not.be.null;
+            expect(capturedAddMethod).to.have.property('organizedBy', 'ObjectsFolder');
+            expect(capturedAddMethod).to.not.have.property('componentOf');
+        });
+    });
 });

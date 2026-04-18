@@ -2,16 +2,16 @@
     {
         "id": "ex05-endpoint",
         "type": "opcua-endpoint",
-        "name": "Local Server",
-        "endpointUrl": "opc.tcp://localhost:4840",
+        "name": "Test Server",
+        "endpointUrl": "opc.tcp://localhost:4841/UA/TestServer",
         "securityMode": "None",
         "securityPolicy": "None"
     },
     {
         "id": "ex05-tab",
         "type": "tab",
-        "label": "Browse Address Space",
-        "info": "Browse the OPC UA server's address space. Send a NodeId via msg.topic to browse from that node, or leave empty to browse from RootFolder."
+        "label": "05 - Browse Address Space",
+        "info": "Browse the OPC UA server's address space. Send a NodeId via msg.topic to browse from that node, or leave empty to browse from RootFolder.\n\nThis example uses the included Docker test server. Start it with:\n\n    docker compose up -d\n\nThe test server provides a TestData folder with subfolders Scalar, Arrays, Dynamic, Methods and Writable in namespace 1."
     },
     {
         "id": "ex05-comment",
@@ -59,12 +59,31 @@
         "wires": [["ex05-browser"]]
     },
     {
-        "id": "ex05-inject-server",
+        "id": "ex05-inject-testdata",
         "type": "inject",
         "z": "ex05-tab",
-        "name": "Browse Server",
+        "name": "Browse TestData",
         "props": [
-            { "p": "topic", "vt": "str", "v": "i=2253" }
+            { "p": "topic", "vt": "str", "v": "ns=1;s=TestData" }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 150,
+        "y": 240,
+        "wires": [["ex05-browser"]]
+    },
+    {
+        "id": "ex05-inject-scalar",
+        "type": "inject",
+        "z": "ex05-tab",
+        "name": "Browse Scalar",
+        "props": [
+            { "p": "topic", "vt": "str", "v": "ns=1;s=Scalar" }
         ],
         "repeat": "",
         "crontab": "",
@@ -74,7 +93,7 @@
         "payload": "",
         "payloadType": "date",
         "x": 140,
-        "y": 240,
+        "y": 300,
         "wires": [["ex05-browser"]]
     },
     {
@@ -83,8 +102,8 @@
         "z": "ex05-tab",
         "name": "",
         "endpoint": "ex05-endpoint",
-        "x": 380,
-        "y": 180,
+        "x": 400,
+        "y": 220,
         "wires": [["ex05-debug"]]
     },
     {
@@ -100,8 +119,8 @@
         "targetType": "msg",
         "statusVal": "browseResult.count",
         "statusType": "auto",
-        "x": 580,
-        "y": 180,
+        "x": 600,
+        "y": 220,
         "wires": []
     }
 ]

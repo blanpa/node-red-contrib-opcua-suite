@@ -2,16 +2,16 @@
     {
         "id": "ex02-endpoint",
         "type": "opcua-endpoint",
-        "name": "Local Server",
-        "endpointUrl": "opc.tcp://localhost:4840",
+        "name": "Test Server",
+        "endpointUrl": "opc.tcp://localhost:4841/UA/TestServer",
         "securityMode": "None",
         "securityPolicy": "None"
     },
     {
         "id": "ex02-tab",
         "type": "tab",
-        "label": "Batch Read (Item Collector)",
-        "info": "Chain multiple Item nodes to build a batch read. Each Item node adds its variables to msg.items. The client reads them all in one OPC UA service call."
+        "label": "02 - Batch Read (Item Collector)",
+        "info": "Chain multiple Item nodes to build a batch read. Each Item node adds its variables to msg.items. The client reads them all in one OPC UA service call.\n\nThis example uses the included Docker test server. Start it with:\n\n    docker compose up -d\n\nNodeIds used: ns=1;s=Scalar.Double, ns=1;s=Scalar.Int32, ns=1;s=Scalar.String."
     },
     {
         "id": "ex02-comment1",
@@ -43,8 +43,8 @@
         "id": "ex02-item1",
         "type": "opcua-item",
         "z": "ex02-tab",
-        "name": "Temperature",
-        "items": [{ "nodeId": "ns=2;s=Temperature", "datatype": "Double", "itemName": "Temperature" }],
+        "name": "Double",
+        "items": [{ "nodeId": "ns=1;s=Scalar.Double", "datatype": "Double", "itemName": "Double" }],
         "collector": true,
         "x": 280,
         "y": 120,
@@ -54,8 +54,8 @@
         "id": "ex02-item2",
         "type": "opcua-item",
         "z": "ex02-tab",
-        "name": "Pressure",
-        "items": [{ "nodeId": "ns=2;s=Pressure", "datatype": "Double", "itemName": "Pressure" }],
+        "name": "Int32",
+        "items": [{ "nodeId": "ns=1;s=Scalar.Int32", "datatype": "Int32", "itemName": "Int32" }],
         "collector": true,
         "x": 450,
         "y": 120,
@@ -117,11 +117,11 @@
         "id": "ex02-items-all",
         "type": "opcua-item",
         "z": "ex02-tab",
-        "name": "All Sensors",
+        "name": "All Scalars",
         "items": [
-            { "nodeId": "ns=2;s=Temperature", "datatype": "Double", "itemName": "Temperature" },
-            { "nodeId": "ns=2;s=Pressure", "datatype": "Double", "itemName": "Pressure" },
-            { "nodeId": "ns=2;s=Flow", "datatype": "Float", "itemName": "Flow Rate" }
+            { "nodeId": "ns=1;s=Scalar.Double", "datatype": "Double", "itemName": "Double" },
+            { "nodeId": "ns=1;s=Scalar.Int32", "datatype": "Int32", "itemName": "Int32" },
+            { "nodeId": "ns=1;s=Scalar.String", "datatype": "String", "itemName": "String" }
         ],
         "collector": true,
         "x": 280,

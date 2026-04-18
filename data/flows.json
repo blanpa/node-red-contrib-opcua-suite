@@ -1,242 +1,64 @@
 [
     {
-        "id": "tab-read",
-        "type": "tab",
-        "label": "Read Operations",
-        "disabled": false,
-        "info": ""
-    },
-    {
-        "id": "tab-write",
-        "type": "tab",
-        "label": "Write Operations",
-        "disabled": false,
-        "info": ""
-    },
-    {
-        "id": "tab-subscribe",
-        "type": "tab",
-        "label": "Subscribe & Events",
-        "disabled": false,
-        "info": ""
-    },
-    {
-        "id": "tab-browse",
-        "type": "tab",
-        "label": "Browse & Discovery",
-        "disabled": false,
-        "info": ""
-    },
-    {
-        "id": "tab-method",
-        "type": "tab",
-        "label": "Method Calls",
-        "disabled": false,
-        "info": ""
-    },
-    {
-        "id": "tab-history",
-        "type": "tab",
-        "label": "History Read",
-        "disabled": false,
-        "info": ""
-    },
-    {
-        "id": "tab-advanced",
-        "type": "tab",
-        "label": "Advanced Patterns",
-        "disabled": false,
-        "info": ""
-    },
-    {
-        "id": "tab-auth",
-        "type": "tab",
-        "label": "Authentication",
-        "disabled": false,
-        "info": "Tests for OPC UA authentication methods: Anonymous, Username/Password, wrong credentials, GetEndpoints discovery."
-    },
-    {
-        "id": "tab-security",
-        "type": "tab",
-        "label": "Security & Certificates",
-        "disabled": false,
-        "info": "Tests all OPC UA security modes, policies, and certificate-based authentication."
-    },
-    {
-        "id": "0b61f7f1316bba6f",
-        "type": "tab",
-        "label": "Extension Object",
-        "disabled": false,
-        "info": "",
-        "env": []
-    },
-    {
-        "id": "ep1",
+        "id": "ex01-endpoint",
         "type": "opcua-endpoint",
         "name": "Test Server",
         "endpointUrl": "opc.tcp://opcua-server:4840/UA/TestServer",
         "securityMode": "None",
-        "securityPolicy": "None",
-        "certificateFile": "",
-        "privateKeyFile": "",
-        "caCertificateFile": "",
-        "userCertificateFile": "",
-        "userPrivateKeyFile": ""
+        "securityPolicy": "None"
     },
     {
-        "id": "ep-auth-user",
-        "type": "opcua-endpoint",
-        "name": "Test Server (admin)",
-        "endpointUrl": "opc.tcp://opcua-server:4840/UA/TestServer",
-        "securityMode": "None",
-        "securityPolicy": "None",
-        "certificateFile": "",
-        "privateKeyFile": "",
-        "caCertificateFile": "",
-        "userCertificateFile": "",
-        "userPrivateKeyFile": ""
+        "id": "ex01-tab",
+        "type": "tab",
+        "label": "01 - Read Single Variable",
+        "info": "Read a single OPC UA variable. The inject node sets msg.topic to the NodeId, the client reads it.\n\nThis example uses the included Docker test server. Start it with:\n\n    docker compose up -d\n\nThe test server listens on opc.tcp://localhost:4841/UA/TestServer and provides demo NodeIds in namespace 1 (e.g. ns=1;s=Scalar.Double).\n\nTo use your own server, edit the endpoint URL on the OPC UA Client config node."
     },
     {
-        "id": "ep-auth-operator",
-        "type": "opcua-endpoint",
-        "name": "Test Server (operator)",
-        "endpointUrl": "opc.tcp://opcua-server:4840/UA/TestServer",
-        "securityMode": "None",
-        "securityPolicy": "None",
-        "certificateFile": "",
-        "privateKeyFile": "",
-        "caCertificateFile": "",
-        "userCertificateFile": "",
-        "userPrivateKeyFile": ""
-    },
-    {
-        "id": "ep-auth-wrong",
-        "type": "opcua-endpoint",
-        "name": "Test Server (wrong creds)",
-        "endpointUrl": "opc.tcp://opcua-server:4840/UA/TestServer",
-        "securityMode": "None",
-        "securityPolicy": "None",
-        "certificateFile": "",
-        "privateKeyFile": "",
-        "caCertificateFile": "",
-        "userCertificateFile": "",
-        "userPrivateKeyFile": ""
-    },
-    {
-        "id": "ep-sign-b256",
-        "type": "opcua-endpoint",
-        "name": "Sign + Basic256Sha256",
-        "endpointUrl": "opc.tcp://opcua-server:4840/UA/TestServer",
-        "securityMode": "Sign",
-        "securityPolicy": "Basic256Sha256",
-        "certificateFile": "/data/opcua-certs/client-cert.pem",
-        "privateKeyFile": "/data/opcua-certs/client-key.pem",
-        "caCertificateFile": "",
-        "userCertificateFile": "",
-        "userPrivateKeyFile": ""
-    },
-    {
-        "id": "ep-signenc-b256",
-        "type": "opcua-endpoint",
-        "name": "SignAndEncrypt + Basic256Sha256",
-        "endpointUrl": "opc.tcp://opcua-server:4840/UA/TestServer",
-        "securityMode": "SignAndEncrypt",
-        "securityPolicy": "Basic256Sha256",
-        "certificateFile": "/data/opcua-certs/client-cert.pem",
-        "privateKeyFile": "/data/opcua-certs/client-key.pem",
-        "caCertificateFile": "",
-        "userCertificateFile": "",
-        "userPrivateKeyFile": ""
-    },
-    {
-        "id": "ep-signenc-aes128",
-        "type": "opcua-endpoint",
-        "name": "SignAndEncrypt + Aes128",
-        "endpointUrl": "opc.tcp://opcua-server:4840/UA/TestServer",
-        "securityMode": "SignAndEncrypt",
-        "securityPolicy": "Aes128_Sha256_RsaOaep",
-        "certificateFile": "/data/opcua-certs/client-cert.pem",
-        "privateKeyFile": "/data/opcua-certs/client-key.pem",
-        "caCertificateFile": "",
-        "userCertificateFile": "",
-        "userPrivateKeyFile": ""
-    },
-    {
-        "id": "ep-signenc-aes256",
-        "type": "opcua-endpoint",
-        "name": "SignAndEncrypt + Aes256",
-        "endpointUrl": "opc.tcp://opcua-server:4840/UA/TestServer",
-        "securityMode": "SignAndEncrypt",
-        "securityPolicy": "Aes256_Sha256_RsaPss",
-        "certificateFile": "/data/opcua-certs/client-cert.pem",
-        "privateKeyFile": "/data/opcua-certs/client-key.pem",
-        "caCertificateFile": "",
-        "userCertificateFile": "",
-        "userPrivateKeyFile": ""
-    },
-    {
-        "id": "ep-x509",
-        "type": "opcua-endpoint",
-        "name": "X509 User Cert",
-        "endpointUrl": "opc.tcp://opcua-server:4840/UA/TestServer",
-        "securityMode": "None",
-        "securityPolicy": "None",
-        "certificateFile": "",
-        "privateKeyFile": "",
-        "caCertificateFile": "",
-        "userCertificateFile": "/data/opcua-certs/user-cert.pem",
-        "userPrivateKeyFile": "/data/opcua-certs/user-key.pem"
-    },
-    {
-        "id": "ep-x509-senc",
-        "type": "opcua-endpoint",
-        "name": "X509 + SignAndEncrypt",
-        "endpointUrl": "opc.tcp://opcua-server:4840/UA/TestServer",
-        "securityMode": "SignAndEncrypt",
-        "securityPolicy": "Basic256Sha256",
-        "certificateFile": "/data/opcua-certs/client-cert.pem",
-        "privateKeyFile": "/data/opcua-certs/client-key.pem",
-        "caCertificateFile": "",
-        "userCertificateFile": "/data/opcua-certs/user-cert.pem",
-        "userPrivateKeyFile": "/data/opcua-certs/user-key.pem"
-    },
-    {
-        "id": "ep-senc-admin",
-        "type": "opcua-endpoint",
-        "name": "SignAndEncrypt + admin",
-        "endpointUrl": "opc.tcp://opcua-server:4840/UA/TestServer",
-        "securityMode": "SignAndEncrypt",
-        "securityPolicy": "Basic256Sha256",
-        "certificateFile": "/data/opcua-certs/client-cert.pem",
-        "privateKeyFile": "/data/opcua-certs/client-key.pem",
-        "caCertificateFile": "",
-        "userCertificateFile": "",
-        "userPrivateKeyFile": ""
-    },
-    {
-        "id": "comment-r1",
+        "id": "ex01-comment",
         "type": "comment",
-        "z": "tab-read",
-        "name": "══ 1. Single Read ══",
-        "x": 150,
+        "z": "ex01-tab",
+        "name": "Click an inject button to read a variable from the test server",
+        "x": 280,
         "y": 40,
         "wires": []
     },
     {
-        "id": "inject-read-topic",
+        "id": "ex01-inject",
         "type": "inject",
-        "z": "tab-read",
-        "name": "Read via msg.topic",
+        "z": "ex01-tab",
+        "name": "Read Scalar.Double",
+        "props": [
+            {
+                "p": "topic",
+                "vt": "str",
+                "v": "ns=1;s=Scalar.Double"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 160,
+        "y": 120,
+        "wires": [
+            [
+                "ex01-client"
+            ]
+        ]
+    },
+    {
+        "id": "ex01-inject-int",
+        "type": "inject",
+        "z": "ex01-tab",
+        "name": "Read Scalar.Int32",
         "props": [
             {
                 "p": "topic",
                 "vt": "str",
                 "v": "ns=1;s=Scalar.Int32"
-            },
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "read"
             }
         ],
         "repeat": "",
@@ -247,246 +69,23 @@
         "payload": "",
         "payloadType": "date",
         "x": 160,
-        "y": 80,
+        "y": 180,
         "wires": [
             [
-                "client-read"
+                "ex01-client"
             ]
         ]
     },
     {
-        "id": "inject-read-nodeid",
+        "id": "ex01-inject-str",
         "type": "inject",
-        "z": "tab-read",
-        "name": "Read via msg.nodeId",
-        "props": [
-            {
-                "p": "nodeId",
-                "vt": "str",
-                "v": "ns=1;s=Scalar.Double"
-            },
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "read"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 160,
-        "y": 120,
-        "wires": [
-            [
-                "client-read"
-            ]
-        ]
-    },
-    {
-        "id": "inject-read-op",
-        "type": "inject",
-        "z": "tab-read",
-        "name": "Read via msg.operation",
+        "z": "ex01-tab",
+        "name": "Read Scalar.String",
         "props": [
             {
                 "p": "topic",
                 "vt": "str",
                 "v": "ns=1;s=Scalar.String"
-            },
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "read"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 170,
-        "y": 160,
-        "wires": [
-            [
-                "client-read"
-            ]
-        ]
-    },
-    {
-        "id": "client-read",
-        "type": "opcua-client",
-        "z": "tab-read",
-        "name": "Read Client",
-        "endpoint": "ep-sign-b256",
-        "defaultOperation": "read",
-        "applicationName": "",
-        "maxReconnectAttempts": "",
-        "reconnectDelay": "",
-        "x": 400,
-        "y": 120,
-        "wires": [
-            [
-                "debug-read"
-            ]
-        ]
-    },
-    {
-        "id": "debug-read",
-        "type": "debug",
-        "z": "tab-read",
-        "name": "Read Result",
-        "active": true,
-        "tosidebar": true,
-        "complete": "true",
-        "x": 590,
-        "y": 120,
-        "wires": []
-    },
-    {
-        "id": "comment-r2",
-        "type": "comment",
-        "z": "tab-read",
-        "name": "══ 2. Multiple Read (msg.items) ══",
-        "x": 190,
-        "y": 220,
-        "wires": []
-    },
-    {
-        "id": "inject-readmulti-func",
-        "type": "inject",
-        "z": "tab-read",
-        "name": "Read Multiple via Function",
-        "props": [],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 170,
-        "y": 260,
-        "wires": [
-            [
-                "func-readmulti"
-            ]
-        ]
-    },
-    {
-        "id": "func-readmulti",
-        "type": "function",
-        "z": "tab-read",
-        "name": "Build Read Items",
-        "func": "msg.operation = 'readmultiple';\nmsg.items = [\n    { nodeId: 'ns=1;s=Scalar.Int32', name: 'MyInt' },\n    { nodeId: 'ns=1;s=Scalar.Double', name: 'MyDouble' },\n    { nodeId: 'ns=1;s=Scalar.Boolean', name: 'MyBool' },\n    { nodeId: 'ns=1;s=Scalar.String', name: 'MyString' }\n];\nreturn msg;",
-        "outputs": 1,
-        "x": 410,
-        "y": 260,
-        "wires": [
-            [
-                "client-readmulti"
-            ]
-        ]
-    },
-    {
-        "id": "client-readmulti",
-        "type": "opcua-client",
-        "z": "tab-read",
-        "name": "Multi-Read Client",
-        "endpoint": "ep1",
-        "defaultOperation": "readmultiple",
-        "applicationName": "",
-        "maxReconnectAttempts": "",
-        "reconnectDelay": "",
-        "x": 630,
-        "y": 260,
-        "wires": [
-            [
-                "debug-readmulti"
-            ]
-        ]
-    },
-    {
-        "id": "debug-readmulti",
-        "type": "debug",
-        "z": "tab-read",
-        "name": "Multi-Read Result",
-        "active": true,
-        "tosidebar": true,
-        "complete": "true",
-        "x": 840,
-        "y": 260,
-        "wires": []
-    },
-    {
-        "id": "comment-r3",
-        "type": "comment",
-        "z": "tab-read",
-        "name": "══ 3. Read Multiple (msg.payload Object Format) ══  NEW",
-        "x": 250,
-        "y": 320,
-        "wires": []
-    },
-    {
-        "id": "inject-readmulti-payload",
-        "type": "inject",
-        "z": "tab-read",
-        "name": "Read Multiple (payload object)",
-        "props": [],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 190,
-        "y": 360,
-        "wires": [
-            [
-                "func-readmulti-payload"
-            ]
-        ]
-    },
-    {
-        "id": "func-readmulti-payload",
-        "type": "function",
-        "z": "tab-read",
-        "name": "Build Payload Object",
-        "func": "// Object-Format: Key = friendly name, Value = nodeId string\nmsg.operation = 'readmultiple';\nmsg.payload = {\n    \"Temperature\": \"ns=1;s=Writable.Temperature\",\n    \"Pressure\": \"ns=1;s=Writable.Pressure\",\n    \"Counter\": \"ns=1;s=Writable.Counter\",\n    \"MachineName\": \"ns=1;s=Writable.MachineName\"\n};\nreturn msg;",
-        "outputs": 1,
-        "x": 440,
-        "y": 360,
-        "wires": [
-            [
-                "client-readmulti"
-            ]
-        ]
-    },
-    {
-        "id": "comment-r4",
-        "type": "comment",
-        "z": "tab-read",
-        "name": "══ 4. Multiple Read (Item Collector Pattern) ══",
-        "x": 230,
-        "y": 420,
-        "wires": []
-    },
-    {
-        "id": "inject-readcollector",
-        "type": "inject",
-        "z": "tab-read",
-        "name": "Trigger Collector Read",
-        "props": [
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "readmultiple"
             }
         ],
         "repeat": "",
@@ -497,40 +96,94 @@
         "payload": "",
         "payloadType": "date",
         "x": 160,
-        "y": 460,
+        "y": 240,
         "wires": [
             [
-                "item-r-int32"
+                "ex01-client"
             ]
         ]
     },
     {
-        "id": "item-r-int32",
-        "type": "opcua-item",
-        "z": "tab-read",
-        "name": "Int32",
-        "collector": true,
-        "items": [
-            {
-                "nodeId": "ns=1;s=Scalar.Int32",
-                "datatype": "Int32",
-                "itemName": "Int32"
-            }
-        ],
-        "x": 330,
-        "y": 460,
+        "id": "ex01-client",
+        "type": "opcua-client",
+        "z": "ex01-tab",
+        "name": "",
+        "endpoint": "ex01-endpoint",
+        "defaultOperation": "read",
+        "x": 380,
+        "y": 180,
         "wires": [
             [
-                "item-r-double"
+                "ex01-debug"
             ]
         ]
     },
     {
-        "id": "item-r-double",
+        "id": "ex01-debug",
+        "type": "debug",
+        "z": "ex01-tab",
+        "name": "Value",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "payload",
+        "statusType": "auto",
+        "x": 570,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "ex02-endpoint",
+        "type": "opcua-endpoint",
+        "name": "Test Server",
+        "endpointUrl": "opc.tcp://opcua-server:4840/UA/TestServer",
+        "securityMode": "None",
+        "securityPolicy": "None"
+    },
+    {
+        "id": "ex02-tab",
+        "type": "tab",
+        "label": "02 - Batch Read (Item Collector)",
+        "info": "Chain multiple Item nodes to build a batch read. Each Item node adds its variables to msg.items. The client reads them all in one OPC UA service call.\n\nThis example uses the included Docker test server. Start it with:\n\n    docker compose up -d\n\nNodeIds used: ns=1;s=Scalar.Double, ns=1;s=Scalar.Int32, ns=1;s=Scalar.String."
+    },
+    {
+        "id": "ex02-comment1",
+        "type": "comment",
+        "z": "ex02-tab",
+        "name": "Chain Pattern: each Item node adds to msg.items, client reads all at once",
+        "x": 300,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "ex02-inject",
+        "type": "inject",
+        "z": "ex02-tab",
+        "name": "Trigger",
+        "props": [],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 110,
+        "y": 120,
+        "wires": [
+            [
+                "ex02-item1"
+            ]
+        ]
+    },
+    {
+        "id": "ex02-item1",
         "type": "opcua-item",
-        "z": "tab-read",
+        "z": "ex02-tab",
         "name": "Double",
-        "collector": true,
         "items": [
             {
                 "nodeId": "ns=1;s=Scalar.Double",
@@ -538,152 +191,200 @@
                 "itemName": "Double"
             }
         ],
-        "x": 490,
-        "y": 460,
+        "collector": true,
+        "x": 280,
+        "y": 120,
         "wires": [
             [
-                "item-r-string"
+                "ex02-item2"
             ]
         ]
     },
     {
-        "id": "item-r-string",
+        "id": "ex02-item2",
         "type": "opcua-item",
-        "z": "tab-read",
-        "name": "String",
-        "collector": true,
+        "z": "ex02-tab",
+        "name": "Int32",
         "items": [
+            {
+                "nodeId": "ns=1;s=Scalar.Int32",
+                "datatype": "Int32",
+                "itemName": "Int32"
+            }
+        ],
+        "collector": true,
+        "x": 450,
+        "y": 120,
+        "wires": [
+            [
+                "ex02-client"
+            ]
+        ]
+    },
+    {
+        "id": "ex02-client",
+        "type": "opcua-client",
+        "z": "ex02-tab",
+        "name": "",
+        "endpoint": "ex02-endpoint",
+        "defaultOperation": "read",
+        "x": 630,
+        "y": 120,
+        "wires": [
+            [
+                "ex02-debug"
+            ]
+        ]
+    },
+    {
+        "id": "ex02-debug",
+        "type": "debug",
+        "z": "ex02-tab",
+        "name": "Results",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 810,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "ex02-comment2",
+        "type": "comment",
+        "z": "ex02-tab",
+        "name": "Alternative: all items in one node",
+        "x": 210,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "ex02-inject2",
+        "type": "inject",
+        "z": "ex02-tab",
+        "name": "Trigger",
+        "props": [],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 110,
+        "y": 280,
+        "wires": [
+            [
+                "ex02-items-all"
+            ]
+        ]
+    },
+    {
+        "id": "ex02-items-all",
+        "type": "opcua-item",
+        "z": "ex02-tab",
+        "name": "All Scalars",
+        "items": [
+            {
+                "nodeId": "ns=1;s=Scalar.Double",
+                "datatype": "Double",
+                "itemName": "Double"
+            },
+            {
+                "nodeId": "ns=1;s=Scalar.Int32",
+                "datatype": "Int32",
+                "itemName": "Int32"
+            },
             {
                 "nodeId": "ns=1;s=Scalar.String",
                 "datatype": "String",
                 "itemName": "String"
             }
         ],
-        "x": 640,
-        "y": 460,
+        "collector": true,
+        "x": 280,
+        "y": 280,
         "wires": [
             [
-                "client-readmulti"
+                "ex02-client2"
             ]
         ]
     },
     {
-        "id": "comment-r5",
-        "type": "comment",
-        "z": "tab-read",
-        "name": "══ 5. Read Attribute (nicht nur Value) ══",
-        "x": 210,
-        "y": 530,
+        "id": "ex02-client2",
+        "type": "opcua-client",
+        "z": "ex02-tab",
+        "name": "",
+        "endpoint": "ex02-endpoint",
+        "defaultOperation": "read",
+        "x": 460,
+        "y": 280,
+        "wires": [
+            [
+                "ex02-debug2"
+            ]
+        ]
+    },
+    {
+        "id": "ex02-debug2",
+        "type": "debug",
+        "z": "ex02-tab",
+        "name": "Results",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 640,
+        "y": 280,
         "wires": []
     },
     {
-        "id": "inject-readattr",
-        "type": "inject",
-        "z": "tab-read",
-        "name": "Read BrowseName Attribute",
-        "props": [
-            {
-                "p": "topic",
-                "vt": "str",
-                "v": "ns=1;s=Scalar.Int32"
-            },
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "readattribute"
-            },
-            {
-                "p": "attributeId",
-                "vt": "str",
-                "v": "BrowseName"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 190,
-        "y": 570,
-        "wires": [
-            [
-                "client-read"
-            ]
-        ]
+        "id": "ex03-endpoint",
+        "type": "opcua-endpoint",
+        "name": "Test Server",
+        "endpointUrl": "opc.tcp://opcua-server:4840/UA/TestServer",
+        "securityMode": "None",
+        "securityPolicy": "None"
     },
     {
-        "id": "inject-readattr2",
-        "type": "inject",
-        "z": "tab-read",
-        "name": "Read DisplayName Attribute",
-        "props": [
-            {
-                "p": "topic",
-                "vt": "str",
-                "v": "ns=1;s=Scalar.Int32"
-            },
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "readattribute"
-            },
-            {
-                "p": "attributeId",
-                "vt": "str",
-                "v": "DisplayName"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 190,
-        "y": 610,
-        "wires": [
-            [
-                "client-read"
-            ]
-        ]
+        "id": "ex03-tab",
+        "type": "tab",
+        "label": "03 - Write a Value",
+        "info": "Write a value to an OPC UA variable. The inject sets the value in msg.payload, the NodeId in msg.topic, and optionally msg.datatype.\n\nThis example uses the included Docker test server. Start it with:\n\n    docker compose up -d\n\nWritable NodeIds used: ns=1;s=Writable.Temperature, ns=1;s=Writable.Active, ns=1;s=Writable.MachineName."
     },
     {
-        "id": "comment-w1",
+        "id": "ex03-comment",
         "type": "comment",
-        "z": "tab-write",
-        "name": "══ 1. Single Write ══",
-        "x": 150,
+        "z": "ex03-tab",
+        "name": "Set msg.payload to the value, msg.topic to the NodeId, msg.datatype for the type",
+        "x": 320,
         "y": 40,
         "wires": []
     },
     {
-        "id": "inject-write-double",
+        "id": "ex03-inject",
         "type": "inject",
-        "z": "tab-write",
-        "name": "Write Double (25.5)",
+        "z": "ex03-tab",
+        "name": "Write Temperature 25.5",
         "props": [
-            {
-                "p": "topic",
-                "vt": "str",
-                "v": "ns=1;s=Writable.Temperature"
-            },
             {
                 "p": "payload",
                 "vt": "num",
                 "v": "25.5"
             },
             {
+                "p": "topic",
+                "vt": "str",
+                "v": "ns=1;s=Writable.Temperature"
+            },
+            {
                 "p": "datatype",
                 "vt": "str",
                 "v": "Double"
-            },
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "write"
             }
         ],
         "repeat": "",
@@ -693,39 +394,34 @@
         "topic": "",
         "payload": "",
         "payloadType": "date",
-        "x": 160,
-        "y": 80,
+        "x": 180,
+        "y": 120,
         "wires": [
             [
-                "client-write"
+                "ex03-client"
             ]
         ]
     },
     {
-        "id": "inject-write-bool",
+        "id": "ex03-inject2",
         "type": "inject",
-        "z": "tab-write",
-        "name": "Write Boolean (true)",
+        "z": "ex03-tab",
+        "name": "Write Active = true",
         "props": [
-            {
-                "p": "topic",
-                "vt": "str",
-                "v": "ns=1;s=Writable.Active"
-            },
             {
                 "p": "payload",
                 "vt": "bool",
                 "v": "true"
             },
             {
+                "p": "topic",
+                "vt": "str",
+                "v": "ns=1;s=Writable.Active"
+            },
+            {
                 "p": "datatype",
                 "vt": "str",
                 "v": "Boolean"
-            },
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "write"
             }
         ],
         "repeat": "",
@@ -735,39 +431,34 @@
         "topic": "",
         "payload": "",
         "payloadType": "date",
-        "x": 160,
-        "y": 120,
+        "x": 170,
+        "y": 180,
         "wires": [
             [
-                "client-write"
+                "ex03-client"
             ]
         ]
     },
     {
-        "id": "inject-write-string",
+        "id": "ex03-inject3",
         "type": "inject",
-        "z": "tab-write",
-        "name": "Write String",
+        "z": "ex03-tab",
+        "name": "Write MachineName \"Hello\"",
         "props": [
+            {
+                "p": "payload",
+                "vt": "str",
+                "v": "Hello"
+            },
             {
                 "p": "topic",
                 "vt": "str",
                 "v": "ns=1;s=Writable.MachineName"
             },
             {
-                "p": "payload",
-                "vt": "str",
-                "v": "TestMachine-42"
-            },
-            {
                 "p": "datatype",
                 "vt": "str",
                 "v": "String"
-            },
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "write"
             }
         ],
         "repeat": "",
@@ -777,352 +468,79 @@
         "topic": "",
         "payload": "",
         "payloadType": "date",
-        "x": 150,
-        "y": 160,
+        "x": 190,
+        "y": 240,
         "wires": [
             [
-                "client-write"
+                "ex03-client"
             ]
         ]
     },
     {
-        "id": "inject-write-op",
-        "type": "inject",
-        "z": "tab-write",
-        "name": "Write via msg.operation",
-        "props": [
-            {
-                "p": "nodeId",
-                "vt": "str",
-                "v": "ns=1;s=Writable.SetPoint"
-            },
-            {
-                "p": "payload",
-                "vt": "num",
-                "v": "100"
-            },
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "write"
-            },
-            {
-                "p": "datatype",
-                "vt": "str",
-                "v": "Double"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 170,
-        "y": 200,
-        "wires": [
-            [
-                "client-write"
-            ]
-        ]
-    },
-    {
-        "id": "client-write",
+        "id": "ex03-client",
         "type": "opcua-client",
-        "z": "tab-write",
-        "name": "Write Client",
-        "endpoint": "ep1",
+        "z": "ex03-tab",
+        "name": "",
+        "endpoint": "ex03-endpoint",
         "defaultOperation": "write",
-        "x": 410,
-        "y": 140,
+        "x": 440,
+        "y": 180,
         "wires": [
             [
-                "debug-write"
+                "ex03-debug"
             ]
         ]
     },
     {
-        "id": "debug-write",
+        "id": "ex03-debug",
         "type": "debug",
-        "z": "tab-write",
+        "z": "ex03-tab",
         "name": "Write Result",
         "active": true,
         "tosidebar": true,
-        "complete": "true",
-        "x": 600,
-        "y": 140,
+        "console": false,
+        "tostatus": true,
+        "complete": "statusCode",
+        "targetType": "msg",
+        "statusVal": "statusCode",
+        "statusType": "auto",
+        "x": 650,
+        "y": 180,
         "wires": []
     },
     {
-        "id": "comment-w2",
+        "id": "ex04-endpoint",
+        "type": "opcua-endpoint",
+        "name": "Test Server",
+        "endpointUrl": "opc.tcp://opcua-server:4840/UA/TestServer",
+        "securityMode": "None",
+        "securityPolicy": "None"
+    },
+    {
+        "id": "ex04-tab",
+        "type": "tab",
+        "label": "04 - Subscribe to Changes",
+        "info": "Subscribe to live value changes. Click inject once to start the subscription. Every time the value changes on the server, a new message arrives at the debug node.\n\nThis example uses the included Docker test server. Start it with:\n\n    docker compose up -d\n\nThe Dynamic.* NodeIds are continuously updated by the test server, so you immediately see live values."
+    },
+    {
+        "id": "ex04-comment",
         "type": "comment",
-        "z": "tab-write",
-        "name": "══ 2. Multiple Write (msg.items via Function) ══",
-        "x": 240,
-        "y": 280,
-        "wires": []
-    },
-    {
-        "id": "inject-writemulti",
-        "type": "inject",
-        "z": "tab-write",
-        "name": "Trigger Multi-Write",
-        "props": [],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 150,
-        "y": 320,
-        "wires": [
-            [
-                "func-writemulti"
-            ]
-        ]
-    },
-    {
-        "id": "func-writemulti",
-        "type": "function",
-        "z": "tab-write",
-        "name": "Build Write Items",
-        "func": "msg.operation = 'writemultiple';\nmsg.items = [\n    { nodeId: 'ns=1;s=Writable.Temperature', value: 22.5, datatype: 'Double' },\n    { nodeId: 'ns=1;s=Writable.Pressure', value: 1013.25, datatype: 'Double' },\n    { nodeId: 'ns=1;s=Writable.Active', value: true, datatype: 'Boolean' },\n    { nodeId: 'ns=1;s=Writable.MachineName', value: 'BatchWrite-Test', datatype: 'String' },\n    { nodeId: 'ns=1;s=Writable.Counter', value: 999, datatype: 'Int32' }\n];\nreturn msg;",
-        "outputs": 1,
-        "x": 390,
-        "y": 320,
-        "wires": [
-            [
-                "client-writemulti"
-            ]
-        ]
-    },
-    {
-        "id": "client-writemulti",
-        "type": "opcua-client",
-        "z": "tab-write",
-        "name": "Multi-Write Client",
-        "endpoint": "ep1",
-        "defaultOperation": "writemultiple",
-        "x": 620,
-        "y": 320,
-        "wires": [
-            [
-                "debug-writemulti"
-            ]
-        ]
-    },
-    {
-        "id": "debug-writemulti",
-        "type": "debug",
-        "z": "tab-write",
-        "name": "Multi-Write Result",
-        "active": true,
-        "tosidebar": true,
-        "complete": "true",
-        "x": 840,
-        "y": 320,
-        "wires": []
-    },
-    {
-        "id": "comment-w3",
-        "type": "comment",
-        "z": "tab-write",
-        "name": "══ 3. Write Multiple (msg.payload Object Format) ══  NEW",
-        "x": 260,
-        "y": 400,
-        "wires": []
-    },
-    {
-        "id": "inject-writemulti-payload",
-        "type": "inject",
-        "z": "tab-write",
-        "name": "Write Multiple (payload object)",
-        "props": [],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 190,
-        "y": 440,
-        "wires": [
-            [
-                "func-writemulti-payload"
-            ]
-        ]
-    },
-    {
-        "id": "func-writemulti-payload",
-        "type": "function",
-        "z": "tab-write",
-        "name": "Build Payload Object",
-        "func": "// Object-Format: Key = nodeId, Value = {value, datatype}\nmsg.operation = 'writemultiple';\nmsg.payload = {\n    \"ns=1;s=Writable.Temperature\": { value: 28.5, datatype: \"Double\" },\n    \"ns=1;s=Writable.Pressure\": { value: 1015.0, datatype: \"Double\" },\n    \"ns=1;s=Writable.Counter\": { value: 500, datatype: \"Int32\" },\n    \"ns=1;s=Writable.MachineName\": { value: \"PayloadWrite-Test\", datatype: \"String\" }\n};\nreturn msg;",
-        "outputs": 1,
-        "x": 450,
-        "y": 440,
-        "wires": [
-            [
-                "client-writemulti"
-            ]
-        ]
-    },
-    {
-        "id": "comment-w4",
-        "type": "comment",
-        "z": "tab-write",
-        "name": "══ 4. Multiple Write (Item Collector Pattern) ══",
-        "x": 240,
-        "y": 510,
-        "wires": []
-    },
-    {
-        "id": "inject-writecollector",
-        "type": "inject",
-        "z": "tab-write",
-        "name": "Trigger Collector Write",
-        "props": [],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 160,
-        "y": 550,
-        "wires": [
-            [
-                "func-writecoll-prep"
-            ]
-        ]
-    },
-    {
-        "id": "func-writecoll-prep",
-        "type": "function",
-        "z": "tab-write",
-        "name": "Set Operation + Values",
-        "func": "msg.operation = 'writemultiple';\nmsg.writeValues = {\n    'Temperature': 30.0,\n    'Pressure': 1020.0,\n    'Counter': 42\n};\nreturn msg;",
-        "outputs": 1,
-        "x": 390,
-        "y": 550,
-        "wires": [
-            [
-                "item-w-temp"
-            ]
-        ]
-    },
-    {
-        "id": "item-w-temp",
-        "type": "opcua-item",
-        "z": "tab-write",
-        "name": "Temperature",
-        "collector": true,
-        "items": [
-            {
-                "nodeId": "ns=1;s=Writable.Temperature",
-                "datatype": "Double",
-                "itemName": "Temperature"
-            }
-        ],
-        "x": 580,
-        "y": 550,
-        "wires": [
-            [
-                "item-w-pressure"
-            ]
-        ]
-    },
-    {
-        "id": "item-w-pressure",
-        "type": "opcua-item",
-        "z": "tab-write",
-        "name": "Pressure",
-        "collector": true,
-        "items": [
-            {
-                "nodeId": "ns=1;s=Writable.Pressure",
-                "datatype": "Double",
-                "itemName": "Pressure"
-            }
-        ],
-        "x": 740,
-        "y": 550,
-        "wires": [
-            [
-                "item-w-counter"
-            ]
-        ]
-    },
-    {
-        "id": "item-w-counter",
-        "type": "opcua-item",
-        "z": "tab-write",
-        "name": "Counter",
-        "collector": true,
-        "items": [
-            {
-                "nodeId": "ns=1;s=Writable.Counter",
-                "datatype": "Int32",
-                "itemName": "Counter"
-            }
-        ],
-        "x": 890,
-        "y": 550,
-        "wires": [
-            [
-                "func-writecoll-assign"
-            ]
-        ]
-    },
-    {
-        "id": "func-writecoll-assign",
-        "type": "function",
-        "z": "tab-write",
-        "name": "Assign Values to Items",
-        "func": "// Values from writeValues map to items by name\nconst vals = msg.writeValues || {};\nif (msg.items) {\n    msg.items.forEach(item => {\n        if (vals[item.itemName] !== undefined) {\n            item.value = vals[item.itemName];\n        }\n    });\n}\nreturn msg;",
-        "outputs": 1,
-        "x": 1080,
-        "y": 550,
-        "wires": [
-            [
-                "client-writemulti"
-            ]
-        ]
-    },
-    {
-        "id": "comment-s1",
-        "type": "comment",
-        "z": "tab-subscribe",
-        "name": "══ 1. Subscribe / Unsubscribe ══",
-        "x": 190,
+        "z": "ex04-tab",
+        "name": "Click \"Subscribe Sinus\" to start — messages arrive every time the value changes",
+        "x": 320,
         "y": 40,
         "wires": []
     },
     {
-        "id": "inject-sub",
+        "id": "ex04-inject-sub",
         "type": "inject",
-        "z": "tab-subscribe",
-        "name": "Subscribe (Sinus)",
+        "z": "ex04-tab",
+        "name": "Subscribe Sinus",
         "props": [
             {
                 "p": "topic",
                 "vt": "str",
                 "v": "ns=1;s=Dynamic.Sinus"
-            },
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "subscribe"
-            },
-            {
-                "p": "interval",
-                "vt": "num",
-                "v": "500"
             }
         ],
         "repeat": "",
@@ -1132,76 +550,24 @@
         "topic": "",
         "payload": "",
         "payloadType": "date",
-        "x": 160,
-        "y": 80,
-        "wires": [
-            [
-                "client-sub"
-            ]
-        ]
-    },
-    {
-        "id": "inject-sub2",
-        "type": "inject",
-        "z": "tab-subscribe",
-        "name": "Subscribe (Random)",
-        "props": [
-            {
-                "p": "topic",
-                "vt": "str",
-                "v": "ns=1;s=Dynamic.Random"
-            },
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "subscribe"
-            },
-            {
-                "p": "interval",
-                "vt": "num",
-                "v": "1000"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 160,
+        "x": 150,
         "y": 120,
         "wires": [
             [
-                "client-sub"
+                "ex04-client"
             ]
         ]
     },
     {
-        "id": "inject-sub-queue",
+        "id": "ex04-inject-sub2",
         "type": "inject",
-        "z": "tab-subscribe",
-        "name": "Subscribe with QueueSize",
+        "z": "ex04-tab",
+        "name": "Subscribe Ramp",
         "props": [
             {
                 "p": "topic",
                 "vt": "str",
                 "v": "ns=1;s=Dynamic.Ramp"
-            },
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "subscribe"
-            },
-            {
-                "p": "interval",
-                "vt": "num",
-                "v": "250"
-            },
-            {
-                "p": "queueSize",
-                "vt": "num",
-                "v": "20"
             }
         ],
         "repeat": "",
@@ -1211,19 +577,19 @@
         "topic": "",
         "payload": "",
         "payloadType": "date",
-        "x": 180,
-        "y": 160,
+        "x": 150,
+        "y": 180,
         "wires": [
             [
-                "client-sub"
+                "ex04-client"
             ]
         ]
     },
     {
-        "id": "inject-unsub",
+        "id": "ex04-inject-unsub",
         "type": "inject",
-        "z": "tab-subscribe",
-        "name": "Unsubscribe (Sinus)",
+        "z": "ex04-tab",
+        "name": "Unsubscribe Sinus",
         "props": [
             {
                 "p": "topic",
@@ -1243,158 +609,75 @@
         "topic": "",
         "payload": "",
         "payloadType": "date",
-        "x": 170,
-        "y": 210,
+        "x": 160,
+        "y": 240,
         "wires": [
             [
-                "client-sub"
+                "ex04-client"
             ]
         ]
     },
     {
-        "id": "client-sub",
+        "id": "ex04-client",
         "type": "opcua-client",
-        "z": "tab-subscribe",
-        "name": "Subscribe Client",
-        "endpoint": "ep1",
+        "z": "ex04-tab",
+        "name": "",
+        "endpoint": "ex04-endpoint",
         "defaultOperation": "subscribe",
-        "x": 430,
-        "y": 140,
+        "x": 400,
+        "y": 180,
         "wires": [
             [
-                "debug-sub"
+                "ex04-debug"
             ]
         ]
     },
     {
-        "id": "debug-sub",
+        "id": "ex04-debug",
         "type": "debug",
-        "z": "tab-subscribe",
-        "name": "Subscription Data",
+        "z": "ex04-tab",
+        "name": "Live Values",
         "active": true,
         "tosidebar": true,
+        "console": false,
+        "tostatus": true,
         "complete": "true",
-        "x": 640,
-        "y": 140,
+        "targetType": "full",
+        "statusVal": "payload",
+        "statusType": "auto",
+        "x": 600,
+        "y": 180,
         "wires": []
     },
     {
-        "id": "comment-s2",
+        "id": "ex05-endpoint",
+        "type": "opcua-endpoint",
+        "name": "Test Server",
+        "endpointUrl": "opc.tcp://opcua-server:4840/UA/TestServer",
+        "securityMode": "None",
+        "securityPolicy": "None"
+    },
+    {
+        "id": "ex05-tab",
+        "type": "tab",
+        "label": "05 - Browse Address Space",
+        "info": "Browse the OPC UA server's address space. Send a NodeId via msg.topic to browse from that node, or leave empty to browse from RootFolder.\n\nThis example uses the included Docker test server. Start it with:\n\n    docker compose up -d\n\nThe test server provides a TestData folder with subfolders Scalar, Arrays, Dynamic, Methods and Writable in namespace 1."
+    },
+    {
+        "id": "ex05-comment",
         "type": "comment",
-        "z": "tab-subscribe",
-        "name": "══ 2. Event Subscription ══",
-        "x": 170,
-        "y": 300,
-        "wires": []
-    },
-    {
-        "id": "inject-event-sub",
-        "type": "inject",
-        "z": "tab-subscribe",
-        "name": "Subscribe Events (Server)",
-        "props": [
-            {
-                "p": "action",
-                "vt": "str",
-                "v": "subscribe"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 180,
-        "y": 340,
-        "wires": [
-            [
-                "event-node"
-            ]
-        ]
-    },
-    {
-        "id": "inject-event-unsub",
-        "type": "inject",
-        "z": "tab-subscribe",
-        "name": "Unsubscribe Events",
-        "props": [
-            {
-                "p": "action",
-                "vt": "str",
-                "v": "unsubscribe"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 170,
-        "y": 380,
-        "wires": [
-            [
-                "event-node"
-            ]
-        ]
-    },
-    {
-        "id": "event-node",
-        "type": "opcua-event",
-        "z": "tab-subscribe",
-        "name": "Server Events",
-        "endpoint": "ep1",
-        "sourceNodeId": "i=2253",
-        "eventType": "",
-        "x": 420,
-        "y": 360,
-        "wires": [
-            [
-                "debug-events"
-            ]
-        ]
-    },
-    {
-        "id": "debug-events",
-        "type": "debug",
-        "z": "tab-subscribe",
-        "name": "Event Data",
-        "active": true,
-        "tosidebar": true,
-        "complete": "true",
-        "x": 610,
-        "y": 360,
-        "wires": []
-    },
-    {
-        "id": "comment-b1",
-        "type": "comment",
-        "z": "tab-browse",
-        "name": "══ 1. Browse ══",
-        "x": 130,
+        "z": "ex05-tab",
+        "name": "Browse from different starting points — leave msg.topic empty for RootFolder",
+        "x": 320,
         "y": 40,
         "wires": []
     },
     {
-        "id": "inject-browse-root",
+        "id": "ex05-inject-root",
         "type": "inject",
-        "z": "tab-browse",
-        "name": "Browse RootFolder",
-        "props": [
-            {
-                "p": "topic",
-                "vt": "str",
-                "v": "RootFolder"
-            },
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "browse"
-            }
-        ],
+        "z": "ex05-tab",
+        "name": "Browse Root",
+        "props": [],
         "repeat": "",
         "crontab": "",
         "once": false,
@@ -1402,29 +685,24 @@
         "topic": "",
         "payload": "",
         "payloadType": "date",
-        "x": 160,
-        "y": 80,
+        "x": 140,
+        "y": 120,
         "wires": [
             [
-                "client-browse"
+                "ex05-browser"
             ]
         ]
     },
     {
-        "id": "inject-browse-objects",
+        "id": "ex05-inject-objects",
         "type": "inject",
-        "z": "tab-browse",
-        "name": "Browse ObjectsFolder",
+        "z": "ex05-tab",
+        "name": "Browse Objects",
         "props": [
             {
                 "p": "topic",
                 "vt": "str",
                 "v": "i=85"
-            },
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "browse"
             }
         ],
         "repeat": "",
@@ -1434,29 +712,24 @@
         "topic": "",
         "payload": "",
         "payloadType": "date",
-        "x": 170,
-        "y": 120,
+        "x": 140,
+        "y": 180,
         "wires": [
             [
-                "client-browse"
+                "ex05-browser"
             ]
         ]
     },
     {
-        "id": "inject-browse-testdata",
+        "id": "ex05-inject-testdata",
         "type": "inject",
-        "z": "tab-browse",
+        "z": "ex05-tab",
         "name": "Browse TestData",
         "props": [
             {
                 "p": "topic",
                 "vt": "str",
                 "v": "ns=1;s=TestData"
-            },
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "browse"
             }
         ],
         "repeat": "",
@@ -1466,124 +739,24 @@
         "topic": "",
         "payload": "",
         "payloadType": "date",
-        "x": 160,
-        "y": 160,
-        "wires": [
-            [
-                "client-browse"
-            ]
-        ]
-    },
-    {
-        "id": "inject-browse-machine",
-        "type": "inject",
-        "z": "tab-browse",
-        "name": "Browse Machine Structure",
-        "props": [
-            {
-                "p": "topic",
-                "vt": "str",
-                "v": "ns=1;s=Machine"
-            },
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "browse"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 180,
-        "y": 200,
-        "wires": [
-            [
-                "client-browse"
-            ]
-        ]
-    },
-    {
-        "id": "inject-browse-nodeid",
-        "type": "inject",
-        "z": "tab-browse",
-        "name": "Browse via msg.nodeId",
-        "props": [
-            {
-                "p": "nodeId",
-                "vt": "str",
-                "v": "ns=1;s=Scalar"
-            },
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "browse"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 170,
+        "x": 150,
         "y": 240,
         "wires": [
             [
-                "client-browse"
+                "ex05-browser"
             ]
         ]
     },
     {
-        "id": "client-browse",
-        "type": "opcua-client",
-        "z": "tab-browse",
-        "name": "Browse Client",
-        "endpoint": "ep1",
-        "defaultOperation": "browse",
-        "x": 430,
-        "y": 160,
-        "wires": [
-            [
-                "debug-browse"
-            ]
-        ]
-    },
-    {
-        "id": "debug-browse",
-        "type": "debug",
-        "z": "tab-browse",
-        "name": "Browse Result",
-        "active": true,
-        "tosidebar": true,
-        "complete": "true",
-        "x": 620,
-        "y": 160,
-        "wires": []
-    },
-    {
-        "id": "comment-b2",
-        "type": "comment",
-        "z": "tab-browse",
-        "name": "══ 2. Browser Node (dedicated) ══",
-        "x": 190,
-        "y": 320,
-        "wires": []
-    },
-    {
-        "id": "inject-browser",
+        "id": "ex05-inject-scalar",
         "type": "inject",
-        "z": "tab-browse",
-        "name": "Browse from Root",
+        "z": "ex05-tab",
+        "name": "Browse Scalar",
         "props": [
             {
                 "p": "topic",
                 "vt": "str",
-                "v": "RootFolder"
+                "v": "ns=1;s=Scalar"
             }
         ],
         "repeat": "",
@@ -1593,264 +766,78 @@
         "topic": "",
         "payload": "",
         "payloadType": "date",
-        "x": 160,
-        "y": 360,
+        "x": 140,
+        "y": 300,
         "wires": [
             [
-                "browser-node"
+                "ex05-browser"
             ]
         ]
     },
     {
-        "id": "browser-node",
+        "id": "ex05-browser",
         "type": "opcua-browser",
-        "z": "tab-browse",
-        "name": "Browser",
-        "endpoint": "ep1",
-        "startNodeId": "",
-        "recursive": false,
-        "maxDepth": "",
-        "x": 380,
-        "y": 360,
+        "z": "ex05-tab",
+        "name": "",
+        "endpoint": "ex05-endpoint",
+        "x": 400,
+        "y": 220,
         "wires": [
             [
-                "debug-browser"
+                "ex05-debug"
             ]
         ]
     },
     {
-        "id": "debug-browser",
+        "id": "ex05-debug",
         "type": "debug",
-        "z": "tab-browse",
-        "name": "Browser Result",
+        "z": "ex05-tab",
+        "name": "References",
         "active": true,
         "tosidebar": true,
-        "complete": "true",
-        "x": 580,
-        "y": 360,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "browseResult.count",
+        "statusType": "auto",
+        "x": 600,
+        "y": 220,
         "wires": []
     },
     {
-        "id": "comment-b3",
+        "id": "ex06-endpoint",
+        "type": "opcua-endpoint",
+        "name": "Test Server",
+        "endpointUrl": "opc.tcp://opcua-server:4840/UA/TestServer",
+        "securityMode": "None",
+        "securityPolicy": "None"
+    },
+    {
+        "id": "ex06-tab",
+        "type": "tab",
+        "label": "06 - Event Subscription",
+        "info": "Subscribe to OPC UA events. The Event node monitors a source node (default: Server node i=2253) for events of a given type.\n\nThis example uses the included Docker test server. Start it with:\n\n    docker compose up -d\n\nClick \"Start\" to begin listening, then click \"Trigger Event\" to make the test server raise an event."
+    },
+    {
+        "id": "ex06-comment",
         "type": "comment",
-        "z": "tab-browse",
-        "name": "══ 3. Get Endpoints (Discovery) ══",
-        "x": 190,
-        "y": 440,
-        "wires": []
-    },
-    {
-        "id": "inject-endpoints-default",
-        "type": "inject",
-        "z": "tab-browse",
-        "name": "Get Endpoints (configured)",
-        "props": [
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "getendpoints"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 180,
-        "y": 480,
-        "wires": [
-            [
-                "client-browse"
-            ]
-        ]
-    },
-    {
-        "id": "inject-endpoints-custom",
-        "type": "inject",
-        "z": "tab-browse",
-        "name": "Get Endpoints (custom URL)",
-        "props": [
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "getendpoints"
-            },
-            {
-                "p": "endpointUrl",
-                "vt": "str",
-                "v": "opc.tcp://opcua-server:4840/UA/TestServer"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 190,
-        "y": 520,
-        "wires": [
-            [
-                "client-browse"
-            ]
-        ]
-    },
-    {
-        "id": "comment-b4",
-        "type": "comment",
-        "z": "tab-browse",
-        "name": "══ 4. Translate Browse Path ══",
-        "x": 180,
-        "y": 600,
-        "wires": []
-    },
-    {
-        "id": "inject-translate",
-        "type": "inject",
-        "z": "tab-browse",
-        "name": "Translate Browse Path",
-        "props": [
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "translatebrowsepath"
-            },
-            {
-                "p": "startNodeId",
-                "vt": "str",
-                "v": "i=84"
-            },
-            {
-                "p": "browsePath",
-                "vt": "str",
-                "v": "/Objects/1:TestData/1:Scalar"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 170,
-        "y": 640,
-        "wires": [
-            [
-                "client-browse"
-            ]
-        ]
-    },
-    {
-        "id": "comment-b5",
-        "type": "comment",
-        "z": "tab-browse",
-        "name": "══ 5. Register / Unregister Nodes ══",
-        "x": 200,
-        "y": 720,
-        "wires": []
-    },
-    {
-        "id": "inject-register",
-        "type": "inject",
-        "z": "tab-browse",
-        "name": "Register Nodes",
-        "props": [
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "registernodes"
-            },
-            {
-                "p": "items",
-                "vt": "json",
-                "v": "[{\"nodeId\":\"ns=1;s=Scalar.Int32\"},{\"nodeId\":\"ns=1;s=Scalar.Double\"}]"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 150,
-        "y": 760,
-        "wires": [
-            [
-                "client-browse"
-            ]
-        ]
-    },
-    {
-        "id": "inject-unregister",
-        "type": "inject",
-        "z": "tab-browse",
-        "name": "Unregister Nodes",
-        "props": [
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "unregisternodes"
-            },
-            {
-                "p": "items",
-                "vt": "json",
-                "v": "[{\"nodeId\":\"ns=1;s=Scalar.Int32\"},{\"nodeId\":\"ns=1;s=Scalar.Double\"}]"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 160,
-        "y": 800,
-        "wires": [
-            [
-                "client-browse"
-            ]
-        ]
-    },
-    {
-        "id": "comment-m1",
-        "type": "comment",
-        "z": "tab-method",
-        "name": "══ 1. Method Call via Client Node ══",
-        "x": 200,
+        "z": "ex06-tab",
+        "name": "Click \"Start\" to listen, then \"Trigger Event\" to raise one. Each event produces a message.",
+        "x": 360,
         "y": 40,
         "wires": []
     },
     {
-        "id": "inject-method-add",
+        "id": "ex06-inject-sub",
         "type": "inject",
-        "z": "tab-method",
-        "name": "Call Add(3, 7)",
+        "z": "ex06-tab",
+        "name": "Start",
         "props": [
             {
-                "p": "operation",
+                "p": "action",
                 "vt": "str",
-                "v": "method"
-            },
-            {
-                "p": "objectNodeId",
-                "vt": "str",
-                "v": "ns=1;s=Methods"
-            },
-            {
-                "p": "methodNodeId",
-                "vt": "str",
-                "v": "ns=1;s=Methods.Add"
-            },
-            {
-                "p": "inputArguments",
-                "vt": "json",
-                "v": "[{\"dataType\":\"Double\",\"value\":3},{\"dataType\":\"Double\",\"value\":7}]"
+                "v": "subscribe"
             }
         ],
         "repeat": "",
@@ -1860,81 +847,24 @@
         "topic": "",
         "payload": "",
         "payloadType": "date",
-        "x": 150,
-        "y": 80,
-        "wires": [
-            [
-                "client-method"
-            ]
-        ]
-    },
-    {
-        "id": "inject-method-multiply",
-        "type": "inject",
-        "z": "tab-method",
-        "name": "Call Multiply(6, 7)",
-        "props": [
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "method"
-            },
-            {
-                "p": "objectNodeId",
-                "vt": "str",
-                "v": "ns=1;s=Methods"
-            },
-            {
-                "p": "methodNodeId",
-                "vt": "str",
-                "v": "ns=1;s=Methods.Multiply"
-            },
-            {
-                "p": "inputArguments",
-                "vt": "json",
-                "v": "[{\"dataType\":\"Double\",\"value\":6},{\"dataType\":\"Double\",\"value\":7}]"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 160,
+        "x": 110,
         "y": 120,
         "wires": [
             [
-                "client-method"
+                "ex06-event"
             ]
         ]
     },
     {
-        "id": "inject-method-reset",
+        "id": "ex06-inject-unsub",
         "type": "inject",
-        "z": "tab-method",
-        "name": "Call ResetAll()",
+        "z": "ex06-tab",
+        "name": "Stop",
         "props": [
             {
-                "p": "operation",
+                "p": "action",
                 "vt": "str",
-                "v": "method"
-            },
-            {
-                "p": "objectNodeId",
-                "vt": "str",
-                "v": "ns=1;s=Methods"
-            },
-            {
-                "p": "methodNodeId",
-                "vt": "str",
-                "v": "ns=1;s=Methods.ResetAll"
-            },
-            {
-                "p": "inputArguments",
-                "vt": "json",
-                "v": "[]"
+                "v": "unsubscribe"
             }
         ],
         "repeat": "",
@@ -1944,102 +874,90 @@
         "topic": "",
         "payload": "",
         "payloadType": "date",
-        "x": 150,
-        "y": 160,
+        "x": 110,
+        "y": 180,
         "wires": [
             [
-                "client-method"
+                "ex06-event"
             ]
         ]
     },
     {
-        "id": "inject-method-payload",
+        "id": "ex06-event",
+        "type": "opcua-event",
+        "z": "ex06-tab",
+        "name": "",
+        "endpoint": "ex06-endpoint",
+        "sourceNodeId": "i=2253",
+        "eventType": "BaseEventType",
+        "x": 330,
+        "y": 140,
+        "wires": [
+            [
+                "ex06-debug"
+            ]
+        ]
+    },
+    {
+        "id": "ex06-debug",
+        "type": "debug",
+        "z": "ex06-tab",
+        "name": "Events",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "payload.severity",
+        "statusType": "auto",
+        "x": 530,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "ex07-endpoint",
+        "type": "opcua-endpoint",
+        "name": "Test Server",
+        "endpointUrl": "opc.tcp://opcua-server:4840/UA/TestServer",
+        "securityMode": "None",
+        "securityPolicy": "None"
+    },
+    {
+        "id": "ex07-tab",
+        "type": "tab",
+        "label": "07 - Call a Method",
+        "info": "Call an OPC UA method. The Object and Method NodeIds are configured in the node. Input arguments are passed via msg.payload as an array of {dataType, value}.\n\nThis example uses the included Docker test server. Start it with:\n\n    docker compose up -d\n\nThe test server provides:\n  - ns=1;s=Methods.Add (A:Double, B:Double) → Result:Double\n  - ns=1;s=Methods.Multiply (A:Double, B:Double) → Result:Double\n\nResult is in msg.payload (array of output values)."
+    },
+    {
+        "id": "ex07-comment",
+        "type": "comment",
+        "z": "ex07-tab",
+        "name": "Add(2, 3) and Multiply(4, 5) on the included test server",
+        "x": 290,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "ex07-inject",
         "type": "inject",
-        "z": "tab-method",
-        "name": "Method via msg.payload args",
+        "z": "ex07-tab",
+        "name": "Add(2, 3)",
         "props": [
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "method"
-            },
-            {
-                "p": "topic",
-                "vt": "str",
-                "v": "ns=1;s=Methods"
-            },
-            {
-                "p": "methodNodeId",
-                "vt": "str",
-                "v": "ns=1;s=Methods.Add"
-            },
             {
                 "p": "payload",
                 "vt": "json",
-                "v": "[10, 20]"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 190,
-        "y": 200,
-        "wires": [
-            [
-                "client-method"
-            ]
-        ]
-    },
-    {
-        "id": "client-method",
-        "type": "opcua-client",
-        "z": "tab-method",
-        "name": "Method Client",
-        "endpoint": "ep1",
-        "defaultOperation": "method",
-        "x": 440,
-        "y": 140,
-        "wires": [
-            [
-                "debug-method"
-            ]
-        ]
-    },
-    {
-        "id": "debug-method",
-        "type": "debug",
-        "z": "tab-method",
-        "name": "Method Result",
-        "active": true,
-        "tosidebar": true,
-        "complete": "true",
-        "x": 630,
-        "y": 140,
-        "wires": []
-    },
-    {
-        "id": "comment-m2",
-        "type": "comment",
-        "z": "tab-method",
-        "name": "══ 2. Method Call via Method Node ══",
-        "x": 200,
-        "y": 300,
-        "wires": []
-    },
-    {
-        "id": "inject-method-node-add",
-        "type": "inject",
-        "z": "tab-method",
-        "name": "Add(5, 15)",
-        "props": [
+                "v": "[{\"dataType\":\"Double\",\"value\":2},{\"dataType\":\"Double\",\"value\":3}]"
+            },
             {
-                "p": "inputArguments",
-                "vt": "json",
-                "v": "[{\"dataType\":\"Double\",\"value\":5},{\"dataType\":\"Double\",\"value\":15}]"
+                "p": "methodNodeId",
+                "vt": "str",
+                "v": "ns=1;s=Methods.Add"
+            },
+            {
+                "p": "objectNodeId",
+                "vt": "str",
+                "v": "ns=1;s=Methods"
             }
         ],
         "repeat": "",
@@ -2050,23 +968,23 @@
         "payload": "",
         "payloadType": "date",
         "x": 140,
-        "y": 340,
+        "y": 120,
         "wires": [
             [
-                "method-node-add"
+                "ex07-method"
             ]
         ]
     },
     {
-        "id": "inject-method-node-dynamic",
+        "id": "ex07-inject2",
         "type": "inject",
-        "z": "tab-method",
-        "name": "Dynamic args via msg",
+        "z": "ex07-tab",
+        "name": "Multiply(4, 5)",
         "props": [
             {
-                "p": "objectNodeId",
-                "vt": "str",
-                "v": "ns=1;s=Methods"
+                "p": "payload",
+                "vt": "json",
+                "v": "[{\"dataType\":\"Double\",\"value\":4},{\"dataType\":\"Double\",\"value\":5}]"
             },
             {
                 "p": "methodNodeId",
@@ -2074,9 +992,9 @@
                 "v": "ns=1;s=Methods.Multiply"
             },
             {
-                "p": "inputArguments",
-                "vt": "json",
-                "v": "[{\"dataType\":\"Double\",\"value\":3},{\"dataType\":\"Double\",\"value\":14}]"
+                "p": "objectNodeId",
+                "vt": "str",
+                "v": "ns=1;s=Methods"
             }
         ],
         "repeat": "",
@@ -2086,66 +1004,125 @@
         "topic": "",
         "payload": "",
         "payloadType": "date",
-        "x": 170,
-        "y": 380,
+        "x": 150,
+        "y": 180,
         "wires": [
             [
-                "method-node-add"
+                "ex07-method"
             ]
         ]
     },
     {
-        "id": "method-node-add",
+        "id": "ex07-method",
         "type": "opcua-method",
-        "z": "tab-method",
-        "name": "Call Add",
-        "endpoint": "ep1",
-        "methodNodeId": "ns=1;s=Methods.Add",
+        "z": "ex07-tab",
+        "name": "",
+        "endpoint": "ex07-endpoint",
         "objectNodeId": "ns=1;s=Methods",
+        "methodNodeId": "ns=1;s=Methods.Add",
         "x": 390,
-        "y": 360,
+        "y": 150,
         "wires": [
             [
-                "debug-method-node"
+                "ex07-debug"
             ]
         ]
     },
     {
-        "id": "debug-method-node",
+        "id": "ex07-debug",
         "type": "debug",
-        "z": "tab-method",
-        "name": "Method Node Result",
+        "z": "ex07-tab",
+        "name": "Method Result",
         "active": true,
         "tosidebar": true,
-        "complete": "true",
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "payload",
+        "statusType": "auto",
         "x": 600,
-        "y": 360,
+        "y": 150,
         "wires": []
     },
     {
-        "id": "comment-h1",
+        "id": "ex08-tab",
+        "type": "tab",
+        "label": "08 - Server with Variables",
+        "info": "Create an OPC UA server, add a folder and a variable, and update its value. The server starts automatically on deploy.\n\nClick the inject nodes in order:\n1. Add Folder \"Sensors\"\n2. Add Variable \"Temperature\" (inside Sensors)\n3. Set Temperature = 25.5\n4. (optional) Get Server Info"
+    },
+    {
+        "id": "ex08-comment1",
         "type": "comment",
-        "z": "tab-history",
-        "name": "══ History Read ══",
-        "x": 140,
+        "z": "ex08-tab",
+        "name": "Server starts on deploy. Use inject nodes to add variables and set values.",
+        "x": 310,
         "y": 40,
         "wires": []
     },
     {
-        "id": "inject-history-default",
+        "id": "ex08-server",
+        "type": "opcua-server",
+        "z": "ex08-tab",
+        "name": "My Server",
+        "port": 4840,
+        "serverName": "Node-RED OPC UA Server",
+        "maxAllowedSessionNumber": 10,
+        "maxConnectionsPerEndpoint": 10,
+        "x": 430,
+        "y": 200,
+        "wires": [
+            [
+                "ex08-debug"
+            ]
+        ]
+    },
+    {
+        "id": "ex08-debug",
+        "type": "debug",
+        "z": "ex08-tab",
+        "name": "Server Output",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "payload",
+        "statusType": "auto",
+        "x": 630,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "ex08-comment2",
+        "type": "comment",
+        "z": "ex08-tab",
+        "name": "Step 1: Add a folder and variable (click in order)",
+        "x": 260,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "ex08-inject-folder",
         "type": "inject",
-        "z": "tab-history",
-        "name": "History Read (last hour)",
+        "z": "ex08-tab",
+        "name": "Add Folder \"Sensors\"",
         "props": [
             {
-                "p": "topic",
+                "p": "command",
                 "vt": "str",
-                "v": "ns=1;s=Dynamic.Sinus"
+                "v": "addFolder"
             },
             {
-                "p": "operation",
+                "p": "folderName",
                 "vt": "str",
-                "v": "history"
+                "v": "Sensors"
+            },
+            {
+                "p": "nodeId",
+                "vt": "str",
+                "v": "ns=1;s=Sensors"
             }
         ],
         "repeat": "",
@@ -2156,19 +1133,50 @@
         "payload": "",
         "payloadType": "date",
         "x": 170,
-        "y": 80,
+        "y": 160,
         "wires": [
             [
-                "client-history"
+                "ex08-server"
             ]
         ]
     },
     {
-        "id": "inject-history-custom",
+        "id": "ex08-inject-var",
         "type": "inject",
-        "z": "tab-history",
-        "name": "History Read (custom range)",
-        "props": [],
+        "z": "ex08-tab",
+        "name": "Add Variable \"Temperature\"",
+        "props": [
+            {
+                "p": "command",
+                "vt": "str",
+                "v": "addVariable"
+            },
+            {
+                "p": "variableName",
+                "vt": "str",
+                "v": "Temperature"
+            },
+            {
+                "p": "parentNodeId",
+                "vt": "str",
+                "v": "ns=1;s=Sensors"
+            },
+            {
+                "p": "nodeId",
+                "vt": "str",
+                "v": "ns=1;s=Temperature"
+            },
+            {
+                "p": "datatype",
+                "vt": "str",
+                "v": "Double"
+            },
+            {
+                "p": "initialValue",
+                "vt": "num",
+                "v": "20.0"
+            }
+        ],
         "repeat": "",
         "crontab": "",
         "once": false,
@@ -2177,115 +1185,74 @@
         "payload": "",
         "payloadType": "date",
         "x": 180,
-        "y": 120,
+        "y": 220,
         "wires": [
             [
-                "func-history"
+                "ex08-server"
             ]
         ]
     },
     {
-        "id": "func-history",
-        "type": "function",
-        "z": "tab-history",
-        "name": "Set Time Range",
-        "func": "msg.operation = 'history';\nmsg.nodeId = 'ns=1;s=Dynamic.Sinus';\nmsg.startTime = new Date(Date.now() - 3600000); // 1 hour ago\nmsg.endTime = new Date();\nmsg.maxValues = 100;\nreturn msg;",
-        "outputs": 1,
-        "x": 410,
-        "y": 120,
-        "wires": [
-            [
-                "client-history"
-            ]
-        ]
+        "id": "ex08-comment3",
+        "type": "comment",
+        "z": "ex08-tab",
+        "name": "Step 2: Update the variable value",
+        "x": 220,
+        "y": 290,
+        "wires": []
     },
     {
-        "id": "inject-history-payload",
+        "id": "ex08-inject-setval",
         "type": "inject",
-        "z": "tab-history",
-        "name": "History via msg.payload",
-        "props": [],
+        "z": "ex08-tab",
+        "name": "Set Temperature = 25.5",
+        "props": [
+            {
+                "p": "command",
+                "vt": "str",
+                "v": "setValue"
+            },
+            {
+                "p": "nodeId",
+                "vt": "str",
+                "v": "ns=1;s=Temperature"
+            },
+            {
+                "p": "datatype",
+                "vt": "str",
+                "v": "Double"
+            },
+            {
+                "p": "payload",
+                "v": "25.5",
+                "vt": "num"
+            }
+        ],
         "repeat": "",
         "crontab": "",
         "once": false,
         "onceDelay": 0.1,
         "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 170,
-        "y": 160,
+        "payload": "25.5",
+        "payloadType": "num",
+        "x": 180,
+        "y": 340,
         "wires": [
             [
-                "func-history-payload"
+                "ex08-server"
             ]
         ]
     },
     {
-        "id": "func-history-payload",
-        "type": "function",
-        "z": "tab-history",
-        "name": "Payload with times",
-        "func": "msg.operation = 'history';\nmsg.nodeId = 'ns=1;s=Dynamic.Random';\nmsg.payload = {\n    startTime: new Date(Date.now() - 7200000), // 2 hours\n    endTime: new Date()\n};\nmsg.maxValues = 500;\nreturn msg;",
-        "outputs": 1,
-        "x": 410,
-        "y": 160,
-        "wires": [
-            [
-                "client-history"
-            ]
-        ]
-    },
-    {
-        "id": "client-history",
-        "type": "opcua-client",
-        "z": "tab-history",
-        "name": "History Client",
-        "endpoint": "ep1",
-        "defaultOperation": "history",
-        "x": 630,
-        "y": 120,
-        "wires": [
-            [
-                "debug-history"
-            ]
-        ]
-    },
-    {
-        "id": "debug-history",
-        "type": "debug",
-        "z": "tab-history",
-        "name": "History Result",
-        "active": true,
-        "tosidebar": true,
-        "complete": "true",
-        "x": 820,
-        "y": 120,
-        "wires": []
-    },
-    {
-        "id": "comment-a1",
-        "type": "comment",
-        "z": "tab-advanced",
-        "name": "══ 1. Read-Modify-Write Pattern ══",
-        "x": 190,
-        "y": 40,
-        "wires": []
-    },
-    {
-        "id": "inject-rmw",
+        "id": "ex08-inject-info",
         "type": "inject",
-        "z": "tab-advanced",
-        "name": "Read-Modify-Write",
+        "z": "ex08-tab",
+        "name": "Get Server Info",
         "props": [
             {
-                "p": "topic",
+                "p": "command",
                 "vt": "str",
-                "v": "ns=1;s=Writable.Counter"
-            },
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "read"
+                "v": "getServerInfo"
             }
         ],
         "repeat": "",
@@ -2296,112 +1263,251 @@
         "payload": "",
         "payloadType": "date",
         "x": 160,
-        "y": 80,
+        "y": 400,
         "wires": [
             [
-                "client-advanced"
+                "ex08-server"
             ]
         ]
     },
     {
-        "id": "client-advanced",
-        "type": "opcua-client",
-        "z": "tab-advanced",
-        "name": "Advanced Client",
-        "endpoint": "ep1",
-        "defaultOperation": "read",
-        "x": 430,
-        "y": 200,
-        "wires": [
-            [
-                "debug-advanced",
-                "func-rmw",
-                "func-condcheck"
-            ]
-        ]
+        "id": "ex09-endpoint",
+        "type": "opcua-endpoint",
+        "name": "Test Server",
+        "endpointUrl": "opc.tcp://opcua-server:4840/UA/TestServer",
+        "securityMode": "None",
+        "securityPolicy": "None"
     },
     {
-        "id": "func-rmw",
-        "type": "function",
-        "z": "tab-advanced",
-        "name": "Increment +1",
-        "func": "// Only process read results for Counter\nif (msg.operation === 'read' && msg.nodeId === 'ns=1;s=Writable.Counter') {\n    msg.operation = 'write';\n    msg.payload = (msg.payload || 0) + 1;\n    msg.datatype = 'Int32';\n    return msg;\n}\nreturn null;",
-        "outputs": 1,
-        "x": 650,
-        "y": 80,
-        "wires": [
-            [
-                "client-advanced"
-            ]
-        ]
+        "id": "ex09-tab",
+        "type": "tab",
+        "label": "09 - Session Retry Test",
+        "info": "Tests automatic session retry: reads a value, then reads again after session loss.\n\n1. Click 'Read Once' to verify the connection works.\n2. Click 'Continuous Read' to start periodic reads (every 2s).\n3. Restart the OPC UA server (docker restart opcua-server).\n4. Watch the debug output: you should see a brief 'reconnecting...' warning followed by successful reads — no manual intervention needed.\n5. Click 'Stop' to stop periodic reads.\n6. 'Batch Read' tests readmultiple with the same retry logic."
     },
     {
-        "id": "debug-advanced",
-        "type": "debug",
-        "z": "tab-advanced",
-        "name": "Advanced Result",
-        "active": true,
-        "tosidebar": true,
-        "complete": "true",
-        "x": 660,
-        "y": 200,
-        "wires": []
-    },
-    {
-        "id": "comment-a2",
+        "id": "ex09-comment",
         "type": "comment",
-        "z": "tab-advanced",
-        "name": "══ 2. Polling Pattern (timed read) ══",
-        "x": 200,
-        "y": 280,
+        "z": "ex09-tab",
+        "name": "Session Retry Test — restart the OPC UA server while reads are running",
+        "x": 350,
+        "y": 40,
         "wires": []
     },
     {
-        "id": "inject-poll",
+        "id": "ex09-inject-once",
         "type": "inject",
-        "z": "tab-advanced",
-        "name": "Poll every 2s",
+        "z": "ex09-tab",
+        "name": "Read Once",
+        "props": [
+            {
+                "p": "topic",
+                "vt": "str",
+                "v": "ns=1;s=Scalar.Int32"
+            }
+        ],
+        "repeat": "",
+        "once": false,
+        "x": 140,
+        "y": 120,
+        "wires": [
+            [
+                "ex09-client"
+            ]
+        ]
+    },
+    {
+        "id": "ex09-inject-loop",
+        "type": "inject",
+        "z": "ex09-tab",
+        "name": "Continuous Read (every 2s)",
         "props": [
             {
                 "p": "topic",
                 "vt": "str",
                 "v": "ns=1;s=Dynamic.Sinus"
-            },
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "read"
             }
         ],
         "repeat": "2",
-        "crontab": "",
         "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 150,
-        "y": 320,
+        "x": 200,
+        "y": 180,
         "wires": [
             [
-                "client-advanced"
+                "ex09-client"
             ]
         ]
     },
     {
-        "id": "comment-a3",
-        "type": "comment",
-        "z": "tab-advanced",
-        "name": "══ 3. Conditional Write (read > check > write) ══",
-        "x": 240,
-        "y": 390,
+        "id": "ex09-inject-stop",
+        "type": "inject",
+        "z": "ex09-tab",
+        "name": "Stop",
+        "props": [],
+        "repeat": "",
+        "once": false,
+        "x": 130,
+        "y": 240,
+        "wires": [
+            []
+        ],
+        "info": "Deploy to stop the continuous inject."
+    },
+    {
+        "id": "ex09-client",
+        "type": "opcua-client",
+        "z": "ex09-tab",
+        "name": "OPC UA Client",
+        "endpoint": "ex09-endpoint",
+        "defaultOperation": "read",
+        "x": 440,
+        "y": 150,
+        "wires": [
+            [
+                "ex09-debug-value",
+                "ex09-debug-status"
+            ]
+        ]
+    },
+    {
+        "id": "ex09-debug-value",
+        "type": "debug",
+        "z": "ex09-tab",
+        "name": "Value",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "payload",
+        "statusType": "auto",
+        "x": 650,
+        "y": 120,
         "wires": []
     },
     {
-        "id": "inject-condwrite",
+        "id": "ex09-debug-status",
+        "type": "debug",
+        "z": "ex09-tab",
+        "name": "Full msg",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "complete": "true",
+        "targetType": "full",
+        "x": 650,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "ex09-comment2",
+        "type": "comment",
+        "z": "ex09-tab",
+        "name": "── Batch Read (readmultiple) ──",
+        "x": 210,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "ex09-inject-batch",
         "type": "inject",
-        "z": "tab-advanced",
-        "name": "Check Temperature",
+        "z": "ex09-tab",
+        "name": "Batch Read (3 items)",
+        "props": [
+            {
+                "p": "operation",
+                "vt": "str",
+                "v": "readmultiple"
+            },
+            {
+                "p": "items",
+                "vt": "json",
+                "v": "[{\"nodeId\":\"ns=1;s=Scalar.Int32\"},{\"nodeId\":\"ns=1;s=Scalar.Double\"},{\"nodeId\":\"ns=1;s=Scalar.String\"}]"
+            }
+        ],
+        "repeat": "",
+        "once": false,
+        "x": 180,
+        "y": 380,
+        "wires": [
+            [
+                "ex09-client-batch"
+            ]
+        ]
+    },
+    {
+        "id": "ex09-inject-batch-loop",
+        "type": "inject",
+        "z": "ex09-tab",
+        "name": "Continuous Batch (every 2s)",
+        "props": [
+            {
+                "p": "operation",
+                "vt": "str",
+                "v": "readmultiple"
+            },
+            {
+                "p": "items",
+                "vt": "json",
+                "v": "[{\"nodeId\":\"ns=1;s=Dynamic.Sinus\"},{\"nodeId\":\"ns=1;s=Dynamic.Ramp\"},{\"nodeId\":\"ns=1;s=Dynamic.Toggle\"}]"
+            }
+        ],
+        "repeat": "2",
+        "once": false,
+        "x": 200,
+        "y": 440,
+        "wires": [
+            [
+                "ex09-client-batch"
+            ]
+        ]
+    },
+    {
+        "id": "ex09-client-batch",
+        "type": "opcua-client",
+        "z": "ex09-tab",
+        "name": "OPC UA Client (Batch)",
+        "endpoint": "ex09-endpoint",
+        "defaultOperation": "read",
+        "x": 460,
+        "y": 410,
+        "wires": [
+            [
+                "ex09-debug-batch"
+            ]
+        ]
+    },
+    {
+        "id": "ex09-debug-batch",
+        "type": "debug",
+        "z": "ex09-tab",
+        "name": "Batch Result",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "count",
+        "statusType": "auto",
+        "x": 690,
+        "y": 410,
+        "wires": []
+    },
+    {
+        "id": "ex09-comment3",
+        "type": "comment",
+        "z": "ex09-tab",
+        "name": "── Write Test ──",
+        "x": 170,
+        "y": 520,
+        "wires": []
+    },
+    {
+        "id": "ex09-inject-write",
+        "type": "inject",
+        "z": "ex09-tab",
+        "name": "Write 99.9",
         "props": [
             {
                 "p": "topic",
@@ -2409,1738 +1515,58 @@
                 "v": "ns=1;s=Writable.Temperature"
             },
             {
-                "p": "operation",
-                "vt": "str",
-                "v": "read"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 160,
-        "y": 430,
-        "wires": [
-            [
-                "client-advanced"
-            ]
-        ]
-    },
-    {
-        "id": "func-condcheck",
-        "type": "function",
-        "z": "tab-advanced",
-        "name": "If > 30 set to 20",
-        "func": "// Only process read results for Temperature\nif (msg.operation === 'read' && msg.nodeId === 'ns=1;s=Writable.Temperature') {\n    if (msg.payload > 30) {\n        msg.operation = 'write';\n        msg.payload = 20.0;\n        msg.datatype = 'Double';\n        return msg;\n    }\n}\nreturn null;",
-        "outputs": 1,
-        "x": 660,
-        "y": 430,
-        "wires": [
-            [
-                "client-advanced"
-            ]
-        ]
-    },
-    {
-        "id": "comment-a4",
-        "type": "comment",
-        "z": "tab-advanced",
-        "name": "══ 4. Dynamic NodeId from msg ══",
-        "x": 190,
-        "y": 510,
-        "wires": []
-    },
-    {
-        "id": "inject-dynamic-ns2",
-        "type": "inject",
-        "z": "tab-advanced",
-        "name": "Read ns=1;s=Scalar.Int32",
-        "props": [
-            {
-                "p": "nodeId",
-                "vt": "str",
-                "v": "ns=1;s=Scalar.Int32"
-            },
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "read"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 180,
-        "y": 550,
-        "wires": [
-            [
-                "client-advanced"
-            ]
-        ]
-    },
-    {
-        "id": "inject-dynamic-sinus",
-        "type": "inject",
-        "z": "tab-advanced",
-        "name": "Read ns=1;s=Dynamic.Sinus",
-        "props": [
-            {
-                "p": "nodeId",
-                "vt": "str",
-                "v": "ns=1;s=Dynamic.Sinus"
-            },
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "read"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 190,
-        "y": 590,
-        "wires": [
-            [
-                "client-advanced"
-            ]
-        ]
-    },
-    {
-        "id": "inject-dynamic-motor",
-        "type": "inject",
-        "z": "tab-advanced",
-        "name": "Read Motor.Speed",
-        "props": [
-            {
-                "p": "nodeId",
-                "vt": "str",
-                "v": "ns=1;s=Machine.Motor.Speed"
-            },
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "read"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 160,
-        "y": 630,
-        "wires": [
-            [
-                "client-advanced"
-            ]
-        ]
-    },
-    {
-        "id": "comment-a5",
-        "type": "comment",
-        "z": "tab-advanced",
-        "name": "══ 5. Batch Read All Machine Data ══",
-        "x": 200,
-        "y": 710,
-        "wires": []
-    },
-    {
-        "id": "inject-machine-all",
-        "type": "inject",
-        "z": "tab-advanced",
-        "name": "Read All Machine Data",
-        "props": [],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 160,
-        "y": 750,
-        "wires": [
-            [
-                "func-machine-all"
-            ]
-        ]
-    },
-    {
-        "id": "func-machine-all",
-        "type": "function",
-        "z": "tab-advanced",
-        "name": "Build Machine Items",
-        "func": "msg.operation = 'readmultiple';\nmsg.items = [\n    { nodeId: 'ns=1;s=Machine.Motor.Speed', name: 'Motor Speed' },\n    { nodeId: 'ns=1;s=Machine.Motor.Current', name: 'Motor Current' },\n    { nodeId: 'ns=1;s=Machine.Motor.Temperature', name: 'Motor Temp' },\n    { nodeId: 'ns=1;s=Machine.Motor.Running', name: 'Motor Running' },\n    { nodeId: 'ns=1;s=Machine.Pump.FlowRate', name: 'Pump Flow' },\n    { nodeId: 'ns=1;s=Machine.Pump.Pressure', name: 'Pump Pressure' },\n    { nodeId: 'ns=1;s=Machine.Pump.ValveOpen', name: 'Valve Open' },\n    { nodeId: 'ns=1;s=Machine.Sensors.AmbientTemp', name: 'Ambient Temp' },\n    { nodeId: 'ns=1;s=Machine.Sensors.Humidity', name: 'Humidity' },\n    { nodeId: 'ns=1;s=Machine.Sensors.Vibration', name: 'Vibration' }\n];\nreturn msg;",
-        "outputs": 1,
-        "x": 410,
-        "y": 750,
-        "wires": [
-            [
-                "client-advanced"
-            ]
-        ]
-    },
-    {
-        "id": "comment-auth-1",
-        "type": "comment",
-        "z": "tab-auth",
-        "name": "═══ 1. GetEndpoints — Discover supported auth methods ═══",
-        "x": 280,
-        "y": 40,
-        "wires": []
-    },
-    {
-        "id": "inject-getendpoints",
-        "type": "inject",
-        "z": "tab-auth",
-        "name": "Get Endpoints",
-        "props": [
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "getendpoints"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": "0.1",
-        "payloadType": "date",
-        "x": 110,
-        "y": 80,
-        "wires": [
-            [
-                "client-auth-discover"
-            ]
-        ]
-    },
-    {
-        "id": "client-auth-discover",
-        "type": "opcua-client",
-        "z": "tab-auth",
-        "name": "Discovery Client",
-        "endpoint": "ep1",
-        "defaultOperation": "getendpoints",
-        "x": 310,
-        "y": 80,
-        "wires": [
-            [
-                "func-parse-endpoints"
-            ]
-        ]
-    },
-    {
-        "id": "func-parse-endpoints",
-        "type": "function",
-        "z": "tab-auth",
-        "name": "Parse Endpoints",
-        "func": "// Show endpoint details with auth tokens\nvar eps = msg.payload || [];\nvar summary = eps.map(function(ep) {\n    var tokens = (ep.userIdentityTokens || []).map(function(t) {\n        var types = { 0: 'Anonymous', 1: 'Username', 2: 'Certificate', 3: 'IssuedToken' };\n        return types[t.tokenType] || 'Type-' + t.tokenType;\n    });\n    return {\n        url: ep.endpointUrl,\n        securityMode: ep.securityMode,\n        securityPolicy: ep.securityPolicy,\n        authMethods: tokens\n    };\n});\nmsg.payload = summary;\nmsg.endpointCount = eps.length;\nreturn msg;",
-        "outputs": 1,
-        "x": 530,
-        "y": 80,
-        "wires": [
-            [
-                "debug-auth-endpoints"
-            ]
-        ]
-    },
-    {
-        "id": "debug-auth-endpoints",
-        "type": "debug",
-        "z": "tab-auth",
-        "name": "Endpoints & Auth Methods",
-        "active": true,
-        "tosidebar": true,
-        "complete": "true",
-        "x": 760,
-        "y": 80,
-        "wires": []
-    },
-    {
-        "id": "comment-auth-2",
-        "type": "comment",
-        "z": "tab-auth",
-        "name": "═══ 2. Anonymous — No credentials ═══",
-        "x": 220,
-        "y": 160,
-        "wires": []
-    },
-    {
-        "id": "inject-auth-anon",
-        "type": "inject",
-        "z": "tab-auth",
-        "name": "Read Anonymous",
-        "props": [
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "readmultiple"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": "0.1",
-        "payloadType": "date",
-        "x": 120,
-        "y": 200,
-        "wires": [
-            [
-                "item-auth-anon"
-            ]
-        ]
-    },
-    {
-        "id": "item-auth-anon",
-        "type": "opcua-item",
-        "z": "tab-auth",
-        "name": "Anon Items",
-        "collector": true,
-        "items": [
-            {
-                "nodeId": "ns=1;s=Scalar.Boolean",
-                "datatype": "Boolean",
-                "itemName": "Boolean"
-            },
-            {
-                "nodeId": "ns=1;s=Scalar.Int32",
-                "datatype": "Int32",
-                "itemName": "Int32"
-            },
-            {
-                "nodeId": "ns=1;s=Scalar.String",
-                "datatype": "String",
-                "itemName": "String"
-            }
-        ],
-        "x": 310,
-        "y": 200,
-        "wires": [
-            [
-                "client-auth-anon"
-            ]
-        ]
-    },
-    {
-        "id": "client-auth-anon",
-        "type": "opcua-client",
-        "z": "tab-auth",
-        "name": "Client (Anonymous)",
-        "endpoint": "ep1",
-        "defaultOperation": "readmultiple",
-        "x": 530,
-        "y": 200,
-        "wires": [
-            [
-                "debug-auth-anon"
-            ]
-        ]
-    },
-    {
-        "id": "debug-auth-anon",
-        "type": "debug",
-        "z": "tab-auth",
-        "name": "Anonymous Result",
-        "active": true,
-        "tosidebar": true,
-        "complete": "true",
-        "x": 760,
-        "y": 200,
-        "wires": []
-    },
-    {
-        "id": "comment-auth-3",
-        "type": "comment",
-        "z": "tab-auth",
-        "name": "═══ 3. Username/Password — admin/admin123 ═══",
-        "x": 250,
-        "y": 280,
-        "wires": []
-    },
-    {
-        "id": "inject-auth-admin",
-        "type": "inject",
-        "z": "tab-auth",
-        "name": "Read as admin",
-        "props": [
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "readmultiple"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": "0.1",
-        "payloadType": "date",
-        "x": 120,
-        "y": 320,
-        "wires": [
-            [
-                "item-auth-admin"
-            ]
-        ]
-    },
-    {
-        "id": "item-auth-admin",
-        "type": "opcua-item",
-        "z": "tab-auth",
-        "name": "Admin Items",
-        "collector": true,
-        "items": [
-            {
-                "nodeId": "ns=1;s=Scalar.Double",
-                "datatype": "Double",
-                "itemName": "Double"
-            },
-            {
-                "nodeId": "ns=1;s=Dynamic.Sinus",
-                "datatype": "Double",
-                "itemName": "Sinus"
-            },
-            {
-                "nodeId": "ns=1;s=Machine.Motor.Speed",
-                "datatype": "Double",
-                "itemName": "Motor Speed"
-            }
-        ],
-        "x": 310,
-        "y": 320,
-        "wires": [
-            [
-                "client-auth-admin"
-            ]
-        ]
-    },
-    {
-        "id": "client-auth-admin",
-        "type": "opcua-client",
-        "z": "tab-auth",
-        "name": "Client (admin)",
-        "endpoint": "ep-auth-user",
-        "defaultOperation": "readmultiple",
-        "x": 530,
-        "y": 320,
-        "wires": [
-            [
-                "debug-auth-admin"
-            ]
-        ]
-    },
-    {
-        "id": "debug-auth-admin",
-        "type": "debug",
-        "z": "tab-auth",
-        "name": "Admin Result",
-        "active": true,
-        "tosidebar": true,
-        "complete": "true",
-        "x": 760,
-        "y": 320,
-        "wires": []
-    },
-    {
-        "id": "comment-auth-4",
-        "type": "comment",
-        "z": "tab-auth",
-        "name": "═══ 4. Username/Password — operator/operator123 ═══",
-        "x": 270,
-        "y": 400,
-        "wires": []
-    },
-    {
-        "id": "inject-auth-operator",
-        "type": "inject",
-        "z": "tab-auth",
-        "name": "Read as operator",
-        "props": [
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "readmultiple"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": "0.1",
-        "payloadType": "date",
-        "x": 130,
-        "y": 440,
-        "wires": [
-            [
-                "item-auth-operator"
-            ]
-        ]
-    },
-    {
-        "id": "item-auth-operator",
-        "type": "opcua-item",
-        "z": "tab-auth",
-        "name": "Operator Items",
-        "collector": true,
-        "items": [
-            {
-                "nodeId": "ns=1;s=Writable.Temperature",
-                "datatype": "Double",
-                "itemName": "Temperature"
-            },
-            {
-                "nodeId": "ns=1;s=Writable.Pressure",
-                "datatype": "Double",
-                "itemName": "Pressure"
-            }
-        ],
-        "x": 330,
-        "y": 440,
-        "wires": [
-            [
-                "client-auth-operator"
-            ]
-        ]
-    },
-    {
-        "id": "client-auth-operator",
-        "type": "opcua-client",
-        "z": "tab-auth",
-        "name": "Client (operator)",
-        "endpoint": "ep-auth-operator",
-        "defaultOperation": "readmultiple",
-        "x": 550,
-        "y": 440,
-        "wires": [
-            [
-                "debug-auth-operator"
-            ]
-        ]
-    },
-    {
-        "id": "debug-auth-operator",
-        "type": "debug",
-        "z": "tab-auth",
-        "name": "Operator Result",
-        "active": true,
-        "tosidebar": true,
-        "complete": "true",
-        "x": 770,
-        "y": 440,
-        "wires": []
-    },
-    {
-        "id": "comment-auth-5",
-        "type": "comment",
-        "z": "tab-auth",
-        "name": "═══ 5. Write with admin credentials ═══",
-        "x": 230,
-        "y": 520,
-        "wires": []
-    },
-    {
-        "id": "inject-auth-write",
-        "type": "inject",
-        "z": "tab-auth",
-        "name": "Write as admin",
-        "props": [
-            {
-                "p": "payload",
-                "vt": "num",
-                "v": "42.0"
-            },
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "write"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": "0.1",
-        "payloadType": "date",
-        "x": 120,
-        "y": 560,
-        "wires": [
-            [
-                "item-auth-write"
-            ]
-        ]
-    },
-    {
-        "id": "item-auth-write",
-        "type": "opcua-item",
-        "z": "tab-auth",
-        "name": "Write Temperature",
-        "collector": true,
-        "items": [
-            {
-                "nodeId": "ns=1;s=Writable.Temperature",
-                "datatype": "Double",
-                "itemName": "Temperature"
-            }
-        ],
-        "x": 340,
-        "y": 560,
-        "wires": [
-            [
-                "client-auth-write"
-            ]
-        ]
-    },
-    {
-        "id": "client-auth-write",
-        "type": "opcua-client",
-        "z": "tab-auth",
-        "name": "Write Client (admin)",
-        "endpoint": "ep-auth-user",
-        "defaultOperation": "write",
-        "x": 560,
-        "y": 560,
-        "wires": [
-            [
-                "debug-auth-write"
-            ]
-        ]
-    },
-    {
-        "id": "debug-auth-write",
-        "type": "debug",
-        "z": "tab-auth",
-        "name": "Write Result",
-        "active": true,
-        "tosidebar": true,
-        "complete": "true",
-        "x": 770,
-        "y": 560,
-        "wires": []
-    },
-    {
-        "id": "comment-auth-6",
-        "type": "comment",
-        "z": "tab-auth",
-        "name": "═══ 6. Wrong Credentials — should fail ═══",
-        "x": 240,
-        "y": 640,
-        "wires": []
-    },
-    {
-        "id": "inject-auth-wrong",
-        "type": "inject",
-        "z": "tab-auth",
-        "name": "Read (wrong creds)",
-        "props": [
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "read"
-            },
-            {
-                "p": "topic",
-                "vt": "str",
-                "v": "ns=1;s=Scalar.Int32"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": "0.1",
-        "payloadType": "date",
-        "x": 130,
-        "y": 680,
-        "wires": [
-            [
-                "client-auth-wrong"
-            ]
-        ]
-    },
-    {
-        "id": "client-auth-wrong",
-        "type": "opcua-client",
-        "z": "tab-auth",
-        "name": "Client (wrong creds)",
-        "endpoint": "ep-auth-wrong",
-        "defaultOperation": "read",
-        "x": 370,
-        "y": 680,
-        "wires": [
-            [
-                "debug-auth-wrong"
-            ]
-        ]
-    },
-    {
-        "id": "debug-auth-wrong",
-        "type": "debug",
-        "z": "tab-auth",
-        "name": "Error Expected",
-        "active": true,
-        "tosidebar": true,
-        "complete": "true",
-        "x": 590,
-        "y": 680,
-        "wires": []
-    },
-    {
-        "id": "comment-auth-7",
-        "type": "comment",
-        "z": "tab-auth",
-        "name": "═══ 7. Browse with admin — full access ═══",
-        "x": 240,
-        "y": 760,
-        "wires": []
-    },
-    {
-        "id": "inject-auth-browse",
-        "type": "inject",
-        "z": "tab-auth",
-        "name": "Browse as admin",
-        "props": [
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "browse"
-            },
-            {
-                "p": "topic",
-                "vt": "str",
-                "v": "ns=1;s=TestData"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": "0.1",
-        "payloadType": "date",
-        "x": 120,
-        "y": 800,
-        "wires": [
-            [
-                "client-auth-browse"
-            ]
-        ]
-    },
-    {
-        "id": "client-auth-browse",
-        "type": "opcua-client",
-        "z": "tab-auth",
-        "name": "Browse Client (admin)",
-        "endpoint": "ep-auth-user",
-        "defaultOperation": "browse",
-        "x": 360,
-        "y": 800,
-        "wires": [
-            [
-                "debug-auth-browse"
-            ]
-        ]
-    },
-    {
-        "id": "debug-auth-browse",
-        "type": "debug",
-        "z": "tab-auth",
-        "name": "Browse Result",
-        "active": true,
-        "tosidebar": true,
-        "complete": "true",
-        "x": 590,
-        "y": 800,
-        "wires": []
-    },
-    {
-        "id": "comment-auth-info",
-        "type": "comment",
-        "z": "tab-auth",
-        "name": "ℹ Credentials are set in the Endpoint config node. Test users: admin/admin123, operator/operator123, viewer/viewer123",
-        "x": 380,
-        "y": 880,
-        "wires": []
-    },
-    {
-        "id": "comment-sec-sign-b256",
-        "type": "comment",
-        "z": "tab-security",
-        "name": "═══ 1. Sign + Basic256Sha256 ═══",
-        "x": 300,
-        "y": 40,
-        "wires": []
-    },
-    {
-        "id": "inj-sec-sign-b256",
-        "type": "inject",
-        "z": "tab-security",
-        "name": "Read 1",
-        "props": [
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "readmultiple"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": "0.1",
-        "x": 140,
-        "y": 80,
-        "wires": [
-            [
-                "item-sec-sign-b256"
-            ]
-        ]
-    },
-    {
-        "id": "item-sec-sign-b256",
-        "type": "opcua-item",
-        "z": "tab-security",
-        "name": "Test Items",
-        "collector": true,
-        "items": [
-            {
-                "nodeId": "ns=1;s=Scalar.Int32",
-                "datatype": "Int32",
-                "itemName": "Int32"
-            },
-            {
-                "nodeId": "ns=1;s=Scalar.Double",
-                "datatype": "Double",
-                "itemName": "Double"
-            },
-            {
-                "nodeId": "ns=1;s=Scalar.String",
-                "datatype": "String",
-                "itemName": "String"
-            }
-        ],
-        "x": 370,
-        "y": 80,
-        "wires": [
-            [
-                "client-sec-sign-b256"
-            ]
-        ]
-    },
-    {
-        "id": "client-sec-sign-b256",
-        "type": "opcua-client",
-        "z": "tab-security",
-        "name": "1. Sign + Basic256Sha256",
-        "endpoint": "ep-sign-b256",
-        "defaultOperation": "readmultiple",
-        "x": 620,
-        "y": 80,
-        "wires": [
-            [
-                "debug-sec-sign-b256"
-            ]
-        ]
-    },
-    {
-        "id": "debug-sec-sign-b256",
-        "type": "debug",
-        "z": "tab-security",
-        "name": "Result",
-        "active": true,
-        "tosidebar": true,
-        "complete": "true",
-        "x": 850,
-        "y": 80,
-        "wires": []
-    },
-    {
-        "id": "comment-sec-senc-b256",
-        "type": "comment",
-        "z": "tab-security",
-        "name": "═══ 2. SignAndEncrypt + Basic256Sha256 ═══",
-        "x": 300,
-        "y": 160,
-        "wires": []
-    },
-    {
-        "id": "inj-sec-senc-b256",
-        "type": "inject",
-        "z": "tab-security",
-        "name": "Read 2",
-        "props": [
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "readmultiple"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": "0.1",
-        "x": 140,
-        "y": 200,
-        "wires": [
-            [
-                "item-sec-senc-b256"
-            ]
-        ]
-    },
-    {
-        "id": "item-sec-senc-b256",
-        "type": "opcua-item",
-        "z": "tab-security",
-        "name": "Test Items",
-        "collector": true,
-        "items": [
-            {
-                "nodeId": "ns=1;s=Scalar.Int32",
-                "datatype": "Int32",
-                "itemName": "Int32"
-            },
-            {
-                "nodeId": "ns=1;s=Scalar.Double",
-                "datatype": "Double",
-                "itemName": "Double"
-            },
-            {
-                "nodeId": "ns=1;s=Scalar.String",
-                "datatype": "String",
-                "itemName": "String"
-            }
-        ],
-        "x": 370,
-        "y": 200,
-        "wires": [
-            [
-                "client-sec-senc-b256"
-            ]
-        ]
-    },
-    {
-        "id": "client-sec-senc-b256",
-        "type": "opcua-client",
-        "z": "tab-security",
-        "name": "2. SignAndEncrypt + Basic256Sha256",
-        "endpoint": "ep-signenc-b256",
-        "defaultOperation": "readmultiple",
-        "x": 620,
-        "y": 200,
-        "wires": [
-            [
-                "debug-sec-senc-b256"
-            ]
-        ]
-    },
-    {
-        "id": "debug-sec-senc-b256",
-        "type": "debug",
-        "z": "tab-security",
-        "name": "Result",
-        "active": true,
-        "tosidebar": true,
-        "complete": "true",
-        "x": 870,
-        "y": 200,
-        "wires": []
-    },
-    {
-        "id": "comment-sec-senc-aes128",
-        "type": "comment",
-        "z": "tab-security",
-        "name": "═══ 3. SignAndEncrypt + Aes128_Sha256_RsaOaep ═══",
-        "x": 300,
-        "y": 280,
-        "wires": []
-    },
-    {
-        "id": "inj-sec-senc-aes128",
-        "type": "inject",
-        "z": "tab-security",
-        "name": "Read 3",
-        "props": [
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "readmultiple"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": "0.1",
-        "x": 140,
-        "y": 320,
-        "wires": [
-            [
-                "item-sec-senc-aes128"
-            ]
-        ]
-    },
-    {
-        "id": "item-sec-senc-aes128",
-        "type": "opcua-item",
-        "z": "tab-security",
-        "name": "Test Items",
-        "collector": true,
-        "items": [
-            {
-                "nodeId": "ns=1;s=Scalar.Int32",
-                "datatype": "Int32",
-                "itemName": "Int32"
-            },
-            {
-                "nodeId": "ns=1;s=Scalar.Double",
-                "datatype": "Double",
-                "itemName": "Double"
-            },
-            {
-                "nodeId": "ns=1;s=Scalar.String",
-                "datatype": "String",
-                "itemName": "String"
-            }
-        ],
-        "x": 370,
-        "y": 320,
-        "wires": [
-            [
-                "client-sec-senc-aes128"
-            ]
-        ]
-    },
-    {
-        "id": "client-sec-senc-aes128",
-        "type": "opcua-client",
-        "z": "tab-security",
-        "name": "3. SignAndEncrypt + Aes128_Sha256_RsaOaep",
-        "endpoint": "ep-signenc-aes128",
-        "defaultOperation": "readmultiple",
-        "x": 620,
-        "y": 320,
-        "wires": [
-            [
-                "debug-sec-senc-aes128"
-            ]
-        ]
-    },
-    {
-        "id": "debug-sec-senc-aes128",
-        "type": "debug",
-        "z": "tab-security",
-        "name": "Result",
-        "active": true,
-        "tosidebar": true,
-        "complete": "true",
-        "x": 870,
-        "y": 320,
-        "wires": []
-    },
-    {
-        "id": "comment-sec-senc-aes256",
-        "type": "comment",
-        "z": "tab-security",
-        "name": "═══ 4. SignAndEncrypt + Aes256_Sha256_RsaPss ═══",
-        "x": 300,
-        "y": 400,
-        "wires": []
-    },
-    {
-        "id": "inj-sec-senc-aes256",
-        "type": "inject",
-        "z": "tab-security",
-        "name": "Read 4",
-        "props": [
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "readmultiple"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": "0.1",
-        "x": 140,
-        "y": 440,
-        "wires": [
-            [
-                "item-sec-senc-aes256"
-            ]
-        ]
-    },
-    {
-        "id": "item-sec-senc-aes256",
-        "type": "opcua-item",
-        "z": "tab-security",
-        "name": "Test Items",
-        "collector": true,
-        "items": [
-            {
-                "nodeId": "ns=1;s=Scalar.Int32",
-                "datatype": "Int32",
-                "itemName": "Int32"
-            },
-            {
-                "nodeId": "ns=1;s=Scalar.Double",
-                "datatype": "Double",
-                "itemName": "Double"
-            },
-            {
-                "nodeId": "ns=1;s=Scalar.String",
-                "datatype": "String",
-                "itemName": "String"
-            }
-        ],
-        "x": 370,
-        "y": 440,
-        "wires": [
-            [
-                "client-sec-senc-aes256"
-            ]
-        ]
-    },
-    {
-        "id": "client-sec-senc-aes256",
-        "type": "opcua-client",
-        "z": "tab-security",
-        "name": "4. SignAndEncrypt + Aes256_Sha256_RsaPss",
-        "endpoint": "ep-signenc-aes256",
-        "defaultOperation": "readmultiple",
-        "x": 620,
-        "y": 440,
-        "wires": [
-            [
-                "debug-sec-senc-aes256"
-            ]
-        ]
-    },
-    {
-        "id": "debug-sec-senc-aes256",
-        "type": "debug",
-        "z": "tab-security",
-        "name": "Result",
-        "active": true,
-        "tosidebar": true,
-        "complete": "true",
-        "x": 870,
-        "y": 440,
-        "wires": []
-    },
-    {
-        "id": "comment-sec-x509",
-        "type": "comment",
-        "z": "tab-security",
-        "name": "═══ 5. X509 Certificate User Auth (no transport security) ═══",
-        "x": 300,
-        "y": 520,
-        "wires": []
-    },
-    {
-        "id": "inj-sec-x509",
-        "type": "inject",
-        "z": "tab-security",
-        "name": "Read 5",
-        "props": [
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "readmultiple"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": "0.1",
-        "x": 140,
-        "y": 560,
-        "wires": [
-            [
-                "item-sec-x509"
-            ]
-        ]
-    },
-    {
-        "id": "item-sec-x509",
-        "type": "opcua-item",
-        "z": "tab-security",
-        "name": "Test Items",
-        "collector": true,
-        "items": [
-            {
-                "nodeId": "ns=1;s=Scalar.Int32",
-                "datatype": "Int32",
-                "itemName": "Int32"
-            },
-            {
-                "nodeId": "ns=1;s=Scalar.Double",
-                "datatype": "Double",
-                "itemName": "Double"
-            },
-            {
-                "nodeId": "ns=1;s=Scalar.String",
-                "datatype": "String",
-                "itemName": "String"
-            }
-        ],
-        "x": 370,
-        "y": 560,
-        "wires": [
-            [
-                "client-sec-x509"
-            ]
-        ]
-    },
-    {
-        "id": "client-sec-x509",
-        "type": "opcua-client",
-        "z": "tab-security",
-        "name": "5. X509 Certificate User Auth (no transport security)",
-        "endpoint": "ep-x509",
-        "defaultOperation": "readmultiple",
-        "x": 620,
-        "y": 560,
-        "wires": [
-            [
-                "debug-sec-x509"
-            ]
-        ]
-    },
-    {
-        "id": "debug-sec-x509",
-        "type": "debug",
-        "z": "tab-security",
-        "name": "Result",
-        "active": true,
-        "tosidebar": true,
-        "complete": "true",
-        "x": 870,
-        "y": 560,
-        "wires": []
-    },
-    {
-        "id": "comment-sec-x509-senc",
-        "type": "comment",
-        "z": "tab-security",
-        "name": "═══ 6. X509 + SignAndEncrypt + Basic256Sha256 ═══",
-        "x": 300,
-        "y": 640,
-        "wires": []
-    },
-    {
-        "id": "inj-sec-x509-senc",
-        "type": "inject",
-        "z": "tab-security",
-        "name": "Read 6",
-        "props": [
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "readmultiple"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": "0.1",
-        "x": 140,
-        "y": 680,
-        "wires": [
-            [
-                "item-sec-x509-senc"
-            ]
-        ]
-    },
-    {
-        "id": "item-sec-x509-senc",
-        "type": "opcua-item",
-        "z": "tab-security",
-        "name": "Test Items",
-        "collector": true,
-        "items": [
-            {
-                "nodeId": "ns=1;s=Scalar.Int32",
-                "datatype": "Int32",
-                "itemName": "Int32"
-            },
-            {
-                "nodeId": "ns=1;s=Scalar.Double",
-                "datatype": "Double",
-                "itemName": "Double"
-            },
-            {
-                "nodeId": "ns=1;s=Scalar.String",
-                "datatype": "String",
-                "itemName": "String"
-            }
-        ],
-        "x": 370,
-        "y": 680,
-        "wires": [
-            [
-                "client-sec-x509-senc"
-            ]
-        ]
-    },
-    {
-        "id": "client-sec-x509-senc",
-        "type": "opcua-client",
-        "z": "tab-security",
-        "name": "6. X509 + SignAndEncrypt + Basic256Sha256",
-        "endpoint": "ep-x509-senc",
-        "defaultOperation": "readmultiple",
-        "x": 620,
-        "y": 680,
-        "wires": [
-            [
-                "debug-sec-x509-senc"
-            ]
-        ]
-    },
-    {
-        "id": "debug-sec-x509-senc",
-        "type": "debug",
-        "z": "tab-security",
-        "name": "Result",
-        "active": true,
-        "tosidebar": true,
-        "complete": "true",
-        "x": 870,
-        "y": 680,
-        "wires": []
-    },
-    {
-        "id": "comment-sec-write",
-        "type": "comment",
-        "z": "tab-security",
-        "name": "═══ 7. Write with SignAndEncrypt + admin creds ═══",
-        "x": 300,
-        "y": 780,
-        "wires": []
-    },
-    {
-        "id": "inj-sec-write",
-        "type": "inject",
-        "z": "tab-security",
-        "name": "Write Encrypted",
-        "props": [
-            {
                 "p": "payload",
                 "vt": "num",
                 "v": "99.9"
             },
             {
+                "p": "datatype",
+                "vt": "str",
+                "v": "Double"
+            },
+            {
                 "p": "operation",
                 "vt": "str",
                 "v": "write"
             }
         ],
         "repeat": "",
-        "crontab": "",
         "once": false,
-        "onceDelay": "0.1",
-        "x": 130,
-        "y": 820,
+        "x": 160,
+        "y": 580,
         "wires": [
             [
-                "item-sec-write"
+                "ex09-client-write"
             ]
         ]
     },
     {
-        "id": "item-sec-write",
-        "type": "opcua-item",
-        "z": "tab-security",
-        "name": "Write Temp",
-        "collector": true,
-        "items": [
-            {
-                "nodeId": "ns=1;s=Writable.Temperature",
-                "datatype": "Double",
-                "itemName": "Temperature"
-            }
-        ],
-        "x": 340,
-        "y": 820,
-        "wires": [
-            [
-                "client-sec-write"
-            ]
-        ]
-    },
-    {
-        "id": "client-sec-write",
+        "id": "ex09-client-write",
         "type": "opcua-client",
-        "z": "tab-security",
-        "name": "Write (encrypted + admin)",
-        "endpoint": "ep-senc-admin",
+        "z": "ex09-tab",
+        "name": "OPC UA Client (Write)",
+        "endpoint": "ex09-endpoint",
         "defaultOperation": "write",
-        "x": 570,
-        "y": 820,
+        "x": 460,
+        "y": 580,
         "wires": [
             [
-                "debug-sec-write"
+                "ex09-debug-write"
             ]
         ]
     },
     {
-        "id": "debug-sec-write",
+        "id": "ex09-debug-write",
         "type": "debug",
-        "z": "tab-security",
+        "z": "ex09-tab",
         "name": "Write Result",
         "active": true,
         "tosidebar": true,
-        "complete": "true",
-        "x": 790,
-        "y": 820,
-        "wires": []
-    },
-    {
-        "id": "comment-sec-discover",
-        "type": "comment",
-        "z": "tab-security",
-        "name": "═══ 8. GetEndpoints — verify all modes/policies/tokens ═══",
-        "x": 320,
-        "y": 920,
-        "wires": []
-    },
-    {
-        "id": "inj-sec-discover",
-        "type": "inject",
-        "z": "tab-security",
-        "name": "Discover All",
-        "props": [
-            {
-                "p": "operation",
-                "vt": "str",
-                "v": "getendpoints"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": "0.1",
-        "x": 120,
-        "y": 960,
-        "wires": [
-            [
-                "client-sec-discover"
-            ]
-        ]
-    },
-    {
-        "id": "client-sec-discover",
-        "type": "opcua-client",
-        "z": "tab-security",
-        "name": "GetEndpoints",
-        "endpoint": "ep1",
-        "defaultOperation": "getendpoints",
-        "x": 320,
-        "y": 960,
-        "wires": [
-            [
-                "func-sec-summary"
-            ]
-        ]
-    },
-    {
-        "id": "func-sec-summary",
-        "type": "function",
-        "z": "tab-security",
-        "name": "Security Summary",
-        "func": "var eps = msg.payload || [];\nvar tokenTypes = {0:'Anonymous',1:'Username',2:'X509 Cert',3:'IssuedToken'};\nmsg.payload = {\n    totalEndpoints: eps.length,\n    endpoints: eps.map(function(ep){\n        return {\n            mode: ep.securityMode,\n            policy: ep.securityPolicy,\n            auth: (ep.userIdentityTokens||[]).map(function(t){return tokenTypes[t.tokenType]||t.tokenType;})\n        };\n    })\n};\nreturn msg;",
-        "outputs": 1,
-        "x": 540,
-        "y": 960,
-        "wires": [
-            [
-                "debug-sec-discover"
-            ]
-        ]
-    },
-    {
-        "id": "debug-sec-discover",
-        "type": "debug",
-        "z": "tab-security",
-        "name": "All Endpoints",
-        "active": true,
-        "tosidebar": true,
-        "complete": "true",
-        "x": 750,
-        "y": 960,
-        "wires": []
-    },
-    {
-        "id": "comment-sec-info",
-        "type": "comment",
-        "z": "tab-security",
-        "name": "ℹ Certs in /data/opcua-certs/. Server auto-accepts unknown certs. Test users: admin/admin123, operator/operator123, viewer/viewer123",
-        "x": 420,
-        "y": 1040,
-        "wires": []
-    },
-    {
-        "id": "c3aebfab0819bd34",
-        "type": "opcua-browse-client",
-        "z": "0b61f7f1316bba6f",
-        "name": "",
-        "endpoint": "ep1",
-        "mode": "subscribe",
-        "publishInterval": "100",
-        "selectedItems": [
-            {
-                "nodeId": "ns=1;s=Structure.SensorReading",
-                "browseName": "SensorReading",
-                "displayName": "SensorReading",
-                "nodeClass": "Variable",
-                "typeDefinition": "ns=0;i=63",
-                "dataType": "ExtensionObject (SensorReadingType)"
-            }
-        ],
-        "x": 390,
-        "y": 220,
-        "wires": [
-            [
-                "3127424844975b87"
-            ]
-        ]
-    },
-    {
-        "id": "9bc458012b2fcf48",
-        "type": "inject",
-        "z": "0b61f7f1316bba6f",
-        "name": "Inject",
-        "props": [
-            {
-                "p": "payload"
-            },
-            {
-                "p": "topic",
-                "vt": "str"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 130,
-        "y": 220,
-        "wires": [
-            [
-                "c3aebfab0819bd34"
-            ]
-        ]
-    },
-    {
-        "id": "3127424844975b87",
-        "type": "debug",
-        "z": "0b61f7f1316bba6f",
-        "name": "debug 3",
-        "active": true,
-        "tosidebar": true,
         "console": false,
-        "tostatus": false,
         "complete": "true",
         "targetType": "full",
-        "statusVal": "",
-        "statusType": "auto",
-        "x": 680,
-        "y": 220,
-        "wires": []
-    },
-    {
-        "id": "e0834876a44abd1c",
-        "type": "opcua-client",
-        "z": "0b61f7f1316bba6f",
-        "name": "",
-        "endpoint": "ep1",
-        "defaultOperation": "write",
-        "applicationName": "Node-RED OPC UA Client",
-        "maxReconnectAttempts": 10,
-        "reconnectDelay": 5000,
-        "x": 720,
-        "y": 340,
-        "wires": [
-            [
-                "a611471a4e8abb4e"
-            ]
-        ]
-    },
-    {
-        "id": "fba887aff40dc09f",
-        "type": "function",
-        "z": "0b61f7f1316bba6f",
-        "name": "Write Extension Object",
-        "func": "msg = {\n    operation: \"write\",\n    nodeId: \"ns=1;s=Structure.SensorReading\",\n    datatype: \"ExtensionObject\",\n    dataTypeNodeId: \"ns=1;s=SensorReadingType\",\n    payload: {temperature:22.5,humidity:48.7,pressure:Math.random(),sensorId:\"SENSOR-001\",timestamp:\"2026-03-15T17:29:01.670Z\"}\n}\nreturn msg;",
-        "outputs": 1,
-        "timeout": 0,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 400,
-        "y": 340,
-        "wires": [
-            [
-                "e0834876a44abd1c"
-            ]
-        ]
-    },
-    {
-        "id": "304ac3e6a3be405a",
-        "type": "inject",
-        "z": "0b61f7f1316bba6f",
-        "name": "Inject",
-        "props": [
-            {
-                "p": "payload"
-            },
-            {
-                "p": "topic",
-                "vt": "str"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 130,
-        "y": 340,
-        "wires": [
-            [
-                "fba887aff40dc09f"
-            ]
-        ]
-    },
-    {
-        "id": "a611471a4e8abb4e",
-        "type": "debug",
-        "z": "0b61f7f1316bba6f",
-        "name": "debug 5",
-        "active": true,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
-        "complete": "true",
-        "targetType": "full",
-        "statusVal": "",
-        "statusType": "auto",
-        "x": 980,
-        "y": 340,
-        "wires": []
-    },
-    {
-        "id": "53baebf5a1e48430",
-        "type": "opcua-browse-client",
-        "z": "0b61f7f1316bba6f",
-        "name": "",
-        "endpoint": "ep1",
-        "mode": "read",
-        "publishInterval": "100",
-        "selectedItems": [
-            {
-                "nodeId": "ns=1;s=Structure.SensorReading",
-                "browseName": "SensorReading",
-                "displayName": "SensorReading",
-                "nodeClass": "Variable",
-                "typeDefinition": "ns=0;i=63",
-                "dataType": "ExtensionObject (SensorReadingType)"
-            }
-        ],
-        "x": 370,
-        "y": 120,
-        "wires": [
-            [
-                "3feb1e1493b2061b"
-            ]
-        ]
-    },
-    {
-        "id": "c8d3c5a155a4c5c4",
-        "type": "inject",
-        "z": "0b61f7f1316bba6f",
-        "name": "Inject",
-        "props": [
-            {
-                "p": "payload"
-            },
-            {
-                "p": "topic",
-                "vt": "str"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 130,
-        "y": 120,
-        "wires": [
-            [
-                "53baebf5a1e48430"
-            ]
-        ]
-    },
-    {
-        "id": "3feb1e1493b2061b",
-        "type": "debug",
-        "z": "0b61f7f1316bba6f",
-        "name": "debug 4",
-        "active": true,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
-        "complete": "true",
-        "targetType": "full",
-        "statusVal": "",
-        "statusType": "auto",
-        "x": 680,
-        "y": 120,
-        "wires": []
-    },
-    {
-        "id": "33c90702fb706090",
-        "type": "comment",
-        "z": "0b61f7f1316bba6f",
-        "name": "══ 1. Read Extension object ══",
-        "info": "",
-        "x": 210,
-        "y": 80,
-        "wires": []
-    },
-    {
-        "id": "8aaade3ef7dbcd79",
-        "type": "comment",
-        "z": "0b61f7f1316bba6f",
-        "name": "══ 2. subscribe Extension object ══",
-        "info": "",
-        "x": 220,
-        "y": 180,
-        "wires": []
-    },
-    {
-        "id": "ef49e9f68119c619",
-        "type": "comment",
-        "z": "0b61f7f1316bba6f",
-        "name": "══ 3. write Extension object ══",
-        "info": "",
-        "x": 210,
-        "y": 300,
+        "x": 690,
+        "y": 580,
         "wires": []
     }
 ]

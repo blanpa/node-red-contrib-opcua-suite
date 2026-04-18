@@ -446,6 +446,41 @@ async function startServer() {
     });
   });
 
+  // KillSessions-Methode: schließt alle aktiven Sessions serverseitig
+  // Simuliert den Fehler "Session is no longer valid" auf der Client-Seite
+  // ohne den Server komplett neu zu starten.
+  const killSessionsMethod = ns.addMethod(methodFolder, {
+    browseName: "KillSessions",
+    nodeId: "s=Methods.KillSessions",
+    inputArguments: [],
+    outputArguments: [
+      {
+        name: "ClosedCount",
+        description: { text: "Anzahl geschlossener Sessions" },
+        dataType: DataType.UInt32,
+      },
+    ],
+  });
+
+  killSessionsMethod.bindMethod(async (inputArguments, context, callback) => {
+    const engine = server.engine;
+    const sessions = Array.from(engine._sessions ? Object.values(engine._sessions) : []);
+    let closed = 0;
+    for (const session of sessions) {
+      try {
+        engine.closeSession(session.authenticationToken, true, "Terminated");
+        closed++;
+      } catch (_) { /* ignore */ }
+    }
+    console.log(`[KillSessions] Killed ${closed} session(s) on request`);
+    callback(null, {
+      statusCode: StatusCodes.Good,
+      outputArguments: [
+        new Variant({ dataType: DataType.UInt32, value: closed }),
+      ],
+    });
+  });
+
   // Reset-Methode: setzt alle Writable-Variablen zurück
   const resetMethod = ns.addMethod(methodFolder, {
     browseName: "ResetAll",

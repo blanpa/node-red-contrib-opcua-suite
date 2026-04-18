@@ -133,8 +133,9 @@ module.exports = function(RED) {
                 done();
 
             } catch (error) {
-                node.error(`Server command error: ${error.message}`, { error });
+                node.error(`Server command error: ${error.message}`, msg);
                 msg.error = error.message;
+                msg.payload = { error: error.message };
                 send(msg);
                 done(error);
             }
@@ -197,8 +198,14 @@ module.exports = function(RED) {
             value: initialValue !== undefined ? initialValue : getDefaultValue(dataType)
         });
 
+        // The standard "Objects" folder only accepts Organizes references
+        // (per OPC UA spec). For user-created folders/objects we use HasComponent.
+        const parentRef = isStandardObjectsFolder(parentNodeId)
+            ? { organizedBy: parentNodeId }
+            : { componentOf: parentNodeId };
+
         const variable = namespace.addVariable({
-            componentOf: parentNodeId,
+            ...parentRef,
             browseName: variableName,
             nodeId: msg.nodeId || undefined,
             dataType: dataType,
@@ -286,8 +293,12 @@ module.exports = function(RED) {
             description: coerceLocalizedText(arg.description || arg.name)
         }));
 
+        const parentRef = isStandardObjectsFolder(parentNodeId)
+            ? { organizedBy: parentNodeId }
+            : { componentOf: parentNodeId };
+
         const methodOpts = {
-            componentOf: parentNodeId,
+            ...parentRef,
             browseName: methodName,
             nodeId: msg.nodeId || undefined,
             inputArguments: inputArguments,
@@ -415,6 +426,21 @@ module.exports = function(RED) {
             message: message,
             severity: severity
         };
+    }
+
+    // The standard "Objects" folder (i=85) only allows Organizes references
+    // to objects/variables. This helper detects that node by its various
+    // possible identifiers so we can pick the correct reference type.
+    function isStandardObjectsFolder(parentNodeId) {
+        if (!parentNodeId) {
+            return false;
+        }
+        const id = String(parentNodeId);
+        return (
+            id === 'ObjectsFolder' ||
+            id === 'i=85' ||
+            id === 'ns=0;i=85'
+        );
     }
 
     function getDefaultValue(dataType) {

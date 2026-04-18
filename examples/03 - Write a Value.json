@@ -2,23 +2,23 @@
     {
         "id": "ex03-endpoint",
         "type": "opcua-endpoint",
-        "name": "Local Server",
-        "endpointUrl": "opc.tcp://localhost:4840",
+        "name": "Test Server",
+        "endpointUrl": "opc.tcp://localhost:4841/UA/TestServer",
         "securityMode": "None",
         "securityPolicy": "None"
     },
     {
         "id": "ex03-tab",
         "type": "tab",
-        "label": "Write a Value",
-        "info": "Write a value to an OPC UA variable. The inject sets the value in msg.payload and the NodeId in msg.topic."
+        "label": "03 - Write a Value",
+        "info": "Write a value to an OPC UA variable. The inject sets the value in msg.payload, the NodeId in msg.topic, and optionally msg.datatype.\n\nThis example uses the included Docker test server. Start it with:\n\n    docker compose up -d\n\nWritable NodeIds used: ns=1;s=Writable.Temperature, ns=1;s=Writable.Active, ns=1;s=Writable.MachineName."
     },
     {
         "id": "ex03-comment",
         "type": "comment",
         "z": "ex03-tab",
-        "name": "Set msg.payload to the value and msg.topic to the NodeId",
-        "x": 280,
+        "name": "Set msg.payload to the value, msg.topic to the NodeId, msg.datatype for the type",
+        "x": 320,
         "y": 40,
         "wires": []
     },
@@ -26,10 +26,11 @@
         "id": "ex03-inject",
         "type": "inject",
         "z": "ex03-tab",
-        "name": "Write 25.5",
+        "name": "Write Temperature 25.5",
         "props": [
             { "p": "payload", "vt": "num", "v": "25.5" },
-            { "p": "topic", "vt": "str", "v": "ns=2;s=Temperature" }
+            { "p": "topic", "vt": "str", "v": "ns=1;s=Writable.Temperature" },
+            { "p": "datatype", "vt": "str", "v": "Double" }
         ],
         "repeat": "",
         "crontab": "",
@@ -38,7 +39,7 @@
         "topic": "",
         "payload": "",
         "payloadType": "date",
-        "x": 140,
+        "x": 180,
         "y": 120,
         "wires": [["ex03-client"]]
     },
@@ -46,10 +47,11 @@
         "id": "ex03-inject2",
         "type": "inject",
         "z": "ex03-tab",
-        "name": "Write true",
+        "name": "Write Active = true",
         "props": [
             { "p": "payload", "vt": "bool", "v": "true" },
-            { "p": "topic", "vt": "str", "v": "ns=2;s=Status" }
+            { "p": "topic", "vt": "str", "v": "ns=1;s=Writable.Active" },
+            { "p": "datatype", "vt": "str", "v": "Boolean" }
         ],
         "repeat": "",
         "crontab": "",
@@ -58,7 +60,7 @@
         "topic": "",
         "payload": "",
         "payloadType": "date",
-        "x": 140,
+        "x": 170,
         "y": 180,
         "wires": [["ex03-client"]]
     },
@@ -66,10 +68,11 @@
         "id": "ex03-inject3",
         "type": "inject",
         "z": "ex03-tab",
-        "name": "Write \"hello\"",
+        "name": "Write MachineName \"Hello\"",
         "props": [
-            { "p": "payload", "vt": "str", "v": "hello" },
-            { "p": "topic", "vt": "str", "v": "ns=2;s=Message" }
+            { "p": "payload", "vt": "str", "v": "Hello" },
+            { "p": "topic", "vt": "str", "v": "ns=1;s=Writable.MachineName" },
+            { "p": "datatype", "vt": "str", "v": "String" }
         ],
         "repeat": "",
         "crontab": "",
@@ -78,7 +81,7 @@
         "topic": "",
         "payload": "",
         "payloadType": "date",
-        "x": 140,
+        "x": 190,
         "y": 240,
         "wires": [["ex03-client"]]
     },
@@ -89,7 +92,7 @@
         "name": "",
         "endpoint": "ex03-endpoint",
         "defaultOperation": "write",
-        "x": 380,
+        "x": 440,
         "y": 180,
         "wires": [["ex03-debug"]]
     },
@@ -106,7 +109,7 @@
         "targetType": "msg",
         "statusVal": "statusCode",
         "statusType": "auto",
-        "x": 590,
+        "x": 650,
         "y": 180,
         "wires": []
     }
