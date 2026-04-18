@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.0.7 (2026-04-18)
+
+### Fixed
+
+- **`opcua-server`: "expecting a valid port (number)" when changing the port** – Node-RED stores values from `<input type="number">` fields as strings in the flow JSON. The server node forwarded `config.port` (as well as `maxAllowedSessionNumber` and `maxConnectionsPerEndpoint`) directly to `node-opcua`, which validates the port strictly as a JS number and threw `expecting a valid port (number)`. The default `4840` worked because it came from a number literal in the code, so the bug only surfaced as soon as the user edited the port in the editor. All three values are now coerced via `parseInt(..., 10)` with a safe fallback to the defaults. ([#11](https://github.com/blanpa/node-red-contrib-opcua-suite/issues/11))
+
+### Added
+
+- **Regression tests for `opcua-server` config coercion** – 3 new unit tests verifying that string port from the editor is coerced to number, and that invalid/empty ports fall back to `4840`.
+
 ## 0.0.6 (2026-04-16)
 
 ### Fixed

@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-opcua-suite",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "A modern OPC UA suite for Node-RED with shared connections, batch operations, drag-and-drop certificates, and a clean msg-driven API",
   "keywords": [
     "node-red",

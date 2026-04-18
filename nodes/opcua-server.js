@@ -11,10 +11,17 @@ module.exports = function(RED) {
         const node = this;
 
         // Configuration
-        const port = config.port || 4840;
+        // Node-RED stores values from <input type="number"> as strings,
+        // but node-opcua requires real numbers (otherwise: "expecting a valid port (number)")
+        const toPositiveInt = (value, fallback) => {
+            const n = parseInt(value, 10);
+            return Number.isFinite(n) && n > 0 ? n : fallback;
+        };
+
+        const port = toPositiveInt(config.port, 4840);
         const serverName = config.serverName || 'Node-RED OPC UA Server';
-        const maxAllowedSessionNumber = config.maxAllowedSessionNumber || 10;
-        const maxConnectionsPerEndpoint = config.maxConnectionsPerEndpoint || 10;
+        const maxAllowedSessionNumber = toPositiveInt(config.maxAllowedSessionNumber, 10);
+        const maxConnectionsPerEndpoint = toPositiveInt(config.maxConnectionsPerEndpoint, 10);
 
         let server = null;
         let namespace = null;

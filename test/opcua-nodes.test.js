@@ -263,4 +263,92 @@ describe('opcua-server node', function() {
         expect(RED.nodes._types).to.have.property('opcua-server');
         expect(RED.nodes._types['opcua-server'].constructor).to.be.a('function');
     });
+
+    // Regression test for issue #11: port from <input type="number"> arrives
+    // as string from Node-RED. node-opcua then throws
+    // "expecting a valid port (number)". Verify that opcua-server coerces
+    // string ports (and other limits) to real numbers.
+    describe('config coercion (issue #11)', function() {
+        let capturedOpts;
+        const opcuaPath = require.resolve('node-opcua');
+        let originalOpcua;
+
+        beforeEach(function() {
+            capturedOpts = null;
+            originalOpcua = require.cache[opcuaPath];
+            require.cache[opcuaPath] = {
+                id: opcuaPath,
+                filename: opcuaPath,
+                loaded: true,
+                exports: {
+                    OPCUAServer: function(opts) {
+                        capturedOpts = opts;
+                        this.initialize = () => Promise.resolve();
+                        this.start = () => Promise.resolve();
+                        this.shutdown = () => Promise.resolve();
+                        this.getEndpointUrl = () => `opc.tcp://test:${opts.port}/UA/NodeRED`;
+                        this.engine = { addressSpace: { getOwnNamespace: () => ({ index: 1 }) } };
+                    },
+                    Variant: function(o) { Object.assign(this, o); },
+                    DataType: { Double: 11, String: 12 },
+                    StatusCodes: { Good: { toString: () => 'Good' } },
+                    coerceLocalizedText: (t) => t,
+                    AccessLevelFlag: { CurrentRead: 1, CurrentWrite: 2 }
+                }
+            };
+            const p = path.resolve(__dirname, '..', 'nodes', 'opcua-server.js');
+            delete require.cache[require.resolve(p)];
+        });
+
+        afterEach(function() {
+            if (originalOpcua) {
+                require.cache[opcuaPath] = originalOpcua;
+            } else {
+                delete require.cache[opcuaPath];
+            }
+        });
+
+        function buildNode(config) {
+            const RED = createRED({});
+            const p = path.resolve(__dirname, '..', 'nodes', 'opcua-server.js');
+            require(p)(RED);
+            const Ctor = RED.nodes._types['opcua-server'].constructor;
+            const node = {};
+            Ctor.call(node, config);
+            return node;
+        }
+
+        it('should coerce string port from Node-RED editor to number', function(done) {
+            buildNode({
+                port: '4855',
+                serverName: 'Issue11',
+                maxAllowedSessionNumber: '20',
+                maxConnectionsPerEndpoint: '15'
+            });
+            setImmediate(() => {
+                expect(capturedOpts).to.not.be.null;
+                expect(capturedOpts.port).to.equal(4855);
+                expect(capturedOpts.port).to.be.a('number');
+                expect(capturedOpts.maxAllowedSessionNumber).to.equal(20);
+                expect(capturedOpts.maxConnectionsPerEndpoint).to.equal(15);
+                done();
+            });
+        });
+
+        it('should fall back to default 4840 when port is invalid', function(done) {
+            buildNode({ port: 'abc', serverName: 'X' });
+            setImmediate(() => {
+                expect(capturedOpts.port).to.equal(4840);
+                done();
+            });
+        });
+
+        it('should fall back to default 4840 when port is empty string', function(done) {
+            buildNode({ port: '', serverName: 'X' });
+            setImmediate(() => {
+                expect(capturedOpts.port).to.equal(4840);
+                done();
+            });
+        });
+    });
 });
