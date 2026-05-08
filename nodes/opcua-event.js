@@ -132,6 +132,12 @@ module.exports = function(RED) {
                 done();
 
             } catch (error) {
+                // DEBT-01: if the failure looks like a lost connection,
+                // delegate recovery to the manager's single-flight reconnect
+                // loop so the next message gets a fresh session.
+                if (clientManager._isConnectionLostError && clientManager._isConnectionLostError(error)) {
+                    try { await clientManager.reconnect({ reason: "session-lost" }); } catch (e) { /* handled by reconnect */ }
+                }
                 node.error(`Event error: ${error.message}`);
                 node.status({ fill: 'red', shape: 'ring', text: 'error' });
                 msg.error = createError(error.message, error);

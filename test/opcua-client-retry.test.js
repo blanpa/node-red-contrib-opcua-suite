@@ -69,10 +69,33 @@ describe("opcua-client session retry", function () {
       reconnectAttempts: 0,
       connect: sinon.stub().callsFake(async function () {
         mgr.isConnected = true;
+        mgr.reconnectAttempts = 0;
       }),
       read: sinon.stub(),
       readMultiple: sinon.stub(),
       write: sinon.stub(),
+      // DEBT-01: minimal stand-ins for the manager's new public API.
+      // Real implementation lives in lib/opcua-client-manager.js; these
+      // mocks delegate to mgr.connect() so the existing assertions
+      // (mgr.connect.calledOnce, mgr.reconnectAttempts == 0) keep working.
+      _isConnectionLostError: function (err) {
+        if (!err || !err.message) return false;
+        const m = err.message;
+        return (
+          m === "Session is no longer valid" ||
+          m === "Not connected" ||
+          m.includes("premature disconnection") ||
+          m.includes("Secure Channel Closed") ||
+          m.includes("connection may have been rejected") ||
+          m.includes("Server end point") ||
+          m.includes("socket has been disconnected")
+        );
+      },
+      reconnect: function () {
+        mgr.isConnected = false;
+        mgr.reconnectAttempts = 0;
+        return mgr.connect();
+      },
     };
     RED = createRED({ ep1: createMockEndpoint(mgr) });
     ctor = loadClientNode(RED);
