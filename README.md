@@ -181,6 +181,8 @@ Embedded OPC UA server. Starts automatically on deploy. Build the address space 
 
 ## Reference
 
+See [docs/MSG-SCHEMA.md](docs/MSG-SCHEMA.md) for the full message field reference.
+
 ### NodeId Formats
 
 | Format | Example |
