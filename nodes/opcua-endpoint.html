@@ -1,4 +1,8 @@
 <script type="text/javascript">
+    // Single source of truth for the cert-upload route prefix; the future
+    // PubSub config node will set its own. Matches lib/cert-store.js routes.
+    var CERT_ROUTE_PREFIX = 'opcua-endpoint';
+
     RED.nodes.registerType('opcua-endpoint', {
         category: 'config',
         color: '#3a8cba',
@@ -114,7 +118,7 @@
                     reader.onload = function(ev) {
                         var base64 = ev.target.result.split(',')[1];
                         $.ajax({
-                            url: 'opcua-endpoint/upload-cert',
+                            url: CERT_ROUTE_PREFIX + '/upload-cert',
                             type: 'POST',
                             contentType: 'application/json',
                             data: JSON.stringify({ filename: file.name, content: base64 }),
