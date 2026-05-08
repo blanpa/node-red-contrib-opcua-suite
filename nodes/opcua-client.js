@@ -152,61 +152,25 @@ module.exports = function (RED) {
       return result;
     }
 
-    function isConnectionLostError(error) {
-      if (!error || !error.message) return false;
-      const m = error.message;
-      return m === "Session is no longer valid" ||
-        m === "Not connected" ||
-        m.includes("premature disconnection") ||
-        m.includes("Secure Channel Closed") ||
-        m.includes("connection may have been rejected") ||
-        m.includes("Server end point") ||
-        m.includes("socket has been disconnected");
-    }
-
     async function ensureConnected() {
       if (!clientManager.isConnected) {
-        clientManager.reconnectAttempts = 0;
         await clientManager.connect();
       }
     }
 
-    const RECONNECT_BASE_DELAY_MS = 2000;
-    const RECONNECT_MAX_DELAY_MS = 30000;
+    // DEBT-01: forceReconnect() is now a thin wrapper that delegates
+    // the entire retry loop / single-flight lock / exponential-backoff
+    // policy to OpcUaClientManager.reconnect(). The retryAttempts config
+    // value (0 = infinite) is forwarded as opts.maxAttempts so existing
+    // user configuration keeps working unchanged.
     const retryAttempts = Number(config.retryAttempts) || 0;
-    let reconnectPromise = null;
 
-    async function forceReconnect() {
-      if (reconnectPromise) return reconnectPromise;
-      reconnectPromise = _doForceReconnect();
-      try {
-        await reconnectPromise;
-      } finally {
-        reconnectPromise = null;
-      }
-    }
-
-    async function _doForceReconnect() {
-      clientManager.isConnected = false;
-      clientManager.reconnectAttempts = 0;
-
-      const infinite = retryAttempts <= 0;
-      const totalLabel = infinite ? "∞" : String(retryAttempts);
-
-      for (let attempt = 1; infinite || attempt <= retryAttempts; attempt++) {
-        try {
-          await clientManager.connect();
-          if (verboseLog) node.warn(`Reconnected to OPC UA server (attempt ${attempt}/${totalLabel})`);
-          return;
-        } catch (err) {
-          if (!infinite && attempt === retryAttempts) throw err;
-          const delay = Math.min(RECONNECT_BASE_DELAY_MS * attempt, RECONNECT_MAX_DELAY_MS);
-          if (verboseLog) node.warn(`Reconnect attempt ${attempt}/${totalLabel} failed – retrying in ${delay}ms...`);
-          await new Promise((resolve) => setTimeout(resolve, delay));
-          clientManager.isConnected = false;
-          clientManager.reconnectAttempts = 0;
-        }
-      }
+    function forceReconnect(reason) {
+      return clientManager
+        .reconnect({ reason, maxAttempts: retryAttempts })
+        .catch((err) => {
+          if (verboseLog) node.warn("reconnect failed: " + err.message);
+        });
     }
 
     node.on("input", async function (msg, send, done) {
@@ -226,10 +190,14 @@ module.exports = function (RED) {
         try {
           result = await tryOnce();
         } catch (error) {
-          if (isConnectionLostError(error)) {
+          if (clientManager._isConnectionLostError && clientManager._isConnectionLostError(error)) {
             if (verboseLog) node.warn(`Connection lost (${error.message}) – reconnecting...`);
             node.status({ fill: "yellow", shape: "ring", text: "reconnecting..." });
-            await forceReconnect();
+            // Call manager.reconnect() directly so failures propagate to the
+            // outer catch block (and surface via node.error). The forceReconnect
+            // wrapper above is kept for migration-friendliness but uses .catch
+            // for fire-and-forget callers.
+            await clientManager.reconnect({ reason: "session-lost", maxAttempts: retryAttempts });
             result = await executeOperation(msg, operation, send);
           } else {
             throw error;

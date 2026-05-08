@@ -93,6 +93,10 @@ module.exports = function(RED) {
                 done();
 
             } catch (error) {
+                // DEBT-01: delegate recovery to the manager on session loss.
+                if (clientManager._isConnectionLostError && clientManager._isConnectionLostError(error)) {
+                    try { await clientManager.reconnect({ reason: "session-lost" }); } catch (e) { /* handled by reconnect */ }
+                }
                 node.error(`Browse error: ${error.message}`, { error });
                 msg.error = error.message;
                 send(msg);

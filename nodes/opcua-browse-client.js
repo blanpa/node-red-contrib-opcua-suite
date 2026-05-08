@@ -678,6 +678,10 @@ module.exports = function (RED) {
           throw new Error(`Unknown operation: ${operation}`);
         }
       } catch (error) {
+        // DEBT-01: delegate recovery to the manager on session loss.
+        if (clientManager._isConnectionLostError && clientManager._isConnectionLostError(error)) {
+          try { await clientManager.reconnect({ reason: "session-lost" }); } catch (e) { /* handled by reconnect */ }
+        }
         node.error(`Operation error: ${error.message}`);
         node.status({ fill: "red", shape: "ring", text: "error" });
         msg.error = createError(error.message, error);
