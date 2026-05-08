@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-05-08)
 
 **Core value:** A Node-RED user can wire any OPC UA interaction — Client/Server (today) and Publisher/Subscriber (this milestone) — into a flow without writing function nodes, without losing connections silently, and with structured types preserved end-to-end.
-**Current focus:** Phase 1 — Pre-Work (ready to plan)
+**Current focus:** Phase 1 — Pre-Work (planned, ready to execute)
 
 ## Current Position
 
 Phase: 1 of 4 (Pre-Work)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-05-08 — Roadmap created (OPC UA PubSub milestone, v0.1.0 target)
+Plan: 0 of 3 in current phase
+Status: Ready to execute
+Last activity: 2026-05-08 — Phase 1 plans created (3 plans, wave 1 all parallel)
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -46,6 +46,10 @@ Recent decisions affecting current work:
 - Init: Single `opcua-pubsub-connection` config node with `transportType` dropdown (not one node per transport)
 - Init: Pre-work (Phase 1) chosen over carrying debt into PubSub — aligns with PITFALLS Option A
 - Init: Milestone ships as v0.1.0 (first minor bump; major feature addition on a pre-1.0 base)
+- Phase 1 planning: OpcUaClientManager.reconnect(opts) API shape locked (D-01..D-05)
+- Phase 1 planning: lib/cert-store.js export surface locked (D-06..D-11)
+- Phase 1 planning: docs/MSG-SCHEMA.md structure locked (D-12..D-15)
+- Phase 1 planning: test strategy locked (D-16..D-19); LIVE_TESTS env-guard for multi-consumer integration test
 
 ### Pending Todos
 
@@ -68,5 +72,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-05-08
-Stopped at: Roadmap and STATE.md created; REQUIREMENTS.md traceability table populated
+Stopped at: Phase 1 plans created (3 PLAN.md files); STATE.md updated to Plan 0 of 3
 Resume file: None
