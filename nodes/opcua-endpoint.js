@@ -5,63 +5,16 @@
  */
 
 const fs = require('fs');
-const path = require('path');
 const OpcUaClientManager = require('../lib/opcua-client-manager');
+const { registerCertRoutes, getCertsDir } = require('../lib/cert-store');
 
 module.exports = function(RED) {
 
     // ─── Certificate Upload HTTP Endpoint ───
-    const certsDir = path.join((RED.settings && RED.settings.userDir) || '/data', 'opcua-certs');
-    if (!fs.existsSync(certsDir)) {
-        try { fs.mkdirSync(certsDir, { recursive: true }); } catch (e) { /* ignore in test */ }
-    }
-
-    if (!RED.httpAdmin) {
-        // Skip HTTP endpoints in test environment
-    } else {
-
-    RED.httpAdmin.post('/opcua-endpoint/upload-cert', function(req, res) {
-        try {
-            // Node-RED httpAdmin already parses JSON body via express.json()
-            const data = req.body;
-            if (!data || !data.content) {
-                return res.status(400).json({ success: false, error: 'Missing content' });
-            }
-            const filename = (data.filename || 'cert.pem').replace(/[^a-zA-Z0-9._\-]/g, '_');
-            const content = Buffer.from(data.content, 'base64');
-            const destPath = path.join(certsDir, filename);
-            fs.writeFileSync(destPath, content);
-            res.json({ success: true, path: destPath, filename: filename, size: content.length });
-        } catch (e) {
-            res.status(400).json({ success: false, error: e.message });
-        }
-    });
-
-    RED.httpAdmin.get('/opcua-endpoint/certs', function(req, res) {
-        try {
-            const files = fs.readdirSync(certsDir).filter(f => /\.(pem|der|crt|key|pfx|p12)$/i.test(f));
-            res.json(files.map(f => ({ name: f, path: path.join(certsDir, f) })));
-        } catch (e) {
-            res.json([]);
-        }
-    });
-
-    RED.httpAdmin.delete('/opcua-endpoint/upload-cert/:filename', function(req, res) {
-        try {
-            const filename = req.params.filename.replace(/[^a-zA-Z0-9._\-]/g, '_');
-            const filePath = path.join(certsDir, filename);
-            if (fs.existsSync(filePath)) {
-                fs.unlinkSync(filePath);
-                res.json({ success: true });
-            } else {
-                res.status(404).json({ success: false, error: 'File not found' });
-            }
-        } catch (e) {
-            res.status(500).json({ success: false, error: e.message });
-        }
-    });
-
-    } // end if (RED.httpAdmin)
+    // Cert directory creation + POST/GET/DELETE route registration are
+    // delegated to lib/cert-store so future config nodes (e.g. PubSub) can
+    // reuse the same routes under a different prefix.
+    registerCertRoutes(RED, '/opcua-endpoint', getCertsDir(RED));
 
     function OpcUaEndpointNode(config) {
         RED.nodes.createNode(this, config);
