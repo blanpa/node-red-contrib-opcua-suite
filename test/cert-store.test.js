@@ -99,7 +99,8 @@ describe("cert-store", function () {
     });
 
     it("replaces path-traversal characters", function () {
-      expect(sanitiseFilename("../../evil")).to.equal(".._..evil");
+      // '../../evil' has three '/' separators between dots/letters -> all replaced
+      expect(sanitiseFilename("../../evil")).to.equal(".._.._evil");
     });
 
     it("preserves alphanumeric, dot, underscore, hyphen", function () {
