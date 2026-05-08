@@ -125,39 +125,39 @@ Explicitly excluded. Documented to prevent scope creep.
 
 ## Traceability
 
-Empty until ROADMAP.md is created. The `gsd-roadmapper` agent populates this table.
+Populated by gsd-roadmapper on 2026-05-08.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DEBT-01 | TBD | Pending |
-| DEBT-02 | TBD | Pending |
-| DEBT-03 | TBD | Pending |
-| ENC-01 | TBD | Pending |
-| ENC-02 | TBD | Pending |
-| WGRP-01 | TBD | Pending |
-| DSW-01 | TBD | Pending |
-| DSR-01 | TBD | Pending |
-| TRP-01 | TBD | Pending |
-| TRP-02 | TBD | Pending |
-| CFG-01 | TBD | Pending |
-| CFG-02 | TBD | Pending |
-| PUB-01 | TBD | Pending |
-| PUB-02 | TBD | Pending |
-| PUB-03 | TBD | Pending |
-| SUB-01 | TBD | Pending |
-| SUB-02 | TBD | Pending |
-| STAT-01 | TBD | Pending |
-| TEST-01 | TBD | Pending |
-| TEST-02 | TBD | Pending |
-| TEST-03 | TBD | Pending |
-| DOC-01 | TBD | Pending |
-| DOC-02 | TBD | Pending |
+| DEBT-01 | Phase 1 | Pending |
+| DEBT-02 | Phase 1 | Pending |
+| DEBT-03 | Phase 1 | Pending |
+| ENC-01 | Phase 2 | Pending |
+| ENC-02 | Phase 2 | Pending |
+| WGRP-01 | Phase 2 | Pending |
+| DSW-01 | Phase 2 | Pending |
+| DSR-01 | Phase 2 | Pending |
+| TRP-01 | Phase 3 | Pending |
+| TRP-02 | Phase 3 | Pending |
+| CFG-01 | Phase 3 | Pending |
+| CFG-02 | Phase 3 | Pending |
+| PUB-01 | Phase 4 | Pending |
+| PUB-02 | Phase 4 | Pending |
+| PUB-03 | Phase 4 | Pending |
+| SUB-01 | Phase 4 | Pending |
+| SUB-02 | Phase 4 | Pending |
+| STAT-01 | Phase 4 | Pending |
+| TEST-01 | Phase 4 | Pending |
+| TEST-02 | Phase 4 | Pending |
+| TEST-03 | Phase 4 | Pending |
+| DOC-01 | Phase 4 | Pending |
+| DOC-02 | Phase 4 | Pending |
 
 **Coverage:**
 - v1 requirements: 23 total
-- Mapped to phases: 0 (pending roadmap creation)
-- Unmapped: 23 ⚠ (will be 0 after gsd-roadmapper runs)
+- Mapped to phases: 23 (Phase 1: 3, Phase 2: 5, Phase 3: 4, Phase 4: 11)
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-05-08*
-*Last updated: 2026-05-08 after research synthesis*
+*Last updated: 2026-05-08 after roadmap creation (traceability populated)*
