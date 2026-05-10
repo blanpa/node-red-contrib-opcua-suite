@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-05-08)
 
 **Core value:** A Node-RED user can wire any OPC UA interaction — Client/Server (today) and Publisher/Subscriber (this milestone) — into a flow without writing function nodes, without losing connections silently, and with structured types preserved end-to-end.
-**Current focus:** Phase 1 — Pre-Work (planned, ready to execute)
+**Current focus:** Phase 2 — Encoders and Config Objects (context gathered, ready to plan)
 
 ## Current Position
 
-Phase: 1 of 4 (Pre-Work)
-Plan: 0 of 3 in current phase
-Status: Ready to execute
-Last activity: 2026-05-08 — Phase 1 plans created (3 plans, wave 1 all parallel)
+Phase: 2 of 4 (Encoders and Config Objects)
+Plan: 0 of TBD in current phase
+Status: Context gathered — ready for /gsd-plan-phase 2
+Last activity: 2026-05-10 — Phase 2 CONTEXT.md written (D-01..D-21); Phase 1 complete (DEBT-01..03, 3/3 plans)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██▌░░░░░░░] 25%
 
 ## Performance Metrics
 
@@ -50,6 +50,12 @@ Recent decisions affecting current work:
 - Phase 1 planning: lib/cert-store.js export surface locked (D-06..D-11)
 - Phase 1 planning: docs/MSG-SCHEMA.md structure locked (D-12..D-15)
 - Phase 1 planning: test strategy locked (D-16..D-19); LIVE_TESTS env-guard for multi-consumer integration test
+- Phase 2 context (2026-05-10): UADP encoder is pure-function symmetric API + private BinaryStream; no Buffer reuse in Phase 2 (deferred to Phase 4 Publisher lifecycle)
+- Phase 2 context: JSON encoder is imperative string-build + per-field JSON.stringify; no fast-json-stringify dep
+- Phase 2 context: Domain-friendly NetworkMessage model; ExtendedFlags1/2 derived at encode time (mitigates PITFALLS #1 structurally)
+- Phase 2 context: Hybrid validation (validate*() + throwing factory); frozen configs; Issue shape {path, code, message}
+- Phase 2 context: Test vectors as hand-crafted hex literals + runnable open62541 capture script (out of npm test)
+- Phase 2 context: Flat lib/ layout — uadp-encoder.js, json-encoder.js, pubsub-config.js
 
 ### Pending Todos
 
@@ -71,6 +77,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-08
-Stopped at: Phase 1 plans created (3 PLAN.md files); STATE.md updated to Plan 0 of 3
-Resume file: None
+Last session: 2026-05-10
+Stopped at: Phase 2 context gathered (CONTEXT.md + DISCUSSION-LOG.md written); ready for /gsd-plan-phase 2
+Resume file: .planning/phases/02-encoders-and-config-objects/02-CONTEXT.md
