@@ -15,8 +15,8 @@ flows. Shipping as v0.1.0 marks the transition from pure Client/Server to a full
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Pre-Work** - Consolidate PubSub-impacted tech debt so new nodes do not clone known-bad patterns
-- [ ] **Phase 2: Encoders and Config Objects** - Stateless UADP + JSON encoders and pure config-object layer
+- [x] **Phase 1: Pre-Work** - Consolidate PubSub-impacted tech debt so new nodes do not clone known-bad patterns
+- [x] **Phase 2: Encoders and Config Objects** - Stateless UADP + JSON encoders and pure config-object layer
 - [ ] **Phase 3: Transports and Connection Config Node** - UDP/MQTT transport adapters and the opcua-pubsub-connection config node
 - [ ] **Phase 4: Publisher, Subscriber, Tests, and Examples** - Worker nodes, round-trip tests, example flows, and README docs
 
@@ -83,7 +83,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Pre-Work | 0/TBD | Not started | - |
-| 2. Encoders and Config Objects | 0/5 | Not started | - |
+| 1. Pre-Work | 3/3 | Complete | 2026-05-09 |
+| 2. Encoders and Config Objects | 5/5 | Complete | 2026-05-13 |
 | 3. Transports and Connection Config Node | 0/TBD | Not started | - |
 | 4. Publisher, Subscriber, Tests, and Examples | 0/TBD | Not started | - |
