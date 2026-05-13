@@ -879,22 +879,13 @@ The `securityHeader?` field is reserved on the NetworkMessage model (D-09) and t
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Exact hex values for 8 test vectors**
-   - What we know: The flag cascade algorithm and all field types are fully specified. We know which combinations to test.
-   - What's unclear: The exact hex bytes for each combination cannot be pre-computed here — they require running the encoder and checking against the spec or open62541 output.
-   - Recommendation: During Wave 0, implement the encoder first, generate tentative vectors from the encoder itself, then cross-validate by decoding with the decoder. Flag vectors as `[ASSUMED: hand-derived]` in the fixture file. Run `capture-open62541-vectors.js` against open62541 in Phase 4 to upgrade to `[VERIFIED: open62541 v1.4.x]`.
+1. **Exact hex values for 8 test vectors** — **RESOLVED**: hex values are generated via encoder self-output using the `_populateNullHex` helper in `test/fixtures/uadp-vectors.js`. Strategy: implement encoder, generate tentative vectors from the encoder itself, cross-validate by decoding with the decoder (round-trip equality). Vectors flagged as `[ASSUMED: hand-derived]` in the fixture file. The `capture-open62541-vectors.js` script (Plan 02-05 Task 3) is the upgrade path — Phase 4 will run it against open62541 to promote vectors to `[VERIFIED: open62541 v1.4.x]`. The encoder self-output is acceptable for Phase 2 because spec-correctness of the algorithm itself is verified against the Part 14 §7.2.4 bit tables in the implementation.
 
-2. **`nodeIdToString` coverage for Part 6 §5.4 namespace syntax**
-   - What we know: `lib/opcua-utils.js::nodeIdToString` exists and is used by existing nodes.
-   - What's unclear: Whether it generates the exact namespace-URI form required by Part 6 §5.4 (e.g., `nsu=http://...;s=Value`) or only the namespace-index form (`ns=2;s=Value`).
-   - Recommendation: Read `nodeIdToString` implementation in full before writing JSON encoder. If it only handles index form, wrap it with Part 6 §5.4 URI lookup using the session's namespace table. The JSON encoder may need a `namespaceUriTable` parameter.
+2. **`nodeIdToString` coverage for Part 6 §5.4 namespace syntax** — **RESOLVED**: `lib/opcua-utils.js::nodeIdToString` produces the namespace-index form (`ns=X;s=...`). The JSON encoder uses it directly for Phase 2 since the namespace-index form is valid Part 6 §5.4 syntax. The namespace-URI form (`nsu=http://...;s=Value`) is deferred to Phase 3+ if Subscriber-side namespace table mapping requires it. JSON encoder may add a `namespaceUriTable` opts parameter later without breaking signature (D-04 reserves `opts` for future extension).
 
-3. **GUID wire format in UADP (mixed endian)**
-   - What we know: GUIDs in OPC UA binary are mixed-endian: Data1 (4 bytes LE), Data2 (2 bytes LE), Data3 (2 bytes LE), Data4 (8 bytes as-is).
-   - What's unclear: How GUIDs arrive in the domain model — as strings (`"6BA7B810-9DAD-11D1-80B4-00C04FD430C8"`) or as objects.
-   - Recommendation: Accept GUID as string in the model, parse during encode. Use standard UUID string parsing.
+3. **GUID wire format in UADP (mixed endian)** — **RESOLVED**: GUIDs are accepted as UUID strings (`"6BA7B810-9DAD-11D1-80B4-00C04FD430C8"`) in the domain model. The encoder parses via `uuidStr.split('-')` and writes mixed-endian per spec (Data1 LE 4 bytes, Data2 LE 2 bytes, Data3 LE 2 bytes, Data4 8 bytes as-is). The decoder produces the same UUID string format. Round-trip test in Plan 02-01 verifies this.
 
 ---
 
