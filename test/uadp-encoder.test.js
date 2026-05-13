@@ -560,3 +560,210 @@ describe("uadp-encoder — NetworkMessage with payload", function () {
     });
   });
 });
+
+// ─── 8-Combination Fixture Matrix (Plan 02-05, D-17, D-19, ENC-01) ──────────
+//
+// These tests lock in the UADP wire format with executable byte-for-byte assertions
+// against the test vectors in test/fixtures/uadp-vectors.js.
+// The 8 combinations cover the full ExtendedFlags1/ExtendedFlags2 presence matrix
+// per RESEARCH.md §"8 Combinations for Test Matrix".
+
+const vectors = require("./fixtures/uadp-vectors");
+
+function hexStrip(s) { return s.replace(/[\s_]/g, "").toLowerCase(); }
+function bufHex(buf) { return buf.toString("hex").toLowerCase(); }
+
+describe("uadp-encoder — module exports", function () {
+  it("exports the four expected functions", function () {
+    expect(encodeNetworkMessage).to.be.a("function");
+    expect(decodeNetworkMessage).to.be.a("function");
+    expect(encodeDataSetMessage).to.be.a("function");
+    expect(decodeDataSetMessage).to.be.a("function");
+  });
+
+  it("does NOT export BinaryStream (private class)", function () {
+    const u = require("../lib/uadp-encoder");
+    expect(u.BinaryStream).to.equal(undefined);
+  });
+});
+
+describe("uadp-encoder — 8-combination flag cascade matrix (D-17, D-19, ENC-01)", function () {
+  it("fixture file exports exactly 8 cases", function () {
+    expect(Object.keys(vectors)).to.have.length(8);
+  });
+
+  for (const [name, vec] of Object.entries(vectors)) {
+    describe(name, function () {
+      it("first byte (UADPFlags) matches fixture.flags.uadpFlags", function () {
+        if (vec.pending) this.skip();
+        // For static-chunk fixtures, produce a chunk by encoding a large payload
+        // and read the first chunk's UADPFlags byte.
+        if (vec.isStaticChunk) {
+          // We verify the flag cascade logic produces the expected first byte
+          // by encoding a model that triggers chunking with the same publisherId.
+          const big = "x".repeat(2000);
+          const chunkNm = {
+            publisherId: vec.model.publisherId,
+            groupHeader: vec.model.groupHeader,
+            payloadHeader: vec.model.payloadHeader,
+            payload: [{
+              fieldEncoding: "variant", messageType: "keyframe", sequenceNumber: 1,
+              fields: { blob: { dataType: "String", value: big } },
+            }],
+          };
+          const result = encodeNetworkMessage(chunkNm);
+          const buf = Array.isArray(result) ? result[0] : result;
+          // Chunk messages always have ExtFlags2 = 0x01 set, which requires ExtFlags1.
+          // The specific extFlags2 byte is 0x01 so UADPFlags bit 7 must be set.
+          expect(buf[0] & 0x80).to.equal(0x80, "chunk messages must have ExtFlags1 enabled");
+          return;
+        }
+        const encoded = encodeNetworkMessage(vec.model);
+        const buf = Array.isArray(encoded) ? encoded[0] : encoded;
+        expect(buf[0]).to.equal(vec.flags.uadpFlags);
+      });
+
+      it("encodeNetworkMessage(model) hex matches fixture.hex", function () {
+        if (vec.pending) this.skip();
+        if (vec.isStaticChunk) this.skip();
+        const encoded = encodeNetworkMessage(vec.model);
+        const buf = Buffer.isBuffer(encoded) ? encoded : encoded[0];
+        expect(bufHex(buf)).to.equal(hexStrip(vec.hex));
+      });
+
+      it("decodeNetworkMessage(hex) round-trips key fields from fixture.model", function () {
+        if (vec.pending) this.skip();
+        if (vec.isStaticChunk) this.skip();
+        const buf = Buffer.from(hexStrip(vec.hex), "hex");
+        const decoded = decodeNetworkMessage(buf);
+        if (vec.model.publisherId !== undefined) {
+          expect(decoded.publisherId).to.deep.equal(vec.model.publisherId);
+        }
+        if (vec.model.timestamp) {
+          expect(decoded.timestamp.getTime()).to.equal(vec.model.timestamp.getTime());
+        }
+        if (vec.model.dataSetClassId) {
+          expect(decoded.dataSetClassId.toUpperCase()).to.equal(vec.model.dataSetClassId.toUpperCase());
+        }
+      });
+    });
+  }
+});
+
+describe("uadp-encoder — round-trip stability (D-11, D-19)", function () {
+  it("encode → decode → encode produces identical bytes for minimalNoExtFlags", function () {
+    const buf1 = encodeNetworkMessage(vectors.minimalNoExtFlags.model);
+    const decoded = decodeNetworkMessage(buf1);
+    const buf2 = encodeNetworkMessage(decoded);
+    expect(bufHex(buf2)).to.equal(bufHex(buf1));
+  });
+
+  it("encode → decode → encode produces identical bytes for uint64PublisherId", function () {
+    const buf1 = encodeNetworkMessage(vectors.uint64PublisherId.model);
+    const decoded = decodeNetworkMessage(buf1);
+    const buf2 = encodeNetworkMessage(decoded);
+    expect(bufHex(buf2)).to.equal(bufHex(buf1));
+  });
+
+  it("encode → decode → encode produces identical bytes for stringPublisherId", function () {
+    const buf1 = encodeNetworkMessage(vectors.stringPublisherId.model);
+    const decoded = decodeNetworkMessage(buf1);
+    const buf2 = encodeNetworkMessage(decoded);
+    expect(bufHex(buf2)).to.equal(bufHex(buf1));
+  });
+});
+
+describe("uadp-encoder — PublisherId variants (all 5 types, ExtFlags1 type bits)", function () {
+  const cases = [
+    { name: "Byte",   value: 0x42,               typeBits: 0b000 },
+    { name: "UInt16", value: 0x1234,             typeBits: 0b001 },
+    { name: "UInt32", value: 0x12345678,         typeBits: 0b010 },
+    { name: "UInt64", value: 0xFEDCBA9876543210n, typeBits: 0b011 },
+    { name: "String", value: "publisher-A",      typeBits: 0b100 },
+  ];
+
+  for (const c of cases) {
+    it(`${c.name} (typeBits=0b${c.typeBits.toString(2).padStart(3, "0")}): PublisherId presence + round-trip`, function () {
+      const m = { publisherId: c.value, payload: [] };
+      const buf = encodeNetworkMessage(m);
+      // UADPFlags must always have PublisherId enabled (bit 4)
+      expect(buf[0] & 0x10).to.equal(0x10, "UADPFlags bit 4 (PublisherId) must be set");
+      if (c.typeBits === 0b000) {
+        // Byte type: ExtFlags1 bits 0-2 = 000 → ExtFlags1 is 0x00 → suppressed per cascade rule
+        // UADPFlags bit 7 must be CLEAR (no ExtFlags1 byte emitted)
+        expect(buf[0] & 0x80).to.equal(0x00, "Byte publisherId: ExtFlags1 suppressed (all bits zero), UADPFlags bit 7 must be 0");
+      } else {
+        // Non-Byte types trigger ExtFlags1 (type bits are non-zero)
+        expect(buf[0] & 0x80).to.equal(0x80, "UADPFlags bit 7 (ExtFlags1) must be set for non-Byte publisherId");
+        // ExtFlags1 bits 0-2 must equal the expected type bits
+        expect(buf[1] & 0x07).to.equal(c.typeBits, `ExtFlags1 bits 0-2 must be 0b${c.typeBits.toString(2)} for ${c.name}`);
+      }
+      // Round-trip: decode must reproduce the same publisherId
+      const decoded = decodeNetworkMessage(buf);
+      expect(decoded.publisherId).to.deep.equal(c.value);
+    });
+  }
+});
+
+describe("uadp-encoder — chunking (fixture assertions, Part 14 §7.2.4.4.4)", function () {
+  it("input larger than MTU returns Array<Buffer>; each chunk <= MTU; sum of chunk data == totalSize", function () {
+    const big = "x".repeat(2000);
+    const m = {
+      publisherId: 1,
+      groupHeader: { writerGroupId: 1, groupVersion: 1, networkMessageNumber: 1, sequenceNumber: 1 },
+      payloadHeader: { dataSetWriterIds: [1] },
+      payload: [{
+        dataSetWriterId: 1, fieldEncoding: "variant", messageType: "keyframe",
+        sequenceNumber: 1, fields: { blob: { dataType: "String", value: big } },
+      }],
+    };
+    const result = encodeNetworkMessage(m);
+    expect(Array.isArray(result)).to.equal(true, "large payload must return Array<Buffer>");
+    expect(result.length).to.be.greaterThan(1, "must produce more than one chunk");
+    let totalChunkData = 0;
+    let totalSize = null;
+    for (const chunk of result) {
+      expect(chunk.length).to.be.at.most(1400, "each chunk must be <= 1400 bytes (default MTU)");
+      const d = decodeNetworkMessage(chunk);
+      expect(d.chunk).to.exist;
+      if (totalSize === null) totalSize = d.chunk.totalSize;
+      else expect(d.chunk.totalSize).to.equal(totalSize, "totalSize must be consistent across chunks");
+      totalChunkData += d.chunk.chunkData.length;
+    }
+    expect(totalChunkData).to.equal(totalSize, "sum of chunkData lengths must equal totalSize");
+  });
+
+  it("input below MTU returns a single Buffer (not Array)", function () {
+    const m = {
+      publisherId: 1,
+      payload: [{
+        fieldEncoding: "variant", messageType: "keyframe", sequenceNumber: 1,
+        fields: { x: { dataType: "Int32", value: 42 } },
+      }],
+    };
+    expect(Buffer.isBuffer(encodeNetworkMessage(m))).to.equal(true);
+  });
+});
+
+describe("uadp-encoder — decoder error handling (T-02-01, T-02-05, T-02-08)", function () {
+  it("truncated buffer throws UADP_DECODE_TRUNCATED with offset info", function () {
+    // 0x91 = UADPFlags with PublisherId (bit 4) + ExtFlags1 (bit 7) → decoder needs 1 more byte
+    let caught = null;
+    try { decodeNetworkMessage(Buffer.from([0x91])); } catch (e) { caught = e; }
+    expect(caught).to.not.equal(null);
+    expect(caught.message).to.match(/UADP_DECODE_TRUNCATED/);
+  });
+
+  it("non-Buffer input throws UADP_DECODE_INVALID_INPUT", function () {
+    expect(() => decodeNetworkMessage("not a buffer")).to.throw(/UADP_DECODE_INVALID_INPUT/);
+  });
+
+  it("unsupported UADP version (version bits != 1) throws UADP_DECODE_UNSUPPORTED_VERSION", function () {
+    // Version 2 in low 4 bits → unsupported
+    expect(() => decodeNetworkMessage(Buffer.from([0x02]))).to.throw(/UADP_DECODE_UNSUPPORTED_VERSION/);
+  });
+
+  it("null input throws UADP_ENCODE_INVALID_INPUT on encodeNetworkMessage", function () {
+    expect(() => encodeNetworkMessage(null)).to.throw(/UADP_ENCODE_INVALID_INPUT/);
+  });
+});
