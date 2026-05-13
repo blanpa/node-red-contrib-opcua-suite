@@ -43,7 +43,13 @@ flows. Shipping as v0.1.0 marks the transition from pure Client/Server to a full
   3. WriterGroup config rejects a `KeepAliveTime` value less than `PublishingInterval` with a thrown validation error.
   4. DataSetWriter config defaults `KeyFrameCount` to 1 and DataSetReader config defaults `MessageReceiveTimeout` to `max(3 × KeepAliveTime, 5000 ms)`.
   5. All encoder and config-object unit tests pass (`npm test`).
-**Plans**: TBD
+**Plans**: 5 plans
+Plans:
+- [ ] 02-01-PLAN.md — UADP encoder foundation: BinaryStream, flag cascade, NetworkMessage header encode/decode, all 5 PublisherId variants (covers ENC-01 part)
+- [ ] 02-02-PLAN.md — UADP DataSetMessage encode/decode (DataSetFlags1/2 cascade, all 3 fieldEncodings, 4 messageTypes, Variant + DataValue codecs) and sender-side chunking (covers ENC-01 rest)
+- [ ] 02-03-PLAN.md — JSON encoder/decoder per Part 14 §7.2.5 + Part 6 §5.4 with deterministic field order, structured decoder errors, and Mocha tests (covers ENC-02)
+- [ ] 02-04-PLAN.md — pubsub-config: validate+factory hybrid for WriterGroup / DataSetWriter / PublishedDataSet / DataSetReader with frozen returns, RawData cross-validation, and Mocha tests (covers WGRP-01, DSW-01, DSR-01)
+- [ ] 02-05-PLAN.md — UADP test fixtures (8-combination flag matrix), Mocha encoder test suite, and open62541 capture script (covers ENC-01 testing + TEST-03 enabler)
 
 ### Phase 3: Transports and Connection Config Node
 **Goal**: UDP-UADP and MQTT transport adapters are implemented behind the `BaseTransport` interface, and the `opcua-pubsub-connection` config node owns their lifecycle with ref-counted connect/disconnect and status fan-out to worker nodes.
@@ -78,6 +84,6 @@ flows. Shipping as v0.1.0 marks the transition from pure Client/Server to a full
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Pre-Work | 0/TBD | Not started | - |
-| 2. Encoders and Config Objects | 0/TBD | Not started | - |
+| 2. Encoders and Config Objects | 0/5 | Not started | - |
 | 3. Transports and Connection Config Node | 0/TBD | Not started | - |
 | 4. Publisher, Subscriber, Tests, and Examples | 0/TBD | Not started | - |
