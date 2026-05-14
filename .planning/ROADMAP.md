@@ -61,7 +61,12 @@ Plans:
   3. The `opcua-pubsub-connection` config node in Node-RED editor shows a `transportType` dropdown (`udp` / `mqtt`), a PublisherId field (String/UInt16/UInt32/UInt64), and the reused cert dropzone for transport-level certificates.
   4. Worker nodes registered against the config node receive `connected` / `disconnected` / `error` status events via the same fan-out pattern used by `opcua-endpoint`.
   5. `socket.close(done)` / `client.end(false, done)` is used in all transport adapters so Node-RED's close event completes synchronously with zero leaked sockets.
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 03-01-PLAN.md — BaseTransport abstract class + mqtt@^5.15.1 dependency (TRP-01, TRP-02 foundation)
+- [ ] 03-02-PLAN.md — UdpTransport: dgram multicast, 20-cycle EADDRINUSE acceptance, chunk reassembly w/ 30s expiry + 1000-entry overflow guard (TRP-01)
+- [ ] 03-03-PLAN.md — MqttTransport: mqtt 5.0→3.1.1 fallback, retain=false hardcoded, topic-injection guard (TRP-02)
+- [ ] 03-04-PLAN.md — opcua-pubsub-connection config node + editor HTML: refCount + 500ms grace timer + status fan-out + PublisherId UX + cert dropzone (CFG-01, CFG-02)
 **UI hint**: yes
 
 ### Phase 4: Publisher, Subscriber, Tests, and Examples
@@ -85,5 +90,5 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Pre-Work | 3/3 | Complete | 2026-05-09 |
 | 2. Encoders and Config Objects | 5/5 | Complete | 2026-05-13 |
-| 3. Transports and Connection Config Node | 0/TBD | Not started | - |
+| 3. Transports and Connection Config Node | 0/4 | Planned | - |
 | 4. Publisher, Subscriber, Tests, and Examples | 0/TBD | Not started | - |
