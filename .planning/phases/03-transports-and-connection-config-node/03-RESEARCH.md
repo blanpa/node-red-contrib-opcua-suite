@@ -856,22 +856,19 @@ Constraints derived from existing codebase patterns:
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **MQTT 5.0 fallback exact trigger condition**
-   - What we know: The library does not auto-fallback; broker rejection arrives as an `error` event.
-   - What's unclear: The exact `err.message` pattern varies by broker and by whether the broker uses MQTT 5.0 CONNACK reason codes vs. simply closing the connection.
-   - Recommendation: In `MqttTransport`, implement fallback by checking for `err.message` containing "CONNACK" or "Unacceptable protocol version"; additionally check `connack.returnCode !== 0` if the library exposes it. Make the detection conservative: if unsure, do NOT fallback (avoid infinite loop). Document the behavior in JSDoc. The exact broker behavior can be verified with a Mosquitto 2.0 container during acceptance testing.
+1. **MQTT 5.0 fallback exact trigger condition** — **RESOLVED**: Phase 3 commits to a regex covering the three known broker-error variants: `/unsupported protocol|unacceptable protocol version|protocol version not supported/i`. Mosquitto 2.0 emits "Unsupported protocol", HiveMQ emits "Unacceptable protocol version" (the MQTT 3.1.1 spec language), EMQX emits "Protocol version not supported". Plan 03-03 Task 1 uses this regex. Test #11 covers the first variant; test #11b (added in checker revision) parameterizes the other two — breaking the circular-self-confirming-test pattern. Real-broker verification is part of Phase 4 acceptance (Mosquitto container).
 
-2. **Multicast interface selection on multi-NIC hosts**
-   - What we know: `addMembership(multicastGroup, interfaceIp)` second argument controls NIC; `'0.0.0.0'` lets OS pick.
-   - What's unclear: On multi-NIC OT hosts the OS default NIC may be the wrong one. STATE.md notes "Multi-NIC UDP multicast behaviour on Linux/Docker requires hands-on acceptance test."
-   - Recommendation: Surface `multicastInterface` as a required field in the editor when `transportType = udp`. Default to `'0.0.0.0'` (OS auto). Show a warning in the node info panel explaining the multi-NIC pitfall. The Phase 4 acceptance test (TEST-02) should verify with a specific interface. [CITED: PITFALLS.md §4]
+2. **Multicast interface selection on multi-NIC hosts** — **RESOLVED**: Phase 3 surfaces `multicastInterface` as an editor field when `transportType = udp`, default `'0.0.0.0'` (OS auto). The HTML info panel shows a warning paragraph: "If your host has multiple network interfaces, leaving this at 0.0.0.0 lets the OS pick — which may not be the OT-network NIC. Set the IP of the NIC connected to your OPC UA PubSub network." Phase 4 TEST-02 verifies with explicit interface. [CITED: PITFALLS.md §4]
 
-3. **Chunk reassembly key completeness**
-   - What we know: Chunks are keyed by `publisherId|writerGroupId|messageSequenceNumber`.
-   - What's unclear: The UADP Phase 2 encoder stores `messageSequenceNumber` in `groupHeader.sequenceNumber`. The decoder (`decodeNetworkMessage`) must expose this field for the reassembly key. Verify the decoded chunk model exposes `publisherId`, `writerGroupId`, and `groupHeader.sequenceNumber` from the chunk NetworkMessage header.
-   - Recommendation: Read the Phase 2 `decodeNetworkMessage` output shape before implementing `_reassemble()` in UdpTransport.
+3. **Chunk reassembly key completeness** — **RESOLVED**: Verified field paths in `lib/uadp-encoder.js` (`decodeNetworkMessage` line 928+):
+   - `nm.publisherId` (top-level)
+   - `nm.groupHeader.writerGroupId` (under `groupHeader`, line 964-965)
+   - `nm.chunk.messageSequenceNumber` (under `chunk`, line 996 — note: chunk header carries `messageSequenceNumber`, NOT `sequenceNumber`; the `groupHeader.sequenceNumber` is the GROUP sequence, distinct from the per-message id used as the reassembly key)
+   - `nm.chunk = { messageSequenceNumber, chunkOffset, totalSize, chunkData }`
+
+   Plan 03-02 Task 2 was updated with the verified key string `${partial.publisherId}|${partial.groupHeader.writerGroupId}|${partial.chunk.messageSequenceNumber}` and a code comment citing the encoder line numbers.
 
 ---
 
