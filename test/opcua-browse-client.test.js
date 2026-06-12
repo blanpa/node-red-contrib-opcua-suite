@@ -216,6 +216,36 @@ describe("opcua-browse-client HTTP API (continuation points, issue #14)", functi
     expect(res.body.error).to.include("BadNodeIdUnknown");
   });
 
+  it("should surface a failed fallback browse when the main browse is empty but Good", async function () {
+    session.browse
+      .onFirstCall()
+      .resolves({
+        statusCode: goodStatus,
+        references: [],
+        continuationPoint: null,
+      })
+      .onSecondCall()
+      .resolves({
+        statusCode: {
+          isNotGood: () => true,
+          toString: () => "BadNoContinuationPoints (0x804B0000)",
+        },
+        references: [],
+        continuationPoint: null,
+      });
+    // ExtensionObject value probe finds nothing
+    session.read.resolves({ value: { value: null } });
+
+    const res = createRes();
+    await browseRoute(
+      { body: { endpointId: "ep1", nodeId: "ns=3;s=SomeNode" } },
+      res,
+    );
+
+    expect(res.statusCode).to.equal(500);
+    expect(res.body.error).to.include("BadNoContinuationPoints");
+  });
+
   it("should still report an empty folder with Good status as empty", async function () {
     session.browse.resolves({
       statusCode: goodStatus,

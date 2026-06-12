@@ -235,11 +235,13 @@ module.exports = function (RED) {
           // This covers ExtensionObject variables whose fields are exposed
           // via non-hierarchical references on some servers.
           let extensionFields = null;
+          let fallbackStatusCode = null;
           if (forwardRefs.length === 0 && nodeId) {
             const fallbackResult = await browseAllReferences(session, {
               nodeId: resolvedNodeId,
               resultMask: RESULT_MASK.FALLBACK,
             });
+            fallbackStatusCode = fallbackResult.statusCode;
             const KEEP_CLASSES = new Set([
               "Variable",
               "Object",
@@ -466,16 +468,19 @@ module.exports = function (RED) {
 
           // Surface a failed browse instead of showing an empty folder —
           // an empty result with a Good status is a legitimately empty node.
-          if (
-            refs.length === 0 &&
-            !extensionFields &&
-            browseResult.statusCode &&
-            typeof browseResult.statusCode.isNotGood === "function" &&
-            browseResult.statusCode.isNotGood()
-          ) {
-            return res.status(500).json({
-              error: `Browse failed: ${browseResult.statusCode.toString()}`,
-            });
+          if (refs.length === 0 && !extensionFields) {
+            const badStatus = [
+              browseResult.statusCode,
+              fallbackStatusCode,
+            ].find(
+              (sc) =>
+                sc && typeof sc.isNotGood === "function" && sc.isNotGood(),
+            );
+            if (badStatus) {
+              return res.status(500).json({
+                error: `Browse failed: ${badStatus.toString()}`,
+              });
+            }
           }
 
           const response = { references: refs };
