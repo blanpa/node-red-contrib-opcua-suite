@@ -169,6 +169,32 @@ module.exports = function (RED) {
   // NodeClasses that support Value attribute subscription
   const SUBSCRIBABLE_CLASSES = new Set(["Variable", "VariableType"]);
 
+  /**
+   * Browse a node and follow continuation points until the server has
+   * returned all references. Servers with a low per-browse reference
+   * limit (e.g. Siemens S7-1500 caps at 100) set a continuationPoint
+   * instead of returning everything at once (issue #14).
+   * Returns { references, statusCode }.
+   */
+  async function browseAllReferences(session, browseDescription) {
+    const browseResult = await session.browse(browseDescription);
+    const references = [...(browseResult.references || [])];
+    let continuationPoint = browseResult.continuationPoint;
+    // Safety cap so a misbehaving server returning the same
+    // continuation point forever cannot lock us in a loop.
+    let remainingRounds = 1000;
+    while (
+      continuationPoint &&
+      continuationPoint.length > 0 &&
+      remainingRounds-- > 0
+    ) {
+      const nextResult = await session.browseNext(continuationPoint, false);
+      references.push(...(nextResult.references || []));
+      continuationPoint = nextResult.continuationPoint;
+    }
+    return { references, statusCode: browseResult.statusCode };
+  }
+
   // ─── HTTP API for Editor Tree Browsing ───
 
   if (RED.httpAdmin) {
@@ -193,14 +219,14 @@ module.exports = function (RED) {
 
           const browseNodeId = nodeId || "RootFolder";
           const resolvedNodeId = resolveNodeId(browseNodeId);
-          const browseResult = await session.browse({
+          const browseResult = await browseAllReferences(session, {
             nodeId: resolvedNodeId,
             referenceTypeId: "HierarchicalReferences",
             includeSubtypes: true,
             resultMask: RESULT_MASK.BROWSE,
           });
 
-          let forwardRefs = (browseResult.references || []).filter(
+          let forwardRefs = browseResult.references.filter(
             (ref) => ref.isForward,
           );
 
@@ -210,7 +236,7 @@ module.exports = function (RED) {
           // via non-hierarchical references on some servers.
           let extensionFields = null;
           if (forwardRefs.length === 0 && nodeId) {
-            const fallbackResult = await session.browse({
+            const fallbackResult = await browseAllReferences(session, {
               nodeId: resolvedNodeId,
               resultMask: RESULT_MASK.FALLBACK,
             });
@@ -220,7 +246,7 @@ module.exports = function (RED) {
               1, // Object (numeric)
               2, // Variable (numeric)
             ]);
-            forwardRefs = (fallbackResult.references || []).filter((ref) => {
+            forwardRefs = fallbackResult.references.filter((ref) => {
               if (!ref.isForward) return false;
               const nc = resolveNodeClassName(ref.nodeClass);
               const ncNum =
@@ -437,6 +463,20 @@ module.exports = function (RED) {
               hasChildren: canHaveChildren(ncName, ncNum),
             };
           });
+
+          // Surface a failed browse instead of showing an empty folder —
+          // an empty result with a Good status is a legitimately empty node.
+          if (
+            refs.length === 0 &&
+            !extensionFields &&
+            browseResult.statusCode &&
+            typeof browseResult.statusCode.isNotGood === "function" &&
+            browseResult.statusCode.isNotGood()
+          ) {
+            return res.status(500).json({
+              error: `Browse failed: ${browseResult.statusCode.toString()}`,
+            });
+          }
 
           const response = { references: refs };
           if (extensionFields) {

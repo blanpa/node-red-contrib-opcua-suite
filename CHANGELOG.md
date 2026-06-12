@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Browse results capped at the server's per-browse limit (e.g. 100 items on S7-1500)** – Neither the client manager's `browse()` nor the browse-client editor tree followed OPC UA continuation points. Servers with a low `MaxReferencesPerNode` (the S7-1500 returns at most 100 references per Browse response) silently truncated the result. All browse paths (`opcua-browser`, `opcua-client` browse operation, and the `opcua-browse-client` editor tree including its unfiltered fallback browse) now call `browseNext` until the server has returned all references, with a safety cap against servers that never exhaust their continuation point. ([#14](https://github.com/blanpa/node-red-contrib-opcua-suite/issues/14))
+- **Failed browses shown as empty folders** – A Browse response with a bad status code (e.g. `BadNodeIdUnknown`) was indistinguishable from a legitimately empty folder in the browse-client editor tree. The HTTP API now returns the status code as an error, and `OpcUaClientManager.browse()` throws instead of returning an empty list, so missing nodes (e.g. DBs without "accessible from OPC UA" enabled in TIA Portal) are diagnosable. ([#14](https://github.com/blanpa/node-red-contrib-opcua-suite/issues/14))
+
+### Added
+
+- **Continuation-point tests** – 11 new unit tests covering multi-page browses (100+100+42 references), `browseNext` keep-alive semantics (`releaseContinuationPoints=false`), the misbehaving-server safety cap, bad-status surfacing, and the fallback browse pagination.
+
 ## 0.0.7 (2026-04-18)
 
 ### Fixed

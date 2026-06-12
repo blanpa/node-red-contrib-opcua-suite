@@ -808,4 +808,155 @@ describe("OpcUaClientManager", function () {
       expect(mgr.reconnectAttempts).to.equal(1);
     });
   });
+
+  // ─── browse (continuation point handling, issue #14) ───
+
+  describe("browse", function () {
+    let mgr;
+
+    const goodStatus = { isNotGood: () => false, toString: () => "Good" };
+
+    function makeRef(name) {
+      return {
+        browseName: { name },
+        nodeId: { toString: () => `ns=3;s=${name}` },
+        nodeClass: "Object",
+        isForward: true,
+      };
+    }
+
+    beforeEach(function () {
+      mgr = new OpcUaClientManager({ endpointUrl: "opc.tcp://localhost:4840" });
+      mgr.isConnected = true;
+    });
+
+    it("should return all references when there is no continuation point", async function () {
+      const refs = [makeRef("A"), makeRef("B")];
+      mgr.session = {
+        browse: sinon.stub().resolves({
+          statusCode: goodStatus,
+          references: refs,
+          continuationPoint: null,
+        }),
+        browseNext: sinon.stub(),
+      };
+
+      const result = await mgr.browse("ns=3;s=DataBlocksGlobal");
+      expect(result).to.have.length(2);
+      expect(mgr.session.browseNext.called).to.be.false;
+    });
+
+    it("should follow continuation points until the server is exhausted", async function () {
+      // Simulate an S7-1500 that caps each browse response at 100 references
+      const firstBatch = Array.from({ length: 100 }, (_, i) =>
+        makeRef(`DB_${i}`),
+      );
+      const secondBatch = Array.from({ length: 100 }, (_, i) =>
+        makeRef(`DB_${100 + i}`),
+      );
+      const thirdBatch = Array.from({ length: 42 }, (_, i) =>
+        makeRef(`DB_${200 + i}`),
+      );
+      const cp1 = Buffer.from("cp1");
+      const cp2 = Buffer.from("cp2");
+
+      mgr.session = {
+        browse: sinon.stub().resolves({
+          statusCode: goodStatus,
+          references: firstBatch,
+          continuationPoint: cp1,
+        }),
+        browseNext: sinon.stub(),
+      };
+      mgr.session.browseNext
+        .onFirstCall()
+        .resolves({ references: secondBatch, continuationPoint: cp2 })
+        .onSecondCall()
+        .resolves({ references: thirdBatch, continuationPoint: null });
+
+      const result = await mgr.browse("ns=3;s=DataBlocksGlobal");
+
+      expect(result).to.have.length(242);
+      expect(result[0].browseName.name).to.equal("DB_0");
+      expect(result[100].browseName.name).to.equal("DB_100");
+      expect(result[241].browseName.name).to.equal("DB_241");
+      expect(mgr.session.browseNext.callCount).to.equal(2);
+      // Continuation points must be kept alive (released only when exhausted)
+      expect(mgr.session.browseNext.firstCall.args).to.deep.equal([cp1, false]);
+      expect(mgr.session.browseNext.secondCall.args).to.deep.equal([
+        cp2,
+        false,
+      ]);
+    });
+
+    it("should handle browseNext results with missing references array", async function () {
+      mgr.session = {
+        browse: sinon.stub().resolves({
+          statusCode: goodStatus,
+          references: [makeRef("A")],
+          continuationPoint: Buffer.from("cp"),
+        }),
+        browseNext: sinon
+          .stub()
+          .resolves({ references: null, continuationPoint: null }),
+      };
+
+      const result = await mgr.browse("i=85");
+      expect(result).to.have.length(1);
+    });
+
+    it("should terminate even if a misbehaving server keeps returning a continuation point", async function () {
+      const cp = Buffer.from("stuck");
+      mgr.session = {
+        browse: sinon.stub().resolves({
+          statusCode: goodStatus,
+          references: [],
+          continuationPoint: cp,
+        }),
+        browseNext: sinon
+          .stub()
+          .resolves({ references: [], continuationPoint: cp }),
+      };
+
+      const result = await mgr.browse("i=85");
+      expect(result).to.be.an("array");
+      expect(mgr.session.browseNext.callCount).to.equal(1000);
+    });
+
+    it("should throw with the status code when the browse result is bad", async function () {
+      mgr.session = {
+        browse: sinon.stub().resolves({
+          statusCode: {
+            isNotGood: () => true,
+            toString: () => "BadNodeIdUnknown (0x80340000)",
+          },
+          references: [],
+          continuationPoint: null,
+        }),
+        browseNext: sinon.stub(),
+      };
+
+      try {
+        await mgr.browse("ns=9;s=DoesNotExist");
+        throw new Error("should not reach here");
+      } catch (err) {
+        expect(err.message).to.include("BadNodeIdUnknown");
+      }
+      expect(mgr.session.browseNext.called).to.be.false;
+    });
+
+    it("should wrap transport errors as Browse error", async function () {
+      mgr.session = {
+        browse: sinon.stub().rejects(new Error("socket closed")),
+      };
+
+      try {
+        await mgr.browse("i=85");
+        throw new Error("should not reach here");
+      } catch (err) {
+        expect(err.message).to.include("Browse error");
+        expect(err.message).to.include("socket closed");
+      }
+    });
+  });
 });
