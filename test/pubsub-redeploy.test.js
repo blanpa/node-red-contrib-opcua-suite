@@ -68,6 +68,20 @@ function createRED(nodeOverrides) {
 
 function makeConnStub(transport, props) {
   let refs = 0;
+  // Relay the transport's lifecycle to registered worker callbacks, mirroring the
+  // real connection's status fan-out. The publisher gates sends on a 'connected'
+  // status (HI-05), so the cyclic interval only reaches transport.send once this
+  // fan-out delivers 'connected'.
+  const statusCallbacks = new Set();
+  transport.on("connected", () =>
+    statusCallbacks.forEach((cb) => cb("connected"))
+  );
+  transport.on("disconnected", () =>
+    statusCallbacks.forEach((cb) => cb("disconnected"))
+  );
+  transport.on("error", (e) =>
+    statusCallbacks.forEach((cb) => cb("error", e))
+  );
   return Object.assign(
     {
       acquireTransport() {
@@ -82,8 +96,12 @@ function makeConnStub(transport, props) {
       releaseTransport() {
         refs -= 1;
       },
-      registerStatusCallback() {},
-      unregisterStatusCallback() {},
+      registerStatusCallback(cb) {
+        statusCallbacks.add(cb);
+      },
+      unregisterStatusCallback(cb) {
+        statusCallbacks.delete(cb);
+      },
       _refs: () => refs,
     },
     props

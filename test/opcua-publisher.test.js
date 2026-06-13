@@ -156,6 +156,8 @@ describe("opcua-publisher node (Task 1)", function () {
         const ctor = loadPublisher(RED);
         const node = {};
         ctor.call(node, validConfig());
+        // HI-05: sends are gated on connection readiness — mark connected first.
+        conn.registerStatusCallback.firstCall.args[0]("connected");
         const send = sinon.stub();
         const done = sinon.stub();
         node._events["input"][0]({ payload: { temp: 21.5 } }, send, done);
@@ -254,8 +256,10 @@ describe("opcua-publisher node (Task 2 - cyclic)", function () {
         const done = sinon.stub();
         node._events["input"][0]({ payload: { value: 1 } }, send, done);
         expect(conn._fakeTransport.send.called).to.be.false;
-        expect(node._dirty).to.be.true;
+        // HI-03: _dirty was removed in favour of published-snapshot change detection;
+        // the inbound msg only accumulates into _latestValues, the interval emits.
         expect(node._latestValues.value).to.equal(1);
+        expect(node._publishedSnapshot).to.equal(null);
         // cleanup the interval
         node._events["close"][0](false, sinon.stub());
     });
@@ -268,6 +272,8 @@ describe("opcua-publisher node (Task 2 - cyclic)", function () {
             const ctor = loadPublisher(RED);
             const node = {};
             ctor.call(node, validConfig({ publishMode: "cyclic", publishingInterval: 100 }));
+            // HI-05: sends are gated on connection readiness.
+            conn.registerStatusCallback.firstCall.args[0]("connected");
             const emitted = [];
             const origEmit = node._emit;
             node._emit = function (nm) { emitted.push(nm); return origEmit.call(node, nm); };
@@ -343,6 +349,151 @@ describe("opcua-publisher node (Task 2 - cyclic)", function () {
         } finally {
             clock.restore();
         }
+    });
+});
+
+// ─── Review fixes: HI-03, HI-04, HI-05, ME-06, LO-02 ───
+
+describe("opcua-publisher node (review fixes)", function () {
+
+    // HI-04: UInt16 sequence wrap must not throw; counters wrap to 0.
+    it("HI-04: _nmSeq/_dsmSeq wrap modulo 0x10000 instead of growing unbounded", function () {
+        const RED = createRED({ conn1: makeConn() });
+        const ctor = loadPublisher(RED);
+        const node = {};
+        ctor.call(node, validConfig());
+        // Drive both counters to the wrap boundary.
+        node._nmSeq = 0xFFFF;
+        node._dsmSeq[1] = 0xFFFF;
+        const nm = node._buildNetworkMessage({ temp: 1 });
+        expect(nm.groupHeader.sequenceNumber).to.equal(0);
+        expect(nm.payload[0].sequenceNumber).to.equal(0);
+        // And the stored state must have wrapped, not exceeded UInt16.
+        expect(node._nmSeq).to.equal(0);
+        expect(node._dsmSeq[1]).to.equal(0);
+    });
+
+    it("HI-04: keepalive counter also wraps modulo 0x10000", function () {
+        const RED = createRED({ conn1: makeConn() });
+        const ctor = loadPublisher(RED);
+        const node = {};
+        ctor.call(node, validConfig());
+        node._nmSeq = 0xFFFF;
+        node._dsmSeq[1] = 0xFFFF;
+        const ka = node._buildKeepAlive();
+        expect(ka.groupHeader.sequenceNumber).to.equal(0);
+        expect(ka.payload[0].sequenceNumber).to.equal(0);
+        expect(node._nmSeq).to.equal(0);
+        expect(node._dsmSeq[1]).to.equal(0);
+    });
+
+    // HI-03: real change detection — unchanged values → keepalive, not keyframe.
+    it("HI-03: cyclic tick after re-sending the SAME value emits keepalive, not a keyframe", function () {
+        const clock = sinon.useFakeTimers();
+        try {
+            const conn = makeConn({ transport: { send: sinon.stub() } });
+            const RED = createRED({ conn1: conn });
+            const ctor = loadPublisher(RED);
+            const node = {};
+            ctor.call(node, validConfig({ publishMode: "cyclic", publishingInterval: 100 }));
+            const emitted = [];
+            const origEmit = node._emit;
+            node._emit = function (nm) { emitted.push(nm); return origEmit.call(node, nm); };
+            // First inbound + tick → keyframe.
+            node._events["input"][0]({ payload: { temp: 1 } }, sinon.stub(), sinon.stub());
+            clock.tick(100);
+            expect(emitted[0].payload[0].messageType).to.equal("keyframe");
+            // Same value arrives again → must NOT force a keyframe (no value change).
+            node._events["input"][0]({ payload: { temp: 1 } }, sinon.stub(), sinon.stub());
+            clock.tick(100);
+            expect(emitted[1].payload[0].messageType).to.equal("keepalive");
+            node._events["close"][0](false, sinon.stub());
+        } finally {
+            clock.restore();
+        }
+    });
+
+    it("HI-03: cyclic tick after a CHANGED value emits a keyframe and updates the snapshot", function () {
+        const clock = sinon.useFakeTimers();
+        try {
+            const conn = makeConn({ transport: { send: sinon.stub() } });
+            const RED = createRED({ conn1: conn });
+            const ctor = loadPublisher(RED);
+            const node = {};
+            ctor.call(node, validConfig({ publishMode: "cyclic", publishingInterval: 100 }));
+            const emitted = [];
+            const origEmit = node._emit;
+            node._emit = function (nm) { emitted.push(nm); return origEmit.call(node, nm); };
+            node._events["input"][0]({ payload: { temp: 1 } }, sinon.stub(), sinon.stub());
+            clock.tick(100); // keyframe (temp=1)
+            node._events["input"][0]({ payload: { temp: 2 } }, sinon.stub(), sinon.stub());
+            clock.tick(100); // changed → keyframe (temp=2)
+            expect(emitted[0].payload[0].messageType).to.equal("keyframe");
+            expect(emitted[1].payload[0].messageType).to.equal("keyframe");
+            expect(emitted[1].payload[0].fields.temp.value).to.equal(2);
+            // Next tick with no change → keepalive.
+            clock.tick(100);
+            expect(emitted[2].payload[0].messageType).to.equal("keepalive");
+            node._events["close"][0](false, sinon.stub());
+        } finally {
+            clock.restore();
+        }
+    });
+
+    // HI-05: setup throw after acquire releases transport + unregisters callback.
+    it("HI-05: a throw during post-acquire setup releases the transport and unregisters the status callback", function () {
+        const node = {};
+        // The acquireTransport stub fires mid-setup (sections 5-9). Poison node.writerGroup
+        // there so the very next setup step (_sendOpts reads writerGroup.writerGroupId) throws.
+        const conn = makeConn();
+        conn.acquireTransport = sinon.stub().callsFake(function () {
+            delete node.writerGroup; // → TypeError when _sendOpts reads writerGroupId
+            return { send: sinon.stub() };
+        });
+        const RED = createRED({ conn1: conn });
+        const ctor = loadPublisher(RED);
+        expect(function () {
+            ctor.call(node, validConfig());
+        }).to.not.throw(); // setup must not bubble the error out of the constructor
+        expect(conn.acquireTransport.called).to.be.true;
+        expect(node.error.called).to.be.true;
+        // The acquired transport must be released and the status callback unregistered.
+        expect(conn.releaseTransport.called).to.be.true;
+        expect(conn.unregisterStatusCallback.called).to.be.true;
+        const statusArgs = node.status.getCalls().map(c => c.args[0]);
+        expect(statusArgs.some(s => s && s.fill === "red")).to.be.true;
+    });
+
+    it("HI-05: pre-connect acyclic publish is queued and flushed on 'connected' (not silently lost)", function () {
+        const conn = makeConn();
+        const RED = createRED({ conn1: conn });
+        const ctor = loadPublisher(RED);
+        const node = {};
+        ctor.call(node, validConfig());
+        // No 'connected' status yet → publish should be queued, transport.send NOT called.
+        node._events["input"][0]({ payload: { temp: 7 } }, sinon.stub(), sinon.stub());
+        expect(conn._fakeTransport.send.called).to.be.false;
+        // Fire connected → queued payload flushes.
+        const cb = conn.registerStatusCallback.firstCall.args[0];
+        cb("connected");
+        expect(conn._fakeTransport.send.calledOnce).to.be.true;
+    });
+
+    // ME-06: non-array writers JSON → clear "must be an array" red status, no throw out.
+    it("ME-06: writers='{}' (valid JSON, non-array) → red 'config error' with a clear array message", function () {
+        const conn = makeConn();
+        const RED = createRED({ conn1: conn });
+        const ctor = loadPublisher(RED);
+        const node = {};
+        expect(function () {
+            ctor.call(node, validConfig({ writers: "{}" }));
+        }).to.not.throw();
+        expect(node.error.called).to.be.true;
+        const errMsg = node.error.getCalls().map(c => c.args[0]).join(" ");
+        expect(/array/i.test(errMsg)).to.be.true;
+        const statusArgs = node.status.getCalls().map(c => c.args[0]);
+        expect(statusArgs.some(s => s && s.fill === "red" && s.text === "config error")).to.be.true;
+        expect(conn.acquireTransport.called).to.be.false;
     });
 });
 

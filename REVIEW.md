@@ -125,7 +125,9 @@ on MQTT-JSON. The reader *filter* itself is safe (it `String()`-coerces both sid
 (e.g. preserve the original publisherIdType, or always string), and document
 `msg.sequenceNumber` semantics; align JSON and UADP.
 
-### HI-03 — Cyclic "no change" detection is a one-shot dirty flag, not value comparison; KeepAlive can be emitted while values are unchanged-but-present, and a single input永久 marks dirty
+### HI-03 — Cyclic "no change" detection is a one-shot dirty flag, not value comparison; KeepAlive can be emitted while values are unchanged-but-present, and a single input永久 marks dirty — FIXED
+
+> **FIXED:** Replaced the one-shot `_dirty` flag with real change detection. The publisher now keeps `_publishedSnapshot` (the field values of the last emitted keyframe); each cyclic tick deep-compares the accumulated `_latestValues` to that snapshot — unchanged → KeepAlive, changed (or nothing published yet) → keyframe + snapshot refresh. A value re-sent equal to the last published one no longer forces a keyframe. `_latestValues` semantics documented inline (accumulates latest value per field from inbound msgs).
 
 **File:** `nodes/opcua-publisher.js:108-110, 236-251, 261-267`
 
@@ -146,7 +148,9 @@ deep-compare to decide keyframe vs keepalive. At minimum, document that `_dirty`
 "input-arrived-since-last-interval", not "value changed", and decide whether `_latestValues`
 should be cleared per publish.
 
-### HI-04 — UInt16 sequence-number wrap throws and (in cyclic mode) silently stops publishing
+### HI-04 — UInt16 sequence-number wrap throws and (in cyclic mode) silently stops publishing — FIXED
+
+> **FIXED:** `_nmSeq` and each `_dsmSeq[id]` now wrap modulo `0x10000` at increment (`(n + 1) & 0xFFFF`) in both the keyframe and KeepAlive builders, so a long-running publisher rolls 65535 → 0 (spec-correct UInt16 wraparound) instead of overflowing `writeUInt16LE`.
 
 **Files:** `nodes/opcua-publisher.js:105-106, 151, 187, 190`, `lib/uadp-encoder.js:559, 704`
 
@@ -162,7 +166,9 @@ in any long-running publisher (65536 messages at 100 ms = ~1.8 h).
 0xFFFF`), and same for `_dsmSeq`. UInt16 wraparound is the spec-correct behavior for PubSub
 sequence numbers.
 
-### HI-05 — Publisher acquires the transport with no paired release on the status-callback / setup error window, and the input handler can throw before `node.transport` exists
+### HI-05 — Publisher acquires the transport with no paired release on the status-callback / setup error window, and the input handler can throw before `node.transport` exists — FIXED
+
+> **FIXED:** Sections 7-9 (the post-acquire setup window) are now wrapped in a try/catch that, on any throw, releases the transport and unregisters the status callback before red-statusing — so a setup failure no longer leaks a transport ref. Pre-connect sends are gated on a `_connected` flag set from the status fan-out: an inbound publish before 'connected' is queued (most-recent NetworkMessage only) and flushed on 'connected', so the first inject is not silently lost. Chosen behavior: **queue-and-flush** (most-recent pending publish), preferable for acyclic so the first inject survives. Behavior documented inline.
 
 **File:** `nodes/opcua-publisher.js:140-143, 226-232, 285-297`
 
@@ -285,7 +291,9 @@ timer was meant to protect.
 awaiting `close()` so a concurrent acquire creates a fresh instance rather than reusing a closing
 one. Guard `acquireTransport` against returning a transport whose `close()` has begun.
 
-### ME-06 — Config validation surfaces only the FIRST error; `publishingInterval` NaN path and non-array `writers` JSON
+### ME-06 — Config validation surfaces only the FIRST error; `publishingInterval` NaN path and non-array `writers` JSON — FIXED
+
+> **FIXED:** After `JSON.parse`, the publisher asserts `Array.isArray(rawWriters)` and throws a clear "writers must be a JSON array" error for non-array JSON (e.g. `"{}"`) instead of the cryptic `rawWriters.map is not a function`. The config catch block now surfaces the full collected `err.errors` list (joined messages) rather than only `errors[0].message`.
 
 **Files:** `nodes/opcua-publisher.js:56-95`, `lib/pubsub-config.js:104-110`
 
@@ -310,7 +318,10 @@ collected `err.errors` list rather than only `errors[0].message` for better oper
 `nodes/opcua-publisher.js:278` — `done(e)` where `e` may be a `createError` plain object.
 Node-RED expects an Error. Cosmetic until ME-01 is fixed.
 
-### LO-02 — Dead/confusing encoding default expression
+### LO-02 — Dead/confusing encoding default expression — FIXED
+
+> **FIXED:** Simplified the no-op ternary to `config.messageEncoding || "uadp"` in both `opcua-publisher.js` and `opcua-subscriber.js` (UADP is the intentional default for every transport; JSON must be explicitly chosen and is MQTT-only).
+
 `nodes/opcua-publisher.js:36-37` and `opcua-subscriber.js:37-38`:
 `config.messageEncoding || (conn.transportType === "udp" ? "uadp" : "uadp")` — both branches of
 the ternary are `"uadp"`, so the conditional is a no-op. Either intentional (MQTT also defaults to
@@ -376,12 +387,12 @@ control. Acceptable; note it.
 | CR-02 | critical | FIXED — JSON now carries WriterGroupId + NM SequenceNumber; writerGroupId-filtered MQTT-JSON subscribers receive messages |
 | HI-01 | high | FIXED — NM timestamp now emitted + decoded over JSON; msg.timestamp is publish-time, matching UADP |
 | HI-02 | high | FIXED — JSON preserves publisherId type (no String() coercion); sequenceNumber is the NM seq on both transports |
-| HI-03 | high | Cyclic change-detection is a one-shot dirty flag, no deep compare; _latestValues never reset |
-| HI-04 | high | UInt16 sequence wrap throws; in cyclic mode wedges the publisher red and stops all output |
-| HI-05 | high | Acquire→close window has no try/catch (ref leak on future throws); pre-connect MQTT send drops msgs |
+| HI-03 | high | FIXED — published-snapshot deep-compare drives keyframe-vs-KeepAlive; equal re-sends no longer force a keyframe |
+| HI-04 | high | FIXED — _nmSeq/_dsmSeq wrap modulo 0x10000; long-running publisher rolls 65535→0 instead of throwing |
+| HI-05 | high | FIXED — setup try/catch releases transport on throw; pre-connect sends queued and flushed on 'connected' |
 | ME-01 | medium | createError returns a plain object, not Error — degrades done(err)/instanceof/stack |
 | ME-02 | medium | groupVersion/networkMessageNumber written as silent 0 (writeUInt32LE(undefined)) |
 | ME-03 | medium | DSM status encoded as UInt16 (truncates 32-bit StatusCode); default 0 conflates "absent" with "Good" |
 | ME-04 | medium | FIXED — Reassembly trusts attacker totalSize/offsets; no overlap/coverage check (hardens once CR-01 fixed) |
 | ME-05 | medium | Grace-timer close races a re-acquire/send — messages lost in the redeploy window |
-| ME-06 | medium | Non-array writers JSON yields unhelpful error (no crash); only first validation error surfaced |
+| ME-06 | medium | FIXED — Array.isArray guard gives a clear "writers must be a JSON array" error; full err.errors list surfaced |

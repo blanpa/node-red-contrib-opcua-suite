@@ -71,6 +71,19 @@ function createRED(nodeOverrides) {
 //     and kicks off connect() on first acquire (mirrors the real config node). ───
 function makeConnStub(transport, props) {
   let refs = 0;
+  // Mirror the real connection's status fan-out: relay the transport's lifecycle
+  // events to every registered worker callback. The publisher gates sends on a
+  // 'connected' status (HI-05), so this fan-out must be wired for it to publish.
+  const statusCallbacks = new Set();
+  transport.on("connected", () =>
+    statusCallbacks.forEach((cb) => cb("connected"))
+  );
+  transport.on("disconnected", () =>
+    statusCallbacks.forEach((cb) => cb("disconnected"))
+  );
+  transport.on("error", (e) =>
+    statusCallbacks.forEach((cb) => cb("error", e))
+  );
   return Object.assign(
     {
       acquireTransport() {
@@ -87,8 +100,12 @@ function makeConnStub(transport, props) {
       releaseTransport() {
         refs -= 1;
       },
-      registerStatusCallback() {},
-      unregisterStatusCallback() {},
+      registerStatusCallback(cb) {
+        statusCallbacks.add(cb);
+      },
+      unregisterStatusCallback(cb) {
+        statusCallbacks.delete(cb);
+      },
       _refs: () => refs,
     },
     props

@@ -33,9 +33,10 @@ module.exports = function (RED) {
     }
 
     // ─── 2. Encoding selection (D4-03) ───
+    // UADP is the default for every transport (UDP and MQTT alike); JSON must be
+    // explicitly chosen and is only valid over MQTT.
     const transportType = conn.transportType;
-    const encoding =
-      config.messageEncoding || (transportType === "udp" ? "uadp" : "uadp");
+    const encoding = config.messageEncoding || "uadp";
 
     // D4-03 hard rule: UDP transport requires UADP encoding (UDP-JSON unsupported).
     if (transportType === "udp" && encoding === "json") {
