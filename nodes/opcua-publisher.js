@@ -212,11 +212,22 @@ module.exports = function (RED) {
     };
 
     // ─── 8. Encode + send a NetworkMessage ───
+    // MQTT requires topic identifiers — the MqttTransport builds
+    // `${prefix}/${publisherId}/${writerGroupId}/${dataSetWriterId}` from the
+    // send() opts and throws TOPIC_INVALID_CHARACTER when they are missing. UDP
+    // ignores opts. Pass the WriterGroup id + first DataSetWriter id (the topic
+    // granularity matching the published frame) so the MQTT path actually
+    // publishes instead of throwing.
+    node._sendOpts = {
+      writerGroupId: node.writerGroup.writerGroupId,
+      dataSetWriterId: node.writers[0].dataSetWriterId
+    };
+
     node._emit = function (nm) {
       const encoded = encoder.encodeNetworkMessage(nm, {
         mtu: node.writerGroup.maxNetworkMessageSize
       });
-      node.transport.send(encoded);
+      node.transport.send(encoded, node._sendOpts);
       node._setPublishing();
     };
 

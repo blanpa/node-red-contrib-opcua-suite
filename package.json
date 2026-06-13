@@ -39,6 +39,7 @@
     "node-opcua": "^2.115.0"
   },
   "devDependencies": {
+    "aedes": "^1.0.2",
     "chai": "^4.3.10",
     "eslint": "^8.57.0",
     "mocha": "^10.2.0",
