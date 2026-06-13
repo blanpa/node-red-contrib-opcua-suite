@@ -18,6 +18,7 @@
       "opcua-item": "nodes/opcua-item.js",
       "opcua-endpoint": "nodes/opcua-endpoint.js",
       "opcua-pubsub-connection": "nodes/opcua-pubsub-connection.js",
+      "opcua-publisher": "nodes/opcua-publisher.js",
       "opcua-event": "nodes/opcua-event.js",
       "opcua-method": "nodes/opcua-method.js",
       "opcua-browser": "nodes/opcua-browser.js",
