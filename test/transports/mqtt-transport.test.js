@@ -41,6 +41,12 @@ class MockMqttClient extends EventEmitter {
 let MqttTransport;
 let BaseTransport;
 
+// Path to the transport module so we can force a fresh require AFTER the mqtt
+// cache is poisoned — another test file (e.g. pubsub-roundtrip) may have already
+// loaded mqtt-transport bound to the REAL mqtt module, so a plain require here
+// would return that real-bound cached module and the stub would never be used.
+const transportPath = require.resolve("../../lib/transports/mqtt-transport");
+
 before(function () {
   require.cache[mqttPath] = {
     id: mqttPath,
@@ -48,13 +54,17 @@ before(function () {
     loaded: true,
     exports: mockMqtt,
   };
-  // Load AFTER the cache is poisoned so the transport binds to the stub.
+  // Evict any previously-cached transport module so the re-require below re-runs
+  // against the poisoned mqtt stub (order-independent across the full suite).
+  delete require.cache[transportPath];
   MqttTransport = require("../../lib/transports/mqtt-transport").MqttTransport;
   BaseTransport = require("../../lib/transports/base-transport").BaseTransport;
 });
 
 after(function () {
   delete require.cache[mqttPath];
+  // Restore a real-mqtt-bound transport module for any later test files.
+  delete require.cache[transportPath];
 });
 
 beforeEach(function () {
