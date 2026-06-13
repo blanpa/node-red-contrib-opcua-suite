@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v0.1.0
 milestone_name: milestone
-status: executing
-stopped_at: Phase 3 executed (4/4 plans complete, 504 tests passing); editor-UX human-verify checkpoint pending; ready for Phase 4
+status: milestone-complete
+stopped_at: Phase 4 executed (4/4 plans, 619 tests passing) — PubSub milestone v0.1.0 feature-complete; two human-verify checkpoints pending (Phase 3 editor UX + Phase 4 example-flow import)
 last_updated: "2026-06-13T00:00:00.000Z"
-last_activity: 2026-06-13 -- Phase 03 execution complete (transports + connection config node)
+last_activity: 2026-06-13 -- Phase 04 execution complete (publisher/subscriber/tests/examples)
 progress:
   total_phases: 4
-  completed_phases: 3
-  total_plans: 12
-  completed_plans: 12
-  percent: 92
+  completed_phases: 4
+  total_plans: 16
+  completed_plans: 16
+  percent: 100
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-08)
 
 **Core value:** A Node-RED user can wire any OPC UA interaction — Client/Server (today) and Publisher/Subscriber (this milestone) — into a flow without writing function nodes, without losing connections silently, and with structured types preserved end-to-end.
-**Current focus:** Phase 04 — Publisher, Subscriber, Tests, and Examples (ready to plan)
+**Current focus:** Milestone v0.1.0 (OPC UA PubSub) feature-complete — all 4 phases done. Remaining: two human-verify checkpoints (Node-RED editor UX + example-flow import) and the optional TEST-03 open62541 capture upgrade.
 
 ## Current Position
 
-Phase: 03 of 4 COMPLETE → next is Phase 04
-Plan: 4 of 4 in Phase 03 complete (editor-UX human-verify checkpoint pending)
-Status: Ready to plan Phase 04
-Last activity: 2026-06-13 -- Phase 03 execution complete
+Phase: 04 of 4 COMPLETE → milestone v0.1.0 feature-complete
+Plan: 4 of 4 in Phase 04 complete (example-flow import human-verify checkpoint pending)
+Status: Milestone complete (pending human verification)
+Last activity: 2026-06-13 -- Phase 04 execution complete
 
-Progress: [█████████░] 92%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 

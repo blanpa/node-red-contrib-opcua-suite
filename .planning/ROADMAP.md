@@ -18,7 +18,7 @@ flows. Shipping as v0.1.0 marks the transition from pure Client/Server to a full
 - [x] **Phase 1: Pre-Work** - Consolidate PubSub-impacted tech debt so new nodes do not clone known-bad patterns
 - [x] **Phase 2: Encoders and Config Objects** - Stateless UADP + JSON encoders and pure config-object layer
 - [x] **Phase 3: Transports and Connection Config Node** - UDP/MQTT transport adapters and the opcua-pubsub-connection config node
-- [ ] **Phase 4: Publisher, Subscriber, Tests, and Examples** - Worker nodes, round-trip tests, example flows, and README docs
+- [x] **Phase 4: Publisher, Subscriber, Tests, and Examples** - Worker nodes, round-trip tests, example flows, and README docs
 
 ## Phase Details
 
@@ -81,10 +81,10 @@ Plans:
   5. All three example flows (`10 - PubSub UDP-UADP Loopback.json`, `11 - PubSub MQTT-UADP.json`, `12 - PubSub MQTT-JSON.json`) import cleanly into Node-RED and can be deployed without errors.
 **Plans**: 4 plans
 Plans:
-- [ ] 04-01-PLAN.md — opcua-publisher node + editor HTML: connection ref, WriterGroup/DataSetWriter/PublishedDataSet config, acyclic + cyclic/KeepAlive publish, status (PUB-01, PUB-02, PUB-03, STAT-01)
-- [ ] 04-02-PLAN.md — opcua-subscriber node + editor HTML: DataSetReader filter, transport message listener + cleanup, decode + exact msg shape, ConfigurationVersion-mismatch error (SUB-01, SUB-02, STAT-01)
-- [ ] 04-03-PLAN.md — round-trip tests (UDP-UADP / MQTT-UADP / MQTT-JSON via aedes loopback) + 20-redeploy acceptance + TEST-03 8-combo confirm (TEST-01, TEST-02, TEST-03)
-- [ ] 04-04-PLAN.md — three example flows (10/11/12) + run-examples harness extension + README PubSub section (DOC-01, DOC-02)
+- [x] 04-01-PLAN.md — opcua-publisher node + editor HTML: connection ref, WriterGroup/DataSetWriter/PublishedDataSet config, acyclic + cyclic/KeepAlive publish, status (PUB-01, PUB-02, PUB-03, STAT-01)
+- [x] 04-02-PLAN.md — opcua-subscriber node + editor HTML: DataSetReader filter, transport message listener + cleanup, decode + exact msg shape, ConfigurationVersion-mismatch error (SUB-01, SUB-02, STAT-01)
+- [x] 04-03-PLAN.md — round-trip tests (UDP-UADP / MQTT-UADP / MQTT-JSON via aedes loopback) + 20-redeploy acceptance + TEST-03 8-combo confirm (TEST-01, TEST-02, TEST-03)
+- [x] 04-04-PLAN.md — three example flows (10/11/12) + run-examples harness extension + README PubSub section (DOC-01, DOC-02)
 **UI hint**: yes
 
 ## Progress
@@ -96,4 +96,4 @@ Plans:
 | 1. Pre-Work | 3/3 | Complete | 2026-05-09 |
 | 2. Encoders and Config Objects | 5/5 | Complete | 2026-05-13 |
 | 3. Transports and Connection Config Node | 4/4 | Complete (UX checkpoint pending) | 2026-06-13 |
-| 4. Publisher, Subscriber, Tests, and Examples | 0/TBD | Not started | - |
+| 4. Publisher, Subscriber, Tests, and Examples | 4/4 | Complete (import checkpoint pending) | 2026-06-13 |
