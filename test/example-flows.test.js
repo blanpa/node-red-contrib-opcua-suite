@@ -32,10 +32,11 @@ const PUBSUB_FLOWS = [
 ];
 
 describe('example flows (static validation)', function () {
-    it('the examples directory is non-empty and includes the twelve bundled flows', function () {
-        expect(exampleFiles.length).to.be.at.least(12);
-        // The nine pre-existing flows plus the three new PubSub flows must all be present.
-        for (let n = 1; n <= 12; n++) {
+    it('the examples directory is non-empty and includes the thirteen bundled flows', function () {
+        expect(exampleFiles.length).to.be.at.least(13);
+        // The nine pre-existing flows, the three PubSub flows (10-12), and the
+        // PubSub full-validation flow (13) must all be present.
+        for (let n = 1; n <= 13; n++) {
             const prefix = String(n).padStart(2, '0') + ' - ';
             const found = exampleFiles.some(f => f.startsWith(prefix));
             expect(found, `expected an example flow starting with "${prefix}"`).to.equal(true);
@@ -55,10 +56,14 @@ describe('example flows (static validation)', function () {
                 expect(Array.isArray(flow)).to.equal(true);
             });
 
-            it('has exactly one tab node with a non-empty label', function () {
+            it('has at least one tab node, each with a non-empty label', function () {
                 const tabs = flow.filter(n => n.type === 'tab');
-                expect(tabs.length).to.equal(1);
-                expect(tabs[0].label).to.be.a('string').and.to.have.length.above(0);
+                // Most flows are single-tab; flow 13 (PubSub Full Validation) is a
+                // multi-tab validation suite (README + T1..T9).
+                expect(tabs.length).to.be.at.least(1);
+                tabs.forEach(function (t) {
+                    expect(t.label).to.be.a('string').and.to.have.length.above(0);
+                });
             });
 
             it('every node has a string type and a unique id', function () {
@@ -131,6 +136,83 @@ describe('example flows (static validation)', function () {
                     expect(conn.brokerUrl).to.equal('mqtt://localhost:1883');
                 }
             });
+        });
+    });
+
+    // ── Flow 13: PubSub Full Validation suite (multi-tab T1..T9) ──
+    describe('PubSub flow 13 - PubSub Full Validation.json', function () {
+        let flow;
+
+        before(function () {
+            flow = loadFlow('13 - PubSub Full Validation.json');
+        });
+
+        it('is a multi-tab suite: a README tab plus one tab per scenario T1..T9 (>= 10 tabs)', function () {
+            const tabs = flow.filter(n => n.type === 'tab');
+            expect(tabs.length).to.be.at.least(10);
+            const labels = tabs.map(t => t.label).join(' | ');
+            for (let n = 1; n <= 9; n++) {
+                expect(labels, `missing a tab for T${n}`).to.match(new RegExp('T' + n + '\\b'));
+            }
+        });
+
+        it('exercises both transports and both encodings across its connections', function () {
+            const conns = flow.filter(n => n.type === 'opcua-pubsub-connection');
+            const transports = new Set(conns.map(c => c.transportType));
+            expect(transports.has('udp'), 'expected a UDP connection').to.equal(true);
+            expect(transports.has('mqtt'), 'expected an MQTT connection').to.equal(true);
+            const encodings = new Set(
+                flow.filter(n => n.type === 'opcua-publisher').map(p => p.messageEncoding)
+            );
+            expect(encodings.has('uadp'), 'expected a UADP publisher').to.equal(true);
+            expect(encodings.has('json'), 'expected a JSON publisher').to.equal(true);
+        });
+
+        it('every publisher/subscriber resolves its connection and encoding matches the connected publisher', function () {
+            const connById = new Map(
+                flow.filter(n => n.type === 'opcua-pubsub-connection').map(c => [c.id, c])
+            );
+            flow.forEach(function (n) {
+                if (n.type === 'opcua-publisher' || n.type === 'opcua-subscriber') {
+                    expect(connById.has(n.connection), `${n.id} -> missing connection ${n.connection}`).to.equal(true);
+                }
+            });
+        });
+
+        it('MQTT connections target the validation broker mqtt://val-mosquitto:1883', function () {
+            flow
+                .filter(n => n.type === 'opcua-pubsub-connection' && n.transportType === 'mqtt')
+                .forEach(function (c) {
+                    expect(c.brokerUrl).to.equal('mqtt://val-mosquitto:1883');
+                });
+        });
+
+        it('exercises a cyclic publisher (KeepAlive scenario) and a multi-writer publisher', function () {
+            const pubs = flow.filter(n => n.type === 'opcua-publisher');
+            expect(pubs.some(p => p.publishMode === 'cyclic'), 'expected a cyclic publisher (T5)').to.equal(true);
+            const multiWriter = pubs.some(function (p) {
+                try {
+                    const w = JSON.parse(p.writers || '[]');
+                    return Array.isArray(w) && w.length >= 2;
+                } catch (e) {
+                    return false;
+                }
+            });
+            expect(multiWriter, 'expected a publisher with >= 2 DataSetWriters (T4)').to.equal(true);
+        });
+
+        it('exercises chunking via a small maxNetworkMessageSize publisher (T6)', function () {
+            const chunked = flow.some(
+                n => n.type === 'opcua-publisher' && Number(n.maxNetworkMessageSize) <= 300
+            );
+            expect(chunked, 'expected a small-MTU publisher to force chunking').to.equal(true);
+        });
+
+        it('exercises a ConfigurationVersion-mismatch subscriber (T9)', function () {
+            const cvSub = flow.some(
+                n => n.type === 'opcua-subscriber' && n.expectedConfigVersion && n.expectedConfigVersion !== ''
+            );
+            expect(cvSub, 'expected a subscriber with expectedConfigVersion (T9)').to.equal(true);
         });
     });
 
