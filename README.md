@@ -179,6 +179,61 @@ Embedded OPC UA server. Starts automatically on deploy. Build the address space 
 | `raiseEvent` | `msg.sourceNodeId`, `msg.message` | Raise an event |
 | `getServerInfo` | — | Get session count, endpoint URL, server state |
 
+## OPC UA PubSub
+
+PubSub adds broker-less (**UDP-UADP** multicast) and broker-mediated (**MQTT**, UADP or JSON) publish/subscribe alongside the Client/Server nodes. The three shipped combinations are **UDP-UADP**, **MQTT-UADP**, and **MQTT-JSON** — there is **no UDP-JSON** combination (D4-03). Configuration lives on the `opcua-pubsub-connection` config node (transport, multicast group / broker URL, PublisherId); the `opcua-publisher` and `opcua-subscriber` worker nodes reference it.
+
+### Configuration hierarchy
+
+**Publisher** — `opcua-pubsub-connection` → **WriterGroup** → **DataSetWriter** → **PublishedDataSet**:
+
+- One **WriterGroup** per publisher (`writerGroupId`, `publishingInterval`, `priority`, `maxNetworkMessageSize`).
+- One or more **DataSetWriters** (edited as a JSON array in the `writers` field), each bound to one **PublishedDataSet**.
+- The PublishedDataSet `fields[]` of `{ name, dataType }` (e.g. `{ "name": "Temperature", "dataType": "Double" }`) type the outgoing values.
+
+**Subscriber** — `opcua-pubsub-connection` → **DataSetReader**:
+
+- The DataSetReader filters on **PublisherId** / **WriterGroupId** / **DataSetWriterId** — at least one is required.
+- For **MQTT-JSON** filter on `publisherId` (and optionally `dataSetWriterId`): JSON NetworkMessages carry no `groupHeader`, so `writerGroupId` is unavailable.
+
+### Publisher input
+
+`msg.payload` is an object keyed by field name — `{ <fieldName>: <rawValue> }`. Each declared PublishedDataSet field present in the payload becomes a Variant in one keyframe; **missing fields are omitted, never fabricated**. One inbound `msg` produces one outbound NetworkMessage.
+
+- **Acyclic** (default): publishes once per inbound `msg`.
+- **Cyclic**: publishes every `publishingInterval` ms, sending a keyframe when values changed and a **KeepAlive** NetworkMessage when nothing changed since the last tick.
+
+### Subscriber output (msg shape)
+
+Per matched DataSetMessage the subscriber emits one `msg`:
+
+| Field | Description |
+|---|---|
+| `msg.payload` | `{ [fieldName]: value }` — Variant/DataValue wrappers removed |
+| `msg.publisherId` | PublisherId of the source connection |
+| `msg.writerGroupId` | WriterGroup id (`undefined` for JSON encoding — no groupHeader) |
+| `msg.dataSetWriterId` | DataSetWriter id |
+| `msg.sequenceNumber` | NetworkMessage sequence number (DataSetMessage fallback for JSON) |
+| `msg.timestamp` | `Date` of the DataSetMessage |
+| `msg.statusCode` | Status code (`0` = Good) |
+| `msg.encoding` | `"uadp"` or `"json"` |
+| `msg.transport` | `"udp"` or `"mqtt"` |
+| `msg.topic` | MQTT only — omitted entirely for UDP |
+
+A matched DataSetMessage whose ConfigurationVersion differs from the optional `expectedConfigVersion` raises a visible `node.error()` and is dropped — it is never silently swallowed.
+
+### Encoding rules
+
+The **UDP** transport carries **UADP** binary NetworkMessages only — selecting JSON over a UDP connection is rejected at startup. **MQTT** allows either UADP or JSON. **UDP-JSON is not a shipped combination** (D4-03). JSON is the cloud-friendly, self-describing choice (each message carries its own field names and types, no metadata pre-exchange).
+
+### UDP multicast NIC selection
+
+The UDP socket always binds to `0.0.0.0`. Leave `multicastInterface` at `0.0.0.0` to let the OS choose the outgoing NIC. On a **multi-NIC host** the OS may pick the wrong interface for multicast — set `multicastInterface` to the host's IP on the PubSub LAN if datagrams are not received. This field only pins the interface used to join the group and send.
+
+### PubSub examples
+
+See example flows **10 - PubSub UDP-UADP Loopback** (self-contained, no external infra), **11 - PubSub MQTT-UADP**, and **12 - PubSub MQTT-JSON**. Flows 11 and 12 require a local MQTT broker at `mqtt://localhost:1883` (e.g. `docker run -p 1883:1883 eclipse-mosquitto`).
+
 ## Reference
 
 See [docs/MSG-SCHEMA.md](docs/MSG-SCHEMA.md) for the full message field reference.
@@ -232,6 +287,10 @@ Available examples:
 6. **Event Subscription** — inject → event → debug
 7. **Call a Method** — inject → method → debug
 8. **Server with Variables** — inject → server → debug
+9. **Session Retry Test** — inject → client → debug
+10. **PubSub UDP-UADP Loopback** — self-contained, no external infra
+11. **PubSub MQTT-UADP** — requires a local MQTT broker
+12. **PubSub MQTT-JSON** — requires a local MQTT broker
 
 All examples work **without function nodes**.
 
