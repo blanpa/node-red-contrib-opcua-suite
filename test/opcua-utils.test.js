@@ -232,22 +232,38 @@ describe('opcua-utils', function () {
     // ─── createError ───
 
     describe('createError', function () {
-        it('should create an error object with just a message', function () {
+        it('should create a real Error with just a message (ME-01)', function () {
             const result = createError('something went wrong');
-            expect(result).to.deep.equal({
-                message: 'something went wrong',
-                error: undefined,
-                stack: undefined
-            });
+            expect(result).to.be.an.instanceOf(Error);
+            expect(result.message).to.equal('something went wrong');
+            expect(result.error).to.equal(undefined);
+            // A real Error always has its own stack captured at the call site.
+            expect(result.stack).to.be.a('string');
+            expect(result.stack).to.include('something went wrong');
         });
 
-        it('should include error details when an Error object is passed', function () {
+        it('should include inner error details when an Error is passed', function () {
             const err = new Error('inner error');
             const result = createError('outer message', err);
+            expect(result).to.be.an.instanceOf(Error);
             expect(result.message).to.equal('outer message');
+            // Back-compat: .error is the inner message string.
             expect(result.error).to.equal('inner error');
+            // .cause chains the original Error (standard Error chaining).
+            expect(result.cause).to.equal(err);
             expect(result.stack).to.be.a('string');
-            expect(result.stack).to.include('inner error');
+        });
+
+        it('should return an Error that preserves caller-attached fields (ME-01)', function () {
+            const result = createError('x', { code: 'Y' });
+            expect(result).to.be.an.instanceOf(Error);
+            expect(result.message).to.equal('x');
+            // Fields attached after creation survive (pubsub-config/json-encoder pattern).
+            result.code = 'Y';
+            result.errors = [{ message: 'bad' }];
+            expect(result.code).to.equal('Y');
+            expect(result.errors).to.be.an('array');
+            expect(result.stack).to.be.a('string');
         });
     });
 
