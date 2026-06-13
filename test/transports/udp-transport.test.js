@@ -375,6 +375,93 @@ describe("UdpTransport — _reassemble (UADP chunking)", function () {
     expect(warnSpy.firstCall.args[0].message).to.match(/UDP_REASSEMBLY_OVERFLOW/);
   });
 
+  it("ME-04: oversized totalSize (beyond mtu * MAX_CHUNKS) is rejected (dropped + 'warn', no entry)", function () {
+    // mtu defaults to ~1400; MAX_CHUNKS is 256 → cap is well under 100 MB.
+    sinon.stub(uadp, "decodeNetworkMessage").returns({
+      publisherId: 7,
+      groupHeader: { writerGroupId: 1 },
+      chunk: {
+        messageSequenceNumber: 1,
+        chunkOffset: 0,
+        totalSize: 500 * 1024 * 1024, // 500 MB — absurd
+        chunkData: Buffer.alloc(10),
+      },
+    });
+
+    const warnSpy = sinon.spy();
+    const msgSpy = sinon.spy();
+    transport.on("warn", warnSpy);
+    transport.on("message", msgSpy);
+
+    transport._onDatagram(Buffer.alloc(4), {});
+
+    expect(transport._chunks.size).to.equal(0, "oversized totalSize must not create a reassembly entry");
+    expect(msgSpy.called).to.equal(false);
+    expect(warnSpy.called).to.equal(true);
+    expect(warnSpy.firstCall.args[0].message).to.match(/UDP_REASSEMBLY_TOTALSIZE/);
+  });
+
+  it("ME-04: overlapping chunk offsets do NOT complete (dropped + 'warn', no message)", function () {
+    // Two chunks that 'sum' to totalSize but overlap: offsets [0,10) and [5,15) cover 20 bytes
+    // by length, declared totalSize 15 → assembled length reaches 15 but tiling is invalid.
+    const mk = (offset, len) => ({
+      publisherId: 7,
+      groupHeader: { writerGroupId: 1 },
+      chunk: {
+        messageSequenceNumber: 2,
+        chunkOffset: offset,
+        totalSize: 15,
+        chunkData: Buffer.alloc(len),
+      },
+    });
+    const stub = sinon.stub(uadp, "decodeNetworkMessage");
+    stub.onCall(0).returns(mk(0, 10));
+    stub.onCall(1).returns(mk(5, 10)); // overlaps [5,10); sum of lengths = 20 >= 15
+
+    const warnSpy = sinon.spy();
+    const msgSpy = sinon.spy();
+    transport.on("warn", warnSpy);
+    transport.on("message", msgSpy);
+
+    transport._onDatagram(Buffer.alloc(4), {});
+    transport._onDatagram(Buffer.alloc(4), {});
+
+    expect(msgSpy.called).to.equal(false, "overlapping/mis-tiled chunks must not reassemble");
+    expect(warnSpy.called).to.equal(true);
+    expect(warnSpy.firstCall.args[0].message).to.match(/UDP_REASSEMBLY_BAD_TILING/);
+    expect(transport._chunks.size).to.equal(0, "bad-tiling entry must be dropped");
+  });
+
+  it("ME-04: gapped chunk offsets do NOT complete (length reaches totalSize but a hole remains)", function () {
+    // Offsets [0,10) and [12,22): lengths sum to 20, but totalSize 20 with a gap at [10,12).
+    const mk = (offset, len) => ({
+      publisherId: 7,
+      groupHeader: { writerGroupId: 1 },
+      chunk: {
+        messageSequenceNumber: 3,
+        chunkOffset: offset,
+        totalSize: 20,
+        chunkData: Buffer.alloc(len),
+      },
+    });
+    const stub = sinon.stub(uadp, "decodeNetworkMessage");
+    stub.onCall(0).returns(mk(0, 10));
+    stub.onCall(1).returns(mk(12, 10)); // gap at [10,12); but last byte 22 > totalSize 20 too
+
+    const warnSpy = sinon.spy();
+    const msgSpy = sinon.spy();
+    transport.on("warn", warnSpy);
+    transport.on("message", msgSpy);
+
+    transport._onDatagram(Buffer.alloc(4), {});
+    transport._onDatagram(Buffer.alloc(4), {});
+
+    expect(msgSpy.called).to.equal(false, "gapped chunks must not reassemble");
+    expect(warnSpy.called).to.equal(true);
+    expect(warnSpy.firstCall.args[0].message).to.match(/UDP_REASSEMBLY_BAD_TILING/);
+    expect(transport._chunks.size).to.equal(0);
+  });
+
   it("malformed datagram: decode error is caught and emitted as 'error', listener stays alive", function () {
     const stub = sinon.stub(uadp, "decodeNetworkMessage");
     stub.onFirstCall().throws(new Error("garbage bytes"));
