@@ -356,9 +356,9 @@ describe("opcua-publisher.html (Task 2 - editor)", function () {
         html = fs.readFileSync(HTML_PATH, "utf8");
     });
 
-    it("registers type 'opcua-publisher' with category 'function'", function () {
+    it("registers type 'opcua-publisher' with category 'opcua-suite'", function () {
         expect(html).to.match(/RED\.nodes\.registerType\(\s*["']opcua-publisher["']/);
-        expect(html).to.match(/category:\s*["']function["']/);
+        expect(html).to.match(/category:\s*["']opcua-suite["']/);
     });
 
     it("defaults include connection, messageEncoding, publishMode, publishingInterval, writerGroupId, writers", function () {

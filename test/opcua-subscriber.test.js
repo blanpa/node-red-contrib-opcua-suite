@@ -325,10 +325,10 @@ describe("opcua-subscriber editor + registration (Task 2)", function () {
         return fs.readFileSync(htmlPath, "utf8");
     }
 
-    it("HTML registers type 'opcua-subscriber' with category 'function'", function () {
+    it("HTML registers type 'opcua-subscriber' with category 'opcua-suite'", function () {
         const h = html();
         expect(h).to.contain('registerType("opcua-subscriber"');
-        expect(h).to.contain('category: "function"');
+        expect(h).to.contain('category: "opcua-suite"');
     });
 
     it("HTML defaults declare connection (type opcua-pubsub-connection), messageEncoding, publisherId, writerGroupId, dataSetWriterId", function () {
