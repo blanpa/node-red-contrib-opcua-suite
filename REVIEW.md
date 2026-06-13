@@ -54,7 +54,9 @@ re-decode, so this slipped through.
 
 ---
 
-### CR-02 — JSON (MQTT-JSON) never encodes `writerGroupId`; subscribers filtering by writerGroupId drop every message
+### CR-02 — JSON (MQTT-JSON) never encodes `writerGroupId`; subscribers filtering by writerGroupId drop every message — FIXED
+
+> **FIXED:** `encodeNetworkMessage` now emits NM-level `WriterGroupId` and `SequenceNumber` from `groupHeader`, and `decodeNetworkMessage` reconstructs `nm.groupHeader = { writerGroupId, sequenceNumber }`, so a writerGroupId-filtered MQTT-JSON subscriber is delivered the message (round-trip test strengthened to filter on writerGroupId and assert delivery).
 
 **Files:** `lib/json-encoder.js:211-229` (encode), `lib/json-encoder.js:262-267` (decode),
 `nodes/opcua-subscriber.js:153-158` (filter)
@@ -88,7 +90,9 @@ Add a JSON round-trip test that filters by `writerGroupId` and asserts delivery.
 
 ## High
 
-### HI-01 — NetworkMessage `timestamp` is lost over JSON; `msg.timestamp` is fabricated at decode time
+### HI-01 — NetworkMessage `timestamp` is lost over JSON; `msg.timestamp` is fabricated at decode time — FIXED
+
+> **FIXED:** `encodeNetworkMessage` now emits the NM-level `Timestamp` (ISO-8601, Part 14 §7.2.5) and `decodeNetworkMessage` restores it into `nm.timestamp`, so the subscriber (which already prefers `dsm.timestamp`/`nm.timestamp` before `new Date()`) emits publish time on JSON, matching UADP.
 
 **Files:** `lib/json-encoder.js:211-229`, `nodes/opcua-subscriber.js:199-200`
 
@@ -104,7 +108,9 @@ neither `dsm.timestamp` nor `nm.timestamp` survives, and the subscriber falls th
 `nm.timestamp`, or have the publisher set `dsm.timestamp` so the existing per-DSM JSON path
 carries it. Pick one and make UADP and JSON agree.
 
-### HI-02 — Cross-transport type inconsistency for `publisherId` and `sequenceNumber`
+### HI-02 — Cross-transport type inconsistency for `publisherId` and `sequenceNumber` — FIXED
+
+> **FIXED:** The JSON encoder no longer `String()`-coerces `PublisherId`; it preserves the source JS type (number → JSON number, string → string, BigInt → decimal string), and decode returns the native type — so `msg.publisherId` is the same type on UADP and JSON. `msg.sequenceNumber` is now the NM `groupHeader.sequenceNumber` on both transports (the subscriber already prefers the NM seq, now present on JSON via the CR-02 fix).
 
 **Files:** `lib/json-encoder.js:220` (`String(publisherId)`), `nodes/opcua-subscriber.js:199`
 
@@ -367,9 +373,9 @@ control. Acceptable; note it.
 | ID | Sev | One-line |
 |----|-----|----------|
 | CR-01 | critical | FIXED — Chunked UADP reassembly yields a DSM-level buffer the subscriber cannot decode → all over-MTU messages dropped |
-| CR-02 | critical | JSON form omits writerGroupId → subscribers filtering by writerGroupId drop every MQTT-JSON message |
-| HI-01 | high | NM timestamp lost over JSON; msg.timestamp is decode-time, not publish-time |
-| HI-02 | high | publisherId/sequenceNumber types differ UADP vs JSON — emitted msg shape is transport-dependent |
+| CR-02 | critical | FIXED — JSON now carries WriterGroupId + NM SequenceNumber; writerGroupId-filtered MQTT-JSON subscribers receive messages |
+| HI-01 | high | FIXED — NM timestamp now emitted + decoded over JSON; msg.timestamp is publish-time, matching UADP |
+| HI-02 | high | FIXED — JSON preserves publisherId type (no String() coercion); sequenceNumber is the NM seq on both transports |
 | HI-03 | high | Cyclic change-detection is a one-shot dirty flag, no deep compare; _latestValues never reset |
 | HI-04 | high | UInt16 sequence wrap throws; in cyclic mode wedges the publisher red and stops all output |
 | HI-05 | high | Acquire→close window has no try/catch (ref leak on future throws); pre-connect MQTT send drops msgs |
