@@ -7,6 +7,8 @@ const EventEmitter = require("events");
 
 const { BaseTransport } = require("../../lib/transports/base-transport");
 const { UdpTransport } = require("../../lib/transports/udp-transport");
+const uadp = require("../../lib/uadp-encoder");
+const { encodeNetworkMessage } = uadp;
 
 // Unique-ish port per test to avoid collisions across repeated runs.
 function freshPort() {
@@ -189,6 +191,176 @@ describe("UdpTransport — TRP-01", function () {
     transport = new UdpTransport({ port: freshPort(), multicastGroup: GROUP });
     await transport.connect();
     expect(bindAddress).to.equal("0.0.0.0");
+  });
+
+});
+
+describe("UdpTransport — _reassemble (UADP chunking)", function () {
+
+  // A NetworkMessage large enough to force multiple chunks at a tiny MTU.
+  function bigNm(publisherId) {
+    return {
+      publisherId: publisherId === undefined ? 7 : publisherId,
+      groupHeader: { writerGroupId: 1, groupVersion: 1, networkMessageNumber: 1, sequenceNumber: 1 },
+      payloadHeader: { dataSetWriterIds: [1] },
+      payload: [{
+        fieldEncoding: "variant",
+        messageType: "keyframe",
+        sequenceNumber: 1,
+        fields: { blob: { dataType: "String", value: "x".repeat(2000) } },
+      }],
+    };
+  }
+
+  // Small single-datagram NetworkMessage (no chunking).
+  function smallNm() {
+    return {
+      publisherId: 7,
+      groupHeader: { writerGroupId: 1, groupVersion: 1, networkMessageNumber: 1, sequenceNumber: 1 },
+      payloadHeader: { dataSetWriterIds: [1] },
+      payload: [{
+        fieldEncoding: "variant",
+        messageType: "keyframe",
+        sequenceNumber: 1,
+        fields: { v: { dataType: "Int32", value: 42 } },
+      }],
+    };
+  }
+
+  let transport;
+
+  beforeEach(function () {
+    // No socket needed — drive _onDatagram directly with synthetic buffers.
+    transport = new UdpTransport({ port: 45999, multicastGroup: "239.0.0.1" });
+  });
+
+  afterEach(function () {
+    sinon.restore();
+    transport = null;
+  });
+
+  it("single-buffer NetworkMessage emits 'message' immediately and does NOT add to _chunks", function () {
+    const buf = encodeNetworkMessage(smallNm());
+    expect(Buffer.isBuffer(buf)).to.equal(true, "small payload must be a single Buffer");
+    const spy = sinon.spy();
+    transport.on("message", spy);
+    transport._onDatagram(buf, {});
+    expect(spy.calledOnce).to.equal(true);
+    expect(transport._chunks.size).to.equal(0);
+  });
+
+  it("multi-chunk reassembly: chunks delivered in order produce one 'message' with full payload", function () {
+    const original = encodeNetworkMessage(bigNm());
+    const chunks = encodeNetworkMessage(bigNm(), { mtu: 200 });
+    expect(Array.isArray(chunks)).to.equal(true);
+    expect(chunks.length).to.be.greaterThanOrEqual(2);
+
+    // The full payload size is the totalSize carried in each chunk.
+    const totalSize = uadp.decodeNetworkMessage(chunks[0]).chunk.totalSize;
+
+    const spy = sinon.spy();
+    transport.on("message", spy);
+    chunks.forEach((c) => transport._onDatagram(c, {}));
+
+    expect(spy.calledOnce).to.equal(true, "exactly one 'message' after last chunk");
+    const assembled = spy.firstCall.args[0];
+    expect(Buffer.isBuffer(assembled)).to.equal(true);
+    expect(assembled.length).to.equal(totalSize);
+    expect(transport._chunks.size).to.equal(0, "entry removed after completion");
+  });
+
+  it("multi-chunk reassembly: out-of-order chunks reassemble correctly", function () {
+    const chunks = encodeNetworkMessage(bigNm(), { mtu: 200 });
+    const totalSize = uadp.decodeNetworkMessage(chunks[0]).chunk.totalSize;
+
+    const spy = sinon.spy();
+    transport.on("message", spy);
+    // Deliver in reverse order.
+    [...chunks].reverse().forEach((c) => transport._onDatagram(c, {}));
+
+    expect(spy.calledOnce).to.equal(true);
+    expect(spy.firstCall.args[0].length).to.equal(totalSize);
+  });
+
+  it("stale entry expires after 30 seconds", function () {
+    const clock = sinon.useFakeTimers();
+    try {
+      const chunks = encodeNetworkMessage(bigNm(), { mtu: 200 });
+      expect(chunks.length).to.be.greaterThanOrEqual(3);
+
+      const spy = sinon.spy();
+      transport.on("message", spy);
+
+      // Deliver only the first chunk — entry now in-flight.
+      transport._onDatagram(chunks[0], {});
+      expect(transport._chunks.size).to.equal(1);
+
+      // Advance past expiry, then deliver an UNRELATED datagram to trigger the sweep.
+      clock.tick(30001);
+      const unrelated = encodeNetworkMessage(bigNm(99), { mtu: 200 });
+      transport._onDatagram(unrelated[0], {});
+
+      // Original key must be gone; only the unrelated (publisherId 99) entry remains.
+      const remainingKeys = [...transport._chunks.keys()];
+      expect(remainingKeys.some((k) => k.startsWith("7|"))).to.equal(false, "stale publisherId 7 entry swept");
+
+      // Now deliver the rest of the ORIGINAL chunks — must NOT complete (entry was dropped).
+      for (let i = 1; i < chunks.length; i++) transport._onDatagram(chunks[i], {});
+      expect(spy.called).to.equal(false, "stale message must not reassemble");
+    } finally {
+      clock.restore();
+    }
+  });
+
+  it("overflow guard: 1001st distinct key drops the oldest", function () {
+    // Stub the decoder to synthesize 1001 distinct chunk-1-of-N entries quickly.
+    let seq = 0;
+    sinon.stub(uadp, "decodeNetworkMessage").callsFake(() => ({
+      publisherId: 1,
+      groupHeader: { writerGroupId: 1 },
+      chunk: {
+        messageSequenceNumber: seq, // distinct per call -> distinct key
+        chunkOffset: 0,
+        totalSize: 1000000, // never completes (huge)
+        chunkData: Buffer.alloc(10),
+      },
+    }));
+
+    const warnSpy = sinon.spy();
+    transport.on("warn", warnSpy);
+
+    const firstKey = "1|1|0";
+    for (seq = 0; seq < 1001; seq++) {
+      transport._onDatagram(Buffer.alloc(4), {});
+    }
+
+    expect(transport._chunks.size).to.equal(1000, "bound holds at 1000");
+    expect(transport._chunks.has(firstKey)).to.equal(false, "oldest key dropped");
+    expect(warnSpy.called).to.equal(true);
+    expect(warnSpy.firstCall.args[0].message).to.match(/UDP_REASSEMBLY_OVERFLOW/);
+  });
+
+  it("malformed datagram: decode error is caught and emitted as 'error', listener stays alive", function () {
+    const stub = sinon.stub(uadp, "decodeNetworkMessage");
+    stub.onFirstCall().throws(new Error("garbage bytes"));
+    // Second call: a valid single-buffer (no chunk) message -> passthrough.
+    stub.onSecondCall().returns({ publisherId: 7, groupHeader: { writerGroupId: 1 } });
+
+    const errSpy = sinon.spy();
+    const msgSpy = sinon.spy();
+    transport.on("error", errSpy);
+    transport.on("message", msgSpy);
+
+    // Junk datagram -> decode throws -> caught + 'error' emitted, no exception bubbles.
+    expect(function () {
+      transport._onDatagram(Buffer.from([0xff, 0xff]), {});
+    }).to.not.throw();
+    expect(errSpy.calledOnce).to.equal(true);
+    expect(errSpy.firstCall.args[0].message).to.match(/UDP_DECODE_ERROR/);
+
+    // Listener survived: a subsequent valid datagram still emits 'message'.
+    transport._onDatagram(Buffer.from([0x01]), {});
+    expect(msgSpy.calledOnce).to.equal(true);
   });
 
 });
