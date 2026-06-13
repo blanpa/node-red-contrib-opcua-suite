@@ -7,10 +7,20 @@ const sinon = require('sinon');
 
 const { BaseTransport } = require('../lib/transports/base-transport');
 const { UdpTransport } = require('../lib/transports/udp-transport');
-const { MqttTransport } = require('../lib/transports/mqtt-transport');
 
 const NODE_PATH = path.resolve(__dirname, '..', 'nodes', 'opcua-pubsub-connection.js');
 const HTML_PATH = path.resolve(__dirname, '..', 'nodes', 'opcua-pubsub-connection.html');
+
+// NOTE: we deliberately do NOT require('../lib/transports/mqtt-transport') nor
+// require('mqtt') at module top level. The transports/mqtt-transport.test.js
+// suite poisons require.cache[mqtt] in a ROOT before() hook (which runs before
+// ALL tests in the whole run) and then re-requires mqtt-transport against the
+// stub. If THIS file had already cached mqtt-transport (bound to the real mqtt),
+// that poison would silently no-op and break the transports suite whenever both
+// files run together. The connection node under test requires mqtt-transport
+// lazily inside acquireTransport(), so for the MQTT dispatch test (#8) we assert
+// on the constructor NAME rather than an instanceof against a class identity we
+// would otherwise have to import here.
 
 // ─── RED mock (mirrors connection-sharing.test.js + httpAdmin for cert routes) ───
 function createRED() {
@@ -78,6 +88,7 @@ describe('opcua-pubsub-connection config node', function() {
         sinon.restore();
     });
 
+
     // ─── Module load ───
 
     it('1. module load registers type opcua-pubsub-connection with credentials block', function() {
@@ -137,10 +148,20 @@ describe('opcua-pubsub-connection config node', function() {
     });
 
     it('8. acquireTransport: dispatches to MqttTransport when transportType=mqtt', function() {
-        const node = createNode({ transportType: 'mqtt' });
+        // We assert on the constructor name (not an instanceof against an imported
+        // class) so this file never needs to require mqtt-transport at top level —
+        // that keeps require.cache clean for the transports suite (see header note).
+        // The MqttTransport instance is created but connect() is fired async and
+        // would no-op against the (stubbed-in-other-suite or real-but-unconnected)
+        // mqtt client; we never reach the network here.
+        // Stub connect on the SAME MqttTransport class the node uses (resolved
+        // from require.cache) so no real mqtt client/socket is opened.
+        const MqttTransport = require('../lib/transports/mqtt-transport').MqttTransport;
         sinon.stub(MqttTransport.prototype, 'connect').resolves();
+        const node = createNode({ transportType: 'mqtt' });
         const t = node.acquireTransport();
-        expect(t).to.be.instanceof(MqttTransport);
+        expect(t).to.be.instanceof(BaseTransport);
+        expect(t.constructor.name).to.equal('MqttTransport');
     });
 
     it('9. acquireTransport: unknown transportType throws OPCUA_PUBSUB_UNKNOWN_TRANSPORT', function() {

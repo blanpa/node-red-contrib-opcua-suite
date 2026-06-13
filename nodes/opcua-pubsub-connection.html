@@ -1,0 +1,475 @@
+<script type="text/javascript">
+    // Single source of truth for the cert-upload route prefix (browser-relative,
+    // no leading slash). Matches lib/cert-store.js routes registered server-side
+    // under "/opcua-pubsub-connection".
+    var CERT_ROUTE_PREFIX = "opcua-pubsub-connection";
+
+    // Browser-safe UUID v4 (8-4-4-4-12) from webcrypto. Node-RED's editor runs
+    // in the browser where window.crypto.getRandomValues is always available.
+    function generatePubSubUUID() {
+        var bytes = new Uint8Array(16);
+        (window.crypto || window.msCrypto).getRandomValues(bytes);
+        bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+        bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10
+        var hex = [];
+        for (var i = 0; i < 16; i++) {
+            hex.push((bytes[i] + 0x100).toString(16).substr(1));
+        }
+        return (
+            hex[0] + hex[1] + hex[2] + hex[3] + "-" +
+            hex[4] + hex[5] + "-" +
+            hex[6] + hex[7] + "-" +
+            hex[8] + hex[9] + "-" +
+            hex[10] + hex[11] + hex[12] + hex[13] + hex[14] + hex[15]
+        );
+    }
+
+    RED.nodes.registerType("opcua-pubsub-connection", {
+        category: "config",
+        color: "#2e7d9a",
+        defaults: {
+            name: { value: "" },
+            transportType: { value: "udp" },
+            // UDP fields (visible when transportType === "udp")
+            multicastGroup: { value: "239.0.0.1" },
+            multicastInterface: { value: "0.0.0.0" },
+            port: { value: 4840 },
+            mtu: { value: 1400 },
+            // MQTT fields (visible when transportType === "mqtt")
+            brokerUrl: { value: "mqtt://localhost:1883" },
+            topicPrefix: { value: "ua" },
+            qos: { value: 1 },
+            // PublisherId (always visible)
+            publisherIdType: { value: "String" },
+            publisherId: { value: "" }, // set in oneditprepare for new nodes
+            // Cert placeholders — hidden under Advanced for Phase 3.1 mTLS
+            // schema stability (RESEARCH A1). Reserved for v2 mTLS support.
+            certificateFile: { value: "" },
+            privateKeyFile: { value: "" },
+            caCertificateFile: { value: "" }
+        },
+        credentials: {
+            userName: { type: "text" },
+            password: { type: "password" }
+        },
+        icon: "opcua.svg",
+        label: function() {
+            return this.name || "OPC UA PubSub Connection";
+        },
+        labelStyle: function() {
+            return this.name ? "node_label_italic" : "";
+        },
+        oneditprepare: function() {
+            var node = this;
+
+            // D-10: default a fresh node's String PublisherId to a UUID v4.
+            if (
+                (this.publisherId === "" || this.publisherId === undefined) &&
+                this.publisherIdType === "String"
+            ) {
+                $("#node-config-input-publisherId").val(generatePubSubUUID());
+            }
+
+            // ─── Transport-conditional field visibility (RESEARCH Pattern 8) ───
+            function updateTransportUI() {
+                var t = $("#node-config-input-transportType").val();
+                if (t === "mqtt") {
+                    $("#udp-section").hide();
+                    $("#mqtt-section").show();
+                } else {
+                    $("#mqtt-section").hide();
+                    $("#udp-section").show();
+                }
+            }
+            $("#node-config-input-transportType").on("change", updateTransportUI);
+            updateTransportUI();
+
+            // ─── PublisherId adaptive value input (D-09) ───
+            function updatePublisherIdUI() {
+                var t = $("#node-config-input-publisherIdType").val();
+                var $val = $("#node-config-input-publisherId");
+                if (t === "String") {
+                    $val.attr("type", "text");
+                } else {
+                    // UInt16 / UInt32 / UInt64 — numeric input
+                    $val.attr("type", "number");
+                }
+            }
+            $("#node-config-input-publisherIdType").on("change", updatePublisherIdUI);
+            updatePublisherIdUI();
+
+            // Collapsible sections (Advanced starts collapsed via inline style).
+            $(".opcua-section-header").on("click", function() {
+                var $body = $(this).next(".opcua-section-body");
+                var $icon = $(this).find(".opcua-collapse-icon");
+                $body.slideToggle(200);
+                $icon.toggleClass("fa-chevron-down fa-chevron-right");
+            });
+
+            // ─── Drag & Drop cert upload (copied from opcua-endpoint.html) ───
+            function setupCertUpload(dropzoneId, inputId) {
+                var $dropzone = $("#" + dropzoneId);
+                var $input = $("#" + inputId);
+                var $fileInput = $dropzone.find(".cert-file-input");
+                var $status = $dropzone.find(".cert-status");
+                var $icon = $dropzone.find(".cert-icon");
+
+                var currentVal = $input.val();
+                if (currentVal) {
+                    var fname = currentVal.split("/").pop();
+                    $icon.removeClass("fa-cloud-upload").addClass("fa-check-circle");
+                    $status.text(fname);
+                    $dropzone.addClass("has-file");
+                }
+
+                $dropzone.on("click", function(e) {
+                    if (e.target === $fileInput[0] || $(e.target).hasClass("cert-clear")) return;
+                    $fileInput.trigger("click");
+                });
+
+                $dropzone.on("dragover", function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    $dropzone.addClass("drag-over");
+                });
+                $dropzone.on("dragleave", function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    $dropzone.removeClass("drag-over");
+                });
+                $dropzone.on("drop", function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    $dropzone.removeClass("drag-over");
+                    var files = e.originalEvent.dataTransfer.files;
+                    if (files.length > 0) uploadFile(files[0]);
+                });
+
+                $fileInput.on("change", function() {
+                    if (this.files.length > 0) uploadFile(this.files[0]);
+                });
+
+                $dropzone.find(".cert-clear").on("click", function(e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    $input.val("");
+                    $icon.removeClass("fa-check-circle fa-spinner fa-spin").addClass("fa-cloud-upload");
+                    $status.text("Drop file here or click to select");
+                    $dropzone.removeClass("has-file upload-error");
+                });
+
+                function uploadFile(file) {
+                    $icon.removeClass("fa-cloud-upload fa-check-circle").addClass("fa-spinner fa-spin");
+                    $status.text("Uploading...");
+                    $dropzone.removeClass("has-file upload-error");
+
+                    var reader = new FileReader();
+                    reader.onload = function(ev) {
+                        var base64 = ev.target.result.split(",")[1];
+                        $.ajax({
+                            url: CERT_ROUTE_PREFIX + "/upload-cert",
+                            type: "POST",
+                            contentType: "application/json",
+                            data: JSON.stringify({ filename: file.name, content: base64 }),
+                            success: function(resp) {
+                                $input.val(resp.path);
+                                $icon.removeClass("fa-spinner fa-spin").addClass("fa-check-circle");
+                                $status.text(resp.filename + " (" + formatSize(resp.size) + ")");
+                                $dropzone.addClass("has-file");
+                            },
+                            error: function(xhr) {
+                                var msg = xhr.responseJSON ? xhr.responseJSON.error : "Upload failed";
+                                $icon.removeClass("fa-spinner fa-spin").addClass("fa-cloud-upload");
+                                $status.text(msg);
+                                $dropzone.addClass("upload-error");
+                            }
+                        });
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+
+            function formatSize(bytes) {
+                if (bytes < 1024) return bytes + " B";
+                if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
+                return (bytes / 1048576).toFixed(1) + " MB";
+            }
+
+            setupCertUpload("dropzone-cert", "node-config-input-certificateFile");
+            setupCertUpload("dropzone-key", "node-config-input-privateKeyFile");
+            setupCertUpload("dropzone-ca", "node-config-input-caCertificateFile");
+        }
+    });
+</script>
+
+<style>
+    .opcua-ep-container {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    .opcua-ep-container .form-row { margin-bottom: 10px; }
+    .opcua-ep-container .form-row label { font-weight: 500; color: #444; }
+    .opcua-ep-container input[type="text"],
+    .opcua-ep-container input[type="number"],
+    .opcua-ep-container input[type="password"],
+    .opcua-ep-container select { border-radius: 4px; }
+
+    .opcua-section-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        margin: 16px -12px 12px;
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        border-radius: 6px;
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.2s;
+        border: 1px solid #dee2e6;
+    }
+    .opcua-section-header:hover { background: linear-gradient(135deg, #e9ecef, #dee2e6); }
+    .opcua-section-header h4 { margin: 0; font-size: 13px; font-weight: 600; color: #333; flex: 1; }
+    .opcua-section-header .opcua-section-icon {
+        width: 24px; height: 24px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 11px; color: white;
+    }
+    .opcua-section-header .opcua-section-icon.blue { background: #2e7d9a; }
+    .opcua-section-header .opcua-section-icon.green { background: #5cb85c; }
+    .opcua-section-header .opcua-section-icon.orange { background: #f0ad4e; }
+    .opcua-section-header .opcua-collapse-icon { color: #999; font-size: 11px; transition: transform 0.2s; }
+
+    .cert-dropzone {
+        border: 2px dashed #d0d5dd; border-radius: 8px; padding: 14px 16px;
+        text-align: center; cursor: pointer; transition: all 0.25s ease;
+        background: #fafbfc; margin-bottom: 10px; position: relative;
+        display: flex; align-items: center; gap: 12px;
+    }
+    .cert-dropzone:hover {
+        border-color: #2e7d9a; background: #f0f7fc; transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(46,125,154,0.1);
+    }
+    .cert-dropzone.drag-over {
+        border-color: #2e7d9a; background: #e3f2fd; border-style: solid;
+        box-shadow: 0 0 0 3px rgba(46,125,154,0.15);
+    }
+    .cert-dropzone.has-file { border-color: #5cb85c; background: #f6fef6; border-style: solid; }
+    .cert-dropzone.has-file:hover { border-color: #4cae4c; background: #edfced; }
+    .cert-dropzone.upload-error { border-color: #d9534f; background: #fef6f6; }
+    .cert-dropzone .cert-icon {
+        font-size: 22px; color: #b0b8c4; flex-shrink: 0; transition: color 0.2s;
+        width: 28px; text-align: center;
+    }
+    .cert-dropzone:hover .cert-icon { color: #2e7d9a; }
+    .cert-dropzone.has-file .cert-icon { color: #5cb85c; }
+    .cert-dropzone.upload-error .cert-icon { color: #d9534f; }
+    .cert-dropzone .cert-info { flex: 1; text-align: left; overflow: hidden; }
+    .cert-dropzone .cert-label { display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 2px; }
+    .cert-dropzone .cert-status {
+        display: block; font-size: 11px; color: #999; white-space: nowrap;
+        overflow: hidden; text-overflow: ellipsis;
+    }
+    .cert-dropzone.has-file .cert-status { color: #555; font-weight: 500; }
+    .cert-dropzone.upload-error .cert-status { color: #d9534f; }
+    .cert-dropzone .cert-file-input { display: none; }
+    .cert-dropzone .cert-clear {
+        color: #ccc; cursor: pointer; font-size: 16px; padding: 4px 6px;
+        border-radius: 4px; transition: all 0.15s; display: none; flex-shrink: 0;
+    }
+    .cert-dropzone.has-file .cert-clear { display: block; }
+    .cert-dropzone .cert-clear:hover { color: #d9534f; background: rgba(217,83,79,0.08); }
+
+    .opcua-hint { font-size: 11px; color: #888; margin: -4px 0 10px 0; padding-left: 2px; }
+</style>
+
+<script type="text/html" data-template-name="opcua-pubsub-connection">
+<div class="opcua-ep-container">
+    <!-- General -->
+    <div class="opcua-section-header">
+        <span class="opcua-section-icon blue"><i class="fa fa-rss"></i></span>
+        <h4>Connection</h4>
+        <i class="fa fa-chevron-down opcua-collapse-icon"></i>
+    </div>
+    <div class="opcua-section-body">
+        <div class="form-row">
+            <label for="node-config-input-name"><i class="fa fa-tag"></i> Name</label>
+            <input type="text" id="node-config-input-name" placeholder="Name">
+        </div>
+        <div class="form-row">
+            <label for="node-config-input-transportType"><i class="fa fa-exchange"></i> Transport Type</label>
+            <select id="node-config-input-transportType">
+                <option value="udp">UDP (UADP multicast)</option>
+                <option value="mqtt">MQTT</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- UDP section -->
+    <div id="udp-section">
+        <div class="opcua-section-header">
+            <span class="opcua-section-icon orange"><i class="fa fa-sitemap"></i></span>
+            <h4>UDP Transport</h4>
+            <i class="fa fa-chevron-down opcua-collapse-icon"></i>
+        </div>
+        <div class="opcua-section-body">
+            <div class="form-row">
+                <label for="node-config-input-multicastGroup"><i class="fa fa-users"></i> Multicast Group</label>
+                <input type="text" id="node-config-input-multicastGroup" placeholder="239.0.0.1">
+            </div>
+            <div class="form-row">
+                <label for="node-config-input-multicastInterface"><i class="fa fa-ethernet"></i> Multicast Interface</label>
+                <input type="text" id="node-config-input-multicastInterface" placeholder="0.0.0.0">
+            </div>
+            <p class="opcua-hint">Leave as <code>0.0.0.0</code> to let the OS choose the outgoing NIC. On a multi-NIC host
+                the OS may pick the wrong interface for multicast — set an explicit NIC IP (the host's address on the PubSub
+                LAN) if datagrams are not received. The socket always binds to <code>0.0.0.0</code>; this field only pins the
+                interface used to join the group and send.</p>
+            <div class="form-row">
+                <label for="node-config-input-port"><i class="fa fa-plug"></i> Port</label>
+                <input type="number" id="node-config-input-port" placeholder="4840">
+            </div>
+            <div class="form-row">
+                <label for="node-config-input-mtu"><i class="fa fa-arrows-h"></i> MTU</label>
+                <input type="number" id="node-config-input-mtu" placeholder="1400">
+            </div>
+            <p class="opcua-hint">MTU is informational — UADP chunking happens in the encoder (Phase 2).</p>
+        </div>
+    </div>
+
+    <!-- MQTT section -->
+    <div id="mqtt-section">
+        <div class="opcua-section-header">
+            <span class="opcua-section-icon orange"><i class="fa fa-cloud"></i></span>
+            <h4>MQTT Transport</h4>
+            <i class="fa fa-chevron-down opcua-collapse-icon"></i>
+        </div>
+        <div class="opcua-section-body">
+            <div class="form-row">
+                <label for="node-config-input-brokerUrl"><i class="fa fa-link"></i> Broker URL</label>
+                <input type="text" id="node-config-input-brokerUrl" placeholder="mqtt://localhost:1883" style="width:70%">
+            </div>
+            <p class="opcua-hint">The URL scheme drives TLS: <code>mqtt://</code> is plaintext, <code>mqtts://</code> enables
+                TLS with the system trust store. There is no certificate-bypass option — server certs must validate.</p>
+            <div class="form-row">
+                <label for="node-config-input-topicPrefix"><i class="fa fa-folder"></i> Topic Prefix</label>
+                <input type="text" id="node-config-input-topicPrefix" placeholder="ua">
+            </div>
+            <p class="opcua-hint">Topic components (prefix and PublisherId) must not contain <code>/</code>, <code>+</code>,
+                <code>#</code> or control characters — these are rejected at publish time to prevent topic injection.</p>
+            <div class="form-row">
+                <label for="node-config-input-qos"><i class="fa fa-check-circle"></i> QoS</label>
+                <select id="node-config-input-qos">
+                    <option value="0">0 — at most once</option>
+                    <option value="1">1 — at least once</option>
+                    <option value="2">2 — exactly once</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <label for="node-config-input-userName"><i class="fa fa-user"></i> Username</label>
+                <input type="text" id="node-config-input-userName" placeholder="optional (anonymous if empty)">
+            </div>
+            <div class="form-row">
+                <label for="node-config-input-password"><i class="fa fa-key"></i> Password</label>
+                <input type="password" id="node-config-input-password" placeholder="optional">
+            </div>
+        </div>
+    </div>
+
+    <!-- PublisherId (always visible) -->
+    <div class="opcua-section-header">
+        <span class="opcua-section-icon blue"><i class="fa fa-id-badge"></i></span>
+        <h4>Publisher Identity</h4>
+        <i class="fa fa-chevron-down opcua-collapse-icon"></i>
+    </div>
+    <div class="opcua-section-body">
+        <div class="form-row">
+            <label for="node-config-input-publisherIdType"><i class="fa fa-tags"></i> PublisherId Type</label>
+            <select id="node-config-input-publisherIdType">
+                <option value="String">String</option>
+                <option value="UInt16">UInt16</option>
+                <option value="UInt32">UInt32</option>
+                <option value="UInt64">UInt64</option>
+            </select>
+        </div>
+        <div class="form-row">
+            <label for="node-config-input-publisherId"><i class="fa fa-hashtag"></i> PublisherId Value</label>
+            <input type="text" id="node-config-input-publisherId" placeholder="auto-generated UUID">
+        </div>
+        <p class="opcua-hint">Per OPC UA Part 14 §6.2. New connections default to a String UUID. Numeric types switch the
+            value field to a number input.</p>
+    </div>
+
+    <!-- Advanced (collapsed by default) — cert dropzone reserved for v2 mTLS -->
+    <div class="opcua-section-header">
+        <span class="opcua-section-icon green"><i class="fa fa-cog"></i></span>
+        <h4>Advanced</h4>
+        <i class="fa fa-chevron-right opcua-collapse-icon"></i>
+    </div>
+    <div class="opcua-section-body" style="display:none">
+        <p class="opcua-hint">Reserved for v2 mTLS support — Phase 3 uses scheme-based TLS only
+            (<code>mqtts://</code>). These fields are kept for Phase 3.1 schema stability.</p>
+
+        <input type="hidden" id="node-config-input-certificateFile">
+        <div class="cert-dropzone" id="dropzone-cert">
+            <i class="fa fa-cloud-upload cert-icon"></i>
+            <div class="cert-info">
+                <span class="cert-label">Client Certificate <span style="font-weight:400;color:#aaa">— reserved</span></span>
+                <span class="cert-status">Drop file here or click to select</span>
+            </div>
+            <span class="cert-clear"><i class="fa fa-times"></i></span>
+            <input type="file" class="cert-file-input" accept=".pem,.der,.crt,.cer">
+        </div>
+
+        <input type="hidden" id="node-config-input-privateKeyFile">
+        <div class="cert-dropzone" id="dropzone-key">
+            <i class="fa fa-cloud-upload cert-icon"></i>
+            <div class="cert-info">
+                <span class="cert-label">Private Key <span style="font-weight:400;color:#aaa">— reserved</span></span>
+                <span class="cert-status">Drop file here or click to select</span>
+            </div>
+            <span class="cert-clear"><i class="fa fa-times"></i></span>
+            <input type="file" class="cert-file-input" accept=".pem,.key">
+        </div>
+
+        <input type="hidden" id="node-config-input-caCertificateFile">
+        <div class="cert-dropzone" id="dropzone-ca">
+            <i class="fa fa-cloud-upload cert-icon"></i>
+            <div class="cert-info">
+                <span class="cert-label">CA Certificate <span style="font-weight:400;color:#aaa">— reserved</span></span>
+                <span class="cert-status">Drop file here or click to select</span>
+            </div>
+            <span class="cert-clear"><i class="fa fa-times"></i></span>
+            <input type="file" class="cert-file-input" accept=".pem,.der,.crt,.cer">
+        </div>
+    </div>
+</div>
+</script>
+
+<script type="text/html" data-help-name="opcua-pubsub-connection">
+    <p>OPC UA <strong>PubSub</strong> connection configuration. Owns a single shared transport
+    (UDP-UADP multicast or MQTT) consumed by Phase 4 Publisher / Subscriber nodes via connection
+    sharing (ref-counted, with a 500&nbsp;ms grace window across redeploys).</p>
+
+    <h3>Transport Type</h3>
+    <p>Choose <code>UDP</code> for UADP multicast on a local network, or <code>MQTT</code> for
+    broker-mediated PubSub.</p>
+
+    <h3>UDP</h3>
+    <ul>
+        <li>The socket always binds to <code>0.0.0.0</code> (never a NIC IP nor the multicast group).</li>
+        <li><strong>Multicast Interface</strong>: leave <code>0.0.0.0</code> to let the OS pick; on a
+        multi-NIC host set the host's IP on the PubSub LAN if traffic isn't received.</li>
+    </ul>
+
+    <h3>MQTT</h3>
+    <ul>
+        <li><code>mqtt://</code> = plaintext; <code>mqtts://</code> = TLS (system trust store, no bypass).</li>
+        <li>Data topics are published with <code>retain=false</code>.</li>
+        <li>Topic structure: <code>{prefix}/{publisherId}/{writerGroupId}/{dataSetWriterId}</code>.
+        The <code>/</code>, <code>+</code>, <code>#</code> characters are forbidden in user-controlled
+        components.</li>
+    </ul>
+
+    <h3>PublisherId</h3>
+    <p>Per OPC UA Part 14 §6.2 a PublisherId is one of: <strong>String</strong>, <strong>UInt16</strong>,
+    <strong>UInt32</strong>, <strong>UInt64</strong>. New connections default to a String UUID v4.</p>
+</script>
