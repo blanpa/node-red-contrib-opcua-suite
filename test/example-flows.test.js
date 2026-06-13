@@ -32,11 +32,12 @@ const PUBSUB_FLOWS = [
 ];
 
 describe('example flows (static validation)', function () {
-    it('the examples directory is non-empty and includes the thirteen bundled flows', function () {
-        expect(exampleFiles.length).to.be.at.least(13);
-        // The nine pre-existing flows, the three PubSub flows (10-12), and the
-        // PubSub full-validation flow (13) must all be present.
-        for (let n = 1; n <= 13; n++) {
+    it('the examples directory is non-empty and includes the fourteen bundled flows', function () {
+        expect(exampleFiles.length).to.be.at.least(14);
+        // The nine pre-existing flows, the three PubSub flows (10-12), the
+        // PubSub full-validation flow (13), and the full-suite validation
+        // flow (14) must all be present.
+        for (let n = 1; n <= 14; n++) {
             const prefix = String(n).padStart(2, '0') + ' - ';
             const found = exampleFiles.some(f => f.startsWith(prefix));
             expect(found, `expected an example flow starting with "${prefix}"`).to.equal(true);
@@ -213,6 +214,70 @@ describe('example flows (static validation)', function () {
                 n => n.type === 'opcua-subscriber' && n.expectedConfigVersion && n.expectedConfigVersion !== ''
             );
             expect(cvSub, 'expected a subscriber with expectedConfigVersion (T9)').to.equal(true);
+        });
+    });
+
+    // ── Flow 14: Full Suite Validation (every node, classic C1..S1 + PubSub T1..T9) ──
+    describe('Full Suite flow 14 - Full Suite Validation.json', function () {
+        let flow;
+
+        before(function () {
+            flow = loadFlow('14 - Full Suite Validation.json');
+        });
+
+        it('is the largest multi-tab suite (README + classic tabs + PubSub T1..T9, >= 20 tabs)', function () {
+            const tabs = flow.filter(n => n.type === 'tab');
+            // Tolerant of many tabs: this is intentionally the biggest flow.
+            expect(tabs.length).to.be.at.least(20);
+            tabs.forEach(function (t) {
+                expect(t.label).to.be.a('string').and.to.have.length.above(0);
+            });
+        });
+
+        it('instantiates every one of the eleven suite node types', function () {
+            const SUITE_NODE_TYPES = [
+                'opcua-endpoint',
+                'opcua-client',
+                'opcua-item',
+                'opcua-browser',
+                'opcua-browse-client',
+                'opcua-method',
+                'opcua-event',
+                'opcua-server',
+                'opcua-pubsub-connection',
+                'opcua-publisher',
+                'opcua-subscriber'
+            ];
+            const present = new Set(flow.map(n => n.type));
+            SUITE_NODE_TYPES.forEach(function (t) {
+                expect(present.has(t), `flow 14 must instantiate ${t}`).to.equal(true);
+            });
+        });
+
+        it('every assert is a self-asserting function node emitting a [VALIDATE] line', function () {
+            const validators = flow.filter(
+                n => n.type === 'function' && typeof n.func === 'string' && n.func.includes('[VALIDATE]')
+            );
+            // One per classic tab (C1..C7, I1, B1, BC1, M1, E1, S1, AUTH1 = 14)
+            // plus the nine carried-over PubSub validators.
+            expect(validators.length).to.be.at.least(20);
+        });
+
+        it('classic client tabs share a None-security endpoint and an auth endpoint exists', function () {
+            const endpoints = flow.filter(n => n.type === 'opcua-endpoint');
+            expect(endpoints.length).to.be.at.least(2);
+            const noneEp = endpoints.find(e => e.securityMode === 'None' && e.securityPolicy === 'None');
+            expect(noneEp, 'expected a None/None security endpoint').to.be.an('object');
+            const clients = flow.filter(n => n.type === 'opcua-client');
+            expect(clients.length).to.be.at.least(7);
+        });
+
+        it('embedded opcua-server node is configured with a dedicated port', function () {
+            const servers = flow.filter(n => n.type === 'opcua-server');
+            expect(servers.length).to.be.at.least(1);
+            servers.forEach(function (s) {
+                expect(Number(s.port)).to.be.a('number').and.to.be.above(0);
+            });
         });
     });
 

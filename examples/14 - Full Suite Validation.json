@@ -1,0 +1,3060 @@
+[
+  {
+    "id": "v14-readme",
+    "type": "tab",
+    "label": "README \u2014 How to run",
+    "info": "# Example 14 \u2014 Full Suite Validation\n\nSelf-asserting validation flow exercising EVERY node in node-red-contrib-opcua-suite.\nEach tab ends in an assert Function node that emits a `[VALIDATE] <id>: PASS` (or FAIL) warning.\n\n## How to run\n1. Deploy this flow (full deploy).\n2. Wait ~3s for the shared OPC UA sessions to connect.\n3. Click every inject node (or the per-tab trigger).\n4. Watch the debug sidebar / node-red log for `[VALIDATE] ... PASS` lines.\n\n## Tabs\n- C1 client READ \u2014 read ns=1;s=Scalar.Double \u2248 2.718281828\n- C2 client WRITE+READBACK \u2014 write 42.5 to Writable.SetPoint, read back\n- C3 client SUBSCRIBE \u2014 subscribe Dynamic.Sinus, PASS on first value\n- C4 client BROWSE \u2014 browse TestData, assert children\n- C5 client METHOD \u2014 Methods.Add(3,4)=7\n- C6 client GETENDPOINTS \u2014 assert >=1 endpoint\n- C7 client READMULTIPLE \u2014 Scalar.Double + Scalar.Int32 in one batch\n- I1 opcua-item COLLECTOR \u2014 2 item nodes -> client readmultiple\n- B1 opcua-browser \u2014 browse TestData\n- BC1 opcua-browse-client \u2014 loaded (editor-driven selection, see note)\n- M1 opcua-method \u2014 Methods.Multiply(6,7)=42\n- E1 opcua-event \u2014 subscribe (server raises no events, honest PASS)\n- S1 opcua-server EMBEDDED \u2014 start server, add var, read back via client\n- AUTH1 endpoint USERNAME/PASSWORD \u2014 admin/admin123 authenticated read\n- T1..T9 \u2014 PubSub validation tabs carried over from example 13 (already pass live)\n\nEndpoint (inside node-red container): opc.tcp://opcua-server:4840/UA/TestServer (security None/None)\nAuth user: admin / admin123  |  MQTT: mqtt://val-mosquitto:1883\n"
+  },
+  {
+    "id": "v14-readme-c",
+    "type": "comment",
+    "z": "v14-readme",
+    "name": "Example 14 \u2014 Full Suite Validation. See tab Info panel for run instructions.",
+    "x": 300,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "v14-ep",
+    "type": "opcua-endpoint",
+    "name": "Test Server (None)",
+    "endpointUrl": "opc.tcp://opcua-server:4840/UA/TestServer",
+    "securityMode": "None",
+    "securityPolicy": "None"
+  },
+  {
+    "id": "v14-ep-auth",
+    "type": "opcua-endpoint",
+    "name": "Test Server (admin)",
+    "endpointUrl": "opc.tcp://opcua-server:4840/UA/TestServer",
+    "securityMode": "None",
+    "securityPolicy": "None",
+    "credentials": {
+      "userName": "admin",
+      "password": "admin123"
+    }
+  },
+  {
+    "id": "v14-ep-embed",
+    "type": "opcua-endpoint",
+    "name": "Embedded Server",
+    "endpointUrl": "opc.tcp://localhost:48400/UA/NodeRED",
+    "securityMode": "None",
+    "securityPolicy": "None"
+  },
+  {
+    "id": "v14-c1",
+    "type": "tab",
+    "label": "C1 client READ",
+    "info": ""
+  },
+  {
+    "id": "v14-c1-cm",
+    "type": "comment",
+    "z": "v14-c1",
+    "name": "C1 \u2014 read ns=1;s=Scalar.Double, assert \u2248 2.718281828",
+    "x": 240,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "v14-c1-inj",
+    "type": "inject",
+    "z": "v14-c1",
+    "name": "READ Scalar.Double",
+    "props": [
+      {
+        "p": "topic",
+        "vt": "str",
+        "v": "ns=1;s=Scalar.Double"
+      },
+      {
+        "p": "operation",
+        "vt": "str",
+        "v": "read"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 170,
+    "y": 120,
+    "wires": [
+      [
+        "v14-c1-cli"
+      ]
+    ]
+  },
+  {
+    "id": "v14-c1-cli",
+    "type": "opcua-client",
+    "z": "v14-c1",
+    "name": "",
+    "endpoint": "v14-ep",
+    "defaultOperation": "read",
+    "x": 400,
+    "y": 120,
+    "wires": [
+      [
+        "v14-c1-asrt"
+      ]
+    ]
+  },
+  {
+    "id": "v14-c1-asrt",
+    "type": "function",
+    "z": "v14-c1",
+    "name": "assert C1",
+    "func": "const v = msg.payload;\nif (typeof v === 'number' && Math.abs(v - 2.718281828) < 1e-6) {\n  node.warn('[VALIDATE] C1 client READ: PASS');\n} else {\n  node.warn('[VALIDATE] C1 client READ: FAIL - got ' + JSON.stringify(v));\n}\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 600,
+    "y": 120,
+    "wires": [
+      [
+        "v14-c1-dbg"
+      ]
+    ]
+  },
+  {
+    "id": "v14-c1-dbg",
+    "type": "debug",
+    "z": "v14-c1",
+    "name": "dbg",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 820,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "v14-c2",
+    "type": "tab",
+    "label": "C2 client WRITE+READBACK",
+    "info": ""
+  },
+  {
+    "id": "v14-c2-cm",
+    "type": "comment",
+    "z": "v14-c2",
+    "name": "C2 \u2014 write 42.5 to Writable.SetPoint then read back",
+    "x": 260,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "v14-c2-inj",
+    "type": "inject",
+    "z": "v14-c2",
+    "name": "WRITE 42.5",
+    "props": [
+      {
+        "p": "topic",
+        "vt": "str",
+        "v": "ns=1;s=Writable.SetPoint"
+      },
+      {
+        "p": "operation",
+        "vt": "str",
+        "v": "write"
+      },
+      {
+        "p": "payload",
+        "vt": "num",
+        "v": "42.5"
+      },
+      {
+        "p": "datatype",
+        "vt": "str",
+        "v": "Float"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "42.5",
+    "payloadType": "num",
+    "x": 160,
+    "y": 120,
+    "wires": [
+      [
+        "v14-c2-wcli"
+      ]
+    ]
+  },
+  {
+    "id": "v14-c2-wcli",
+    "type": "opcua-client",
+    "z": "v14-c2",
+    "name": "write",
+    "endpoint": "v14-ep",
+    "defaultOperation": "write",
+    "x": 360,
+    "y": 120,
+    "wires": [
+      [
+        "v14-c2-prep"
+      ]
+    ]
+  },
+  {
+    "id": "v14-c2-prep",
+    "type": "function",
+    "z": "v14-c2",
+    "name": "prep readback",
+    "func": "return { topic: 'ns=1;s=Writable.SetPoint', operation: 'read' };",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 560,
+    "y": 120,
+    "wires": [
+      [
+        "v14-c2-rcli"
+      ]
+    ]
+  },
+  {
+    "id": "v14-c2-rcli",
+    "type": "opcua-client",
+    "z": "v14-c2",
+    "name": "read",
+    "endpoint": "v14-ep",
+    "defaultOperation": "read",
+    "x": 720,
+    "y": 120,
+    "wires": [
+      [
+        "v14-c2-asrt"
+      ]
+    ]
+  },
+  {
+    "id": "v14-c2-asrt",
+    "type": "function",
+    "z": "v14-c2",
+    "name": "assert C2",
+    "func": "const v = msg.payload;\nif (typeof v === 'number' && Math.abs(v - 42.5) < 1e-6) {\n  node.warn('[VALIDATE] C2 client WRITE+READBACK: PASS');\n} else {\n  node.warn('[VALIDATE] C2 client WRITE+READBACK: FAIL - readback ' + JSON.stringify(v));\n}\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 900,
+    "y": 120,
+    "wires": [
+      [
+        "v14-c2-dbg"
+      ]
+    ]
+  },
+  {
+    "id": "v14-c2-dbg",
+    "type": "debug",
+    "z": "v14-c2",
+    "name": "dbg",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 1120,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "v14-c3",
+    "type": "tab",
+    "label": "C3 client SUBSCRIBE",
+    "info": ""
+  },
+  {
+    "id": "v14-c3-cm",
+    "type": "comment",
+    "z": "v14-c3",
+    "name": "C3 \u2014 subscribe Dynamic.Sinus; PASS on first value-change msg",
+    "x": 280,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "v14-c3-inj",
+    "type": "inject",
+    "z": "v14-c3",
+    "name": "SUBSCRIBE Dynamic.Sinus",
+    "props": [
+      {
+        "p": "topic",
+        "vt": "str",
+        "v": "ns=1;s=Dynamic.Sinus"
+      },
+      {
+        "p": "operation",
+        "vt": "str",
+        "v": "subscribe"
+      },
+      {
+        "p": "interval",
+        "vt": "num",
+        "v": "500"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 190,
+    "y": 120,
+    "wires": [
+      [
+        "v14-c3-cli"
+      ]
+    ]
+  },
+  {
+    "id": "v14-c3-cli",
+    "type": "opcua-client",
+    "z": "v14-c3",
+    "name": "subscribe",
+    "endpoint": "v14-ep",
+    "defaultOperation": "subscribe",
+    "x": 420,
+    "y": 120,
+    "wires": [
+      [
+        "v14-c3-asrt"
+      ]
+    ]
+  },
+  {
+    "id": "v14-c3-asrt",
+    "type": "function",
+    "z": "v14-c3",
+    "name": "assert C3",
+    "func": "// First msg is the 'Subscribed' confirmation (payload string).\n// Value-change msgs carry operation==='subscribe' and a numeric payload.\nconst ctx = context;\nif (ctx.get('done')) { return null; }\nif (msg.operation === 'subscribe' && typeof msg.payload === 'number') {\n  ctx.set('done', true);\n  node.warn('[VALIDATE] C3 client SUBSCRIBE: PASS (value=' + msg.payload + ')');\n}\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 640,
+    "y": 120,
+    "wires": [
+      [
+        "v14-c3-dbg"
+      ]
+    ]
+  },
+  {
+    "id": "v14-c3-dbg",
+    "type": "debug",
+    "z": "v14-c3",
+    "name": "dbg",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 860,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "v14-c4",
+    "type": "tab",
+    "label": "C4 client BROWSE",
+    "info": ""
+  },
+  {
+    "id": "v14-c4-cm",
+    "type": "comment",
+    "z": "v14-c4",
+    "name": "C4 \u2014 browse ns=1;s=TestData, assert child browseNames",
+    "x": 270,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "v14-c4-inj",
+    "type": "inject",
+    "z": "v14-c4",
+    "name": "BROWSE TestData",
+    "props": [
+      {
+        "p": "topic",
+        "vt": "str",
+        "v": "ns=1;s=TestData"
+      },
+      {
+        "p": "operation",
+        "vt": "str",
+        "v": "browse"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 180,
+    "y": 120,
+    "wires": [
+      [
+        "v14-c4-cli"
+      ]
+    ]
+  },
+  {
+    "id": "v14-c4-cli",
+    "type": "opcua-client",
+    "z": "v14-c4",
+    "name": "browse",
+    "endpoint": "v14-ep",
+    "defaultOperation": "browse",
+    "x": 400,
+    "y": 120,
+    "wires": [
+      [
+        "v14-c4-asrt"
+      ]
+    ]
+  },
+  {
+    "id": "v14-c4-asrt",
+    "type": "function",
+    "z": "v14-c4",
+    "name": "assert C4",
+    "func": "const arr = msg.payload;\nconst names = Array.isArray(arr) ? arr.map(r => r.browseName) : [];\nconst want = ['Scalar','Dynamic','Methods'];\nif (Array.isArray(arr) && want.every(w => names.includes(w))) {\n  node.warn('[VALIDATE] C4 client BROWSE: PASS (' + names.join(',') + ')');\n} else {\n  node.warn('[VALIDATE] C4 client BROWSE: FAIL - got ' + JSON.stringify(names));\n}\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 600,
+    "y": 120,
+    "wires": [
+      [
+        "v14-c4-dbg"
+      ]
+    ]
+  },
+  {
+    "id": "v14-c4-dbg",
+    "type": "debug",
+    "z": "v14-c4",
+    "name": "dbg",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 820,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "v14-c5",
+    "type": "tab",
+    "label": "C5 client METHOD",
+    "info": ""
+  },
+  {
+    "id": "v14-c5-cm",
+    "type": "comment",
+    "z": "v14-c5",
+    "name": "C5 \u2014 client method Methods.Add(3,4)=7",
+    "x": 240,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "v14-c5-inj",
+    "type": "inject",
+    "z": "v14-c5",
+    "name": "Add(3,4)",
+    "props": [
+      {
+        "p": "operation",
+        "vt": "str",
+        "v": "method"
+      },
+      {
+        "p": "objectNodeId",
+        "vt": "str",
+        "v": "ns=1;s=Methods"
+      },
+      {
+        "p": "methodNodeId",
+        "vt": "str",
+        "v": "ns=1;s=Methods.Add"
+      },
+      {
+        "p": "inputArguments",
+        "vt": "json",
+        "v": "[{\"dataType\": \"Double\", \"value\": 3}, {\"dataType\": \"Double\", \"value\": 4}]"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 160,
+    "y": 120,
+    "wires": [
+      [
+        "v14-c5-cli"
+      ]
+    ]
+  },
+  {
+    "id": "v14-c5-cli",
+    "type": "opcua-client",
+    "z": "v14-c5",
+    "name": "method",
+    "endpoint": "v14-ep",
+    "defaultOperation": "method",
+    "x": 400,
+    "y": 120,
+    "wires": [
+      [
+        "v14-c5-asrt"
+      ]
+    ]
+  },
+  {
+    "id": "v14-c5-asrt",
+    "type": "function",
+    "z": "v14-c5",
+    "name": "assert C5",
+    "func": "const out = Array.isArray(msg.payload) ? msg.payload : [];\nif (out.length >= 1 && Math.abs(Number(out[0]) - 7) < 1e-6) {\n  node.warn('[VALIDATE] C5 client METHOD: PASS (result=' + out[0] + ')');\n} else {\n  node.warn('[VALIDATE] C5 client METHOD: FAIL - got ' + JSON.stringify(msg.payload));\n}\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 600,
+    "y": 120,
+    "wires": [
+      [
+        "v14-c5-dbg"
+      ]
+    ]
+  },
+  {
+    "id": "v14-c5-dbg",
+    "type": "debug",
+    "z": "v14-c5",
+    "name": "dbg",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 820,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "v14-c6",
+    "type": "tab",
+    "label": "C6 client GETENDPOINTS",
+    "info": ""
+  },
+  {
+    "id": "v14-c6-cm",
+    "type": "comment",
+    "z": "v14-c6",
+    "name": "C6 \u2014 getendpoints, assert >=1 endpoint listed",
+    "x": 250,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "v14-c6-inj",
+    "type": "inject",
+    "z": "v14-c6",
+    "name": "GETENDPOINTS",
+    "props": [
+      {
+        "p": "operation",
+        "vt": "str",
+        "v": "getendpoints"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 180,
+    "y": 120,
+    "wires": [
+      [
+        "v14-c6-cli"
+      ]
+    ]
+  },
+  {
+    "id": "v14-c6-cli",
+    "type": "opcua-client",
+    "z": "v14-c6",
+    "name": "getendpoints",
+    "endpoint": "v14-ep",
+    "defaultOperation": "getendpoints",
+    "x": 420,
+    "y": 120,
+    "wires": [
+      [
+        "v14-c6-asrt"
+      ]
+    ]
+  },
+  {
+    "id": "v14-c6-asrt",
+    "type": "function",
+    "z": "v14-c6",
+    "name": "assert C6",
+    "func": "const eps = msg.payload;\nif (Array.isArray(eps) && eps.length >= 1) {\n  node.warn('[VALIDATE] C6 client GETENDPOINTS: PASS (' + eps.length + ' endpoints)');\n} else {\n  node.warn('[VALIDATE] C6 client GETENDPOINTS: FAIL - got ' + JSON.stringify(eps).slice(0,80));\n}\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 640,
+    "y": 120,
+    "wires": [
+      [
+        "v14-c6-dbg"
+      ]
+    ]
+  },
+  {
+    "id": "v14-c6-dbg",
+    "type": "debug",
+    "z": "v14-c6",
+    "name": "dbg",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 860,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "v14-c7",
+    "type": "tab",
+    "label": "C7 client READMULTIPLE",
+    "info": ""
+  },
+  {
+    "id": "v14-c7-cm",
+    "type": "comment",
+    "z": "v14-c7",
+    "name": "C7 \u2014 readmultiple Scalar.Double + Scalar.Int32 via msg.items",
+    "x": 290,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "v14-c7-inj",
+    "type": "inject",
+    "z": "v14-c7",
+    "name": "READMULTIPLE",
+    "props": [
+      {
+        "p": "operation",
+        "vt": "str",
+        "v": "readmultiple"
+      },
+      {
+        "p": "items",
+        "vt": "json",
+        "v": "[{\"nodeId\": \"ns=1;s=Scalar.Double\", \"name\": \"D\"}, {\"nodeId\": \"ns=1;s=Scalar.Int32\", \"name\": \"I\"}]"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 180,
+    "y": 120,
+    "wires": [
+      [
+        "v14-c7-cli"
+      ]
+    ]
+  },
+  {
+    "id": "v14-c7-cli",
+    "type": "opcua-client",
+    "z": "v14-c7",
+    "name": "readmultiple",
+    "endpoint": "v14-ep",
+    "defaultOperation": "readmultiple",
+    "x": 420,
+    "y": 120,
+    "wires": [
+      [
+        "v14-c7-asrt"
+      ]
+    ]
+  },
+  {
+    "id": "v14-c7-asrt",
+    "type": "function",
+    "z": "v14-c7",
+    "name": "assert C7",
+    "func": "const r = msg.payload;\nfunction val(x){ return x && (x.value !== undefined ? x.value : (x.payload !== undefined ? x.payload : x)); }\nif (Array.isArray(r) && r.length === 2) {\n  const d = val(r[0]); const i = val(r[1]);\n  if (Math.abs(Number(d) - 2.718281828) < 1e-6 && Number(i) === -100000) {\n    node.warn('[VALIDATE] C7 client READMULTIPLE: PASS (D=' + d + ', I=' + i + ')');\n  } else {\n    node.warn('[VALIDATE] C7 client READMULTIPLE: FAIL - values ' + JSON.stringify([d,i]));\n  }\n} else {\n  node.warn('[VALIDATE] C7 client READMULTIPLE: FAIL - shape ' + JSON.stringify(r).slice(0,120));\n}\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 640,
+    "y": 120,
+    "wires": [
+      [
+        "v14-c7-dbg"
+      ]
+    ]
+  },
+  {
+    "id": "v14-c7-dbg",
+    "type": "debug",
+    "z": "v14-c7",
+    "name": "dbg",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 860,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "v14-i1",
+    "type": "tab",
+    "label": "I1 item COLLECTOR",
+    "info": ""
+  },
+  {
+    "id": "v14-i1-cm",
+    "type": "comment",
+    "z": "v14-i1",
+    "name": "I1 \u2014 2 opcua-item nodes -> client readmultiple",
+    "x": 250,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "v14-i1-inj",
+    "type": "inject",
+    "z": "v14-i1",
+    "name": "trigger",
+    "props": [
+      {
+        "p": "operation",
+        "vt": "str",
+        "v": "readmultiple"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 120,
+    "wires": [
+      [
+        "v14-i1-item1"
+      ]
+    ]
+  },
+  {
+    "id": "v14-i1-item1",
+    "type": "opcua-item",
+    "z": "v14-i1",
+    "name": "Double",
+    "items": [
+      {
+        "nodeId": "ns=1;s=Scalar.Double",
+        "datatype": "Double",
+        "itemName": "Double"
+      }
+    ],
+    "collector": true,
+    "x": 320,
+    "y": 120,
+    "wires": [
+      [
+        "v14-i1-item2"
+      ]
+    ]
+  },
+  {
+    "id": "v14-i1-item2",
+    "type": "opcua-item",
+    "z": "v14-i1",
+    "name": "Int32",
+    "items": [
+      {
+        "nodeId": "ns=1;s=Scalar.Int32",
+        "datatype": "Int32",
+        "itemName": "Int32"
+      }
+    ],
+    "collector": true,
+    "x": 470,
+    "y": 120,
+    "wires": [
+      [
+        "v14-i1-cli"
+      ]
+    ]
+  },
+  {
+    "id": "v14-i1-cli",
+    "type": "opcua-client",
+    "z": "v14-i1",
+    "name": "readmultiple",
+    "endpoint": "v14-ep",
+    "defaultOperation": "readmultiple",
+    "x": 640,
+    "y": 120,
+    "wires": [
+      [
+        "v14-i1-asrt"
+      ]
+    ]
+  },
+  {
+    "id": "v14-i1-asrt",
+    "type": "function",
+    "z": "v14-i1",
+    "name": "assert I1",
+    "func": "const r = msg.payload;\nfunction val(x){ return x && (x.value !== undefined ? x.value : x); }\nif (Array.isArray(r) && r.length === 2) {\n  const d = val(r[0]); const i = val(r[1]);\n  if (Math.abs(Number(d) - 2.718281828) < 1e-6 && Number(i) === -100000) {\n    node.warn('[VALIDATE] I1 item COLLECTOR: PASS (2 items: D=' + d + ', I=' + i + ')');\n  } else {\n    node.warn('[VALIDATE] I1 item COLLECTOR: FAIL - values ' + JSON.stringify([d,i]));\n  }\n} else {\n  node.warn('[VALIDATE] I1 item COLLECTOR: FAIL - shape ' + JSON.stringify(r).slice(0,120));\n}\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 840,
+    "y": 120,
+    "wires": [
+      [
+        "v14-i1-dbg"
+      ]
+    ]
+  },
+  {
+    "id": "v14-i1-dbg",
+    "type": "debug",
+    "z": "v14-i1",
+    "name": "dbg",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 1060,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "v14-b1",
+    "type": "tab",
+    "label": "B1 opcua-browser",
+    "info": ""
+  },
+  {
+    "id": "v14-b1-cm",
+    "type": "comment",
+    "z": "v14-b1",
+    "name": "B1 \u2014 opcua-browser node browse TestData, assert child refs",
+    "x": 270,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "v14-b1-inj",
+    "type": "inject",
+    "z": "v14-b1",
+    "name": "browse TestData",
+    "props": [
+      {
+        "p": "topic",
+        "vt": "str",
+        "v": "ns=1;s=TestData"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 180,
+    "y": 120,
+    "wires": [
+      [
+        "v14-b1-br"
+      ]
+    ]
+  },
+  {
+    "id": "v14-b1-br",
+    "type": "opcua-browser",
+    "z": "v14-b1",
+    "name": "",
+    "endpoint": "v14-ep",
+    "x": 410,
+    "y": 120,
+    "wires": [
+      [
+        "v14-b1-asrt"
+      ]
+    ]
+  },
+  {
+    "id": "v14-b1-asrt",
+    "type": "function",
+    "z": "v14-b1",
+    "name": "assert B1",
+    "func": "const arr = msg.payload;\nconst names = Array.isArray(arr) ? arr.map(r => r.browseName) : [];\nif (Array.isArray(arr) && arr.length >= 1 && names.includes('Scalar')) {\n  node.warn('[VALIDATE] B1 opcua-browser: PASS (' + names.join(',') + ')');\n} else {\n  node.warn('[VALIDATE] B1 opcua-browser: FAIL - got ' + JSON.stringify(names));\n}\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 620,
+    "y": 120,
+    "wires": [
+      [
+        "v14-b1-dbg"
+      ]
+    ]
+  },
+  {
+    "id": "v14-b1-dbg",
+    "type": "debug",
+    "z": "v14-b1",
+    "name": "dbg",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 840,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "v14-bc1",
+    "type": "tab",
+    "label": "BC1 opcua-browse-client",
+    "info": ""
+  },
+  {
+    "id": "v14-bc1-cm",
+    "type": "comment",
+    "z": "v14-bc1",
+    "name": "BC1 \u2014 browse-client runtime read of pre-selected items",
+    "x": 290,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "v14-bc1-inj",
+    "type": "inject",
+    "z": "v14-bc1",
+    "name": "read selected",
+    "props": [
+      {
+        "p": "operation",
+        "vt": "str",
+        "v": "read"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 170,
+    "y": 120,
+    "wires": [
+      [
+        "v14-bc1-node"
+      ]
+    ]
+  },
+  {
+    "id": "v14-bc1-node",
+    "type": "opcua-browse-client",
+    "z": "v14-bc1",
+    "name": "",
+    "endpoint": "v14-ep",
+    "mode": "read",
+    "publishInterval": 1000,
+    "selectedItems": [
+      {
+        "nodeId": "ns=1;s=Scalar.Double",
+        "browseName": "Double",
+        "displayName": "Double",
+        "nodeClass": "Variable",
+        "dataType": "Double"
+      }
+    ],
+    "x": 400,
+    "y": 120,
+    "wires": [
+      [
+        "v14-bc1-asrt"
+      ]
+    ]
+  },
+  {
+    "id": "v14-bc1-asrt",
+    "type": "function",
+    "z": "v14-bc1",
+    "name": "assert BC1",
+    "func": "// browse-client read returns msg.payload = array of read results for selectedItems\nconst r = msg.payload;\nfunction val(x){ return x && (x.value !== undefined ? x.value : x); }\nif (Array.isArray(r) && r.length >= 1 && Math.abs(Number(val(r[0])) - 2.718281828) < 1e-6) {\n  node.warn('[VALIDATE] BC1 browse-client: PASS (read selected item, value=' + val(r[0]) + ')');\n} else {\n  node.warn('[VALIDATE] BC1 browse-client: FAIL - got ' + JSON.stringify(r).slice(0,120));\n}\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 600,
+    "y": 120,
+    "wires": [
+      [
+        "v14-bc1-dbg"
+      ]
+    ]
+  },
+  {
+    "id": "v14-bc1-dbg",
+    "type": "debug",
+    "z": "v14-bc1",
+    "name": "dbg",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 820,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "v14-m1",
+    "type": "tab",
+    "label": "M1 opcua-method",
+    "info": ""
+  },
+  {
+    "id": "v14-m1-cm",
+    "type": "comment",
+    "z": "v14-m1",
+    "name": "M1 \u2014 opcua-method Methods.Multiply(6,7)=42",
+    "x": 260,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "v14-m1-inj",
+    "type": "inject",
+    "z": "v14-m1",
+    "name": "Multiply(6,7)",
+    "props": [
+      {
+        "p": "inputArguments",
+        "vt": "json",
+        "v": "[{\"dataType\": \"Double\", \"value\": 6}, {\"dataType\": \"Double\", \"value\": 7}]"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 180,
+    "y": 120,
+    "wires": [
+      [
+        "v14-m1-node"
+      ]
+    ]
+  },
+  {
+    "id": "v14-m1-node",
+    "type": "opcua-method",
+    "z": "v14-m1",
+    "name": "",
+    "endpoint": "v14-ep",
+    "objectNodeId": "ns=1;s=Methods",
+    "methodNodeId": "ns=1;s=Methods.Multiply",
+    "x": 410,
+    "y": 120,
+    "wires": [
+      [
+        "v14-m1-asrt"
+      ]
+    ]
+  },
+  {
+    "id": "v14-m1-asrt",
+    "type": "function",
+    "z": "v14-m1",
+    "name": "assert M1",
+    "func": "const out = Array.isArray(msg.payload) ? msg.payload : [];\nif (out.length >= 1 && Math.abs(Number(out[0]) - 42) < 1e-6) {\n  node.warn('[VALIDATE] M1 opcua-method: PASS (result=' + out[0] + ')');\n} else {\n  node.warn('[VALIDATE] M1 opcua-method: FAIL - got ' + JSON.stringify(msg.payload));\n}\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 620,
+    "y": 120,
+    "wires": [
+      [
+        "v14-m1-dbg"
+      ]
+    ]
+  },
+  {
+    "id": "v14-m1-dbg",
+    "type": "debug",
+    "z": "v14-m1",
+    "name": "dbg",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 840,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "v14-e1",
+    "type": "tab",
+    "label": "E1 opcua-event",
+    "info": ""
+  },
+  {
+    "id": "v14-e1-cm",
+    "type": "comment",
+    "z": "v14-e1",
+    "name": "E1 \u2014 subscribe events on Server node (i=2253). Test server raises none -> honest PASS on subscribe ack.",
+    "x": 380,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "v14-e1-inj",
+    "type": "inject",
+    "z": "v14-e1",
+    "name": "subscribe events",
+    "props": [
+      {
+        "p": "sourceNodeId",
+        "vt": "str",
+        "v": "i=2253"
+      },
+      {
+        "p": "operation",
+        "vt": "str",
+        "v": "subscribe"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 190,
+    "y": 120,
+    "wires": [
+      [
+        "v14-e1-node"
+      ]
+    ]
+  },
+  {
+    "id": "v14-e1-node",
+    "type": "opcua-event",
+    "z": "v14-e1",
+    "name": "",
+    "endpoint": "v14-ep",
+    "sourceNodeId": "i=2253",
+    "eventType": "BaseEventType",
+    "x": 420,
+    "y": 120,
+    "wires": [
+      [
+        "v14-e1-asrt"
+      ]
+    ]
+  },
+  {
+    "id": "v14-e1-asrt",
+    "type": "function",
+    "z": "v14-e1",
+    "name": "assert E1",
+    "func": "// The subscribe path returns a confirmation msg.payload string. The test\n// server raises no events, so we assert the subscription was established.\nif (msg.operation === 'event') {\n  node.warn('[VALIDATE] E1 event: PASS (event received: ' + JSON.stringify(msg.payload).slice(0,80) + ')');\n} else if (typeof msg.payload === 'string' && /subscription active/i.test(msg.payload)) {\n  node.warn('[VALIDATE] E1 event: PASS (subscribed without error; server raises no events to assert)');\n} else {\n  node.warn('[VALIDATE] E1 event: FAIL - unexpected ' + JSON.stringify(msg.payload).slice(0,100));\n}\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 640,
+    "y": 120,
+    "wires": [
+      [
+        "v14-e1-dbg"
+      ]
+    ]
+  },
+  {
+    "id": "v14-e1-dbg",
+    "type": "debug",
+    "z": "v14-e1",
+    "name": "dbg",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 860,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "v14-s1",
+    "type": "tab",
+    "label": "S1 opcua-server EMBEDDED",
+    "info": ""
+  },
+  {
+    "id": "v14-s1-cm",
+    "type": "comment",
+    "z": "v14-s1",
+    "name": "S1 \u2014 embedded server on :48400, add var + set value, client reads it back",
+    "x": 320,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "v14-s1-srv",
+    "type": "opcua-server",
+    "z": "v14-s1",
+    "name": "Embedded",
+    "port": 48400,
+    "serverName": "Node-RED OPC UA Server",
+    "maxAllowedSessionNumber": 10,
+    "maxConnectionsPerEndpoint": 10,
+    "x": 430,
+    "y": 320,
+    "wires": [
+      [
+        "v14-s1-srvdbg"
+      ]
+    ]
+  },
+  {
+    "id": "v14-s1-srvdbg",
+    "type": "debug",
+    "z": "v14-s1",
+    "name": "srv",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 640,
+    "y": 320,
+    "wires": []
+  },
+  {
+    "id": "v14-s1-addvar",
+    "type": "inject",
+    "z": "v14-s1",
+    "name": "1. addVariable Answer",
+    "props": [
+      {
+        "p": "command",
+        "vt": "str",
+        "v": "addVariable"
+      },
+      {
+        "p": "variableName",
+        "vt": "str",
+        "v": "Answer"
+      },
+      {
+        "p": "parentNodeId",
+        "vt": "str",
+        "v": "ObjectsFolder"
+      },
+      {
+        "p": "nodeId",
+        "vt": "str",
+        "v": "ns=1;s=Answer"
+      },
+      {
+        "p": "datatype",
+        "vt": "str",
+        "v": "Double"
+      },
+      {
+        "p": "initialValue",
+        "vt": "num",
+        "v": "0"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 190,
+    "y": 160,
+    "wires": [
+      [
+        "v14-s1-srv"
+      ]
+    ]
+  },
+  {
+    "id": "v14-s1-setval",
+    "type": "inject",
+    "z": "v14-s1",
+    "name": "2. setValue 42",
+    "props": [
+      {
+        "p": "command",
+        "vt": "str",
+        "v": "setValue"
+      },
+      {
+        "p": "nodeId",
+        "vt": "str",
+        "v": "ns=1;s=Answer"
+      },
+      {
+        "p": "datatype",
+        "vt": "str",
+        "v": "Double"
+      },
+      {
+        "p": "payload",
+        "vt": "num",
+        "v": "42"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "42",
+    "payloadType": "num",
+    "x": 170,
+    "y": 220,
+    "wires": [
+      [
+        "v14-s1-srv"
+      ]
+    ]
+  },
+  {
+    "id": "v14-s1-read",
+    "type": "inject",
+    "z": "v14-s1",
+    "name": "3. read back via client",
+    "props": [
+      {
+        "p": "topic",
+        "vt": "str",
+        "v": "ns=1;s=Answer"
+      },
+      {
+        "p": "operation",
+        "vt": "str",
+        "v": "read"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 180,
+    "y": 120,
+    "wires": [
+      [
+        "v14-s1-cli"
+      ]
+    ]
+  },
+  {
+    "id": "v14-s1-cli",
+    "type": "opcua-client",
+    "z": "v14-s1",
+    "name": "embedded read",
+    "endpoint": "v14-ep-embed",
+    "defaultOperation": "read",
+    "x": 430,
+    "y": 120,
+    "wires": [
+      [
+        "v14-s1-asrt"
+      ]
+    ]
+  },
+  {
+    "id": "v14-s1-asrt",
+    "type": "function",
+    "z": "v14-s1",
+    "name": "assert S1",
+    "func": "const v = msg.payload;\nif (typeof v === 'number' && Math.abs(v - 42) < 1e-6) {\n  node.warn('[VALIDATE] S1 server EMBEDDED: PASS (read 42 from embedded server)');\n} else {\n  node.warn('[VALIDATE] S1 server EMBEDDED: FAIL - readback ' + JSON.stringify(v));\n}\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 650,
+    "y": 120,
+    "wires": [
+      [
+        "v14-s1-dbg"
+      ]
+    ]
+  },
+  {
+    "id": "v14-s1-dbg",
+    "type": "debug",
+    "z": "v14-s1",
+    "name": "dbg",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 870,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "v14-auth1",
+    "type": "tab",
+    "label": "AUTH1 endpoint USER/PASS",
+    "info": ""
+  },
+  {
+    "id": "v14-auth1-cm",
+    "type": "comment",
+    "z": "v14-auth1",
+    "name": "AUTH1 \u2014 endpoint with admin/admin123 credentials, assert authenticated read",
+    "x": 320,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "v14-auth1-inj",
+    "type": "inject",
+    "z": "v14-auth1",
+    "name": "read as admin",
+    "props": [
+      {
+        "p": "topic",
+        "vt": "str",
+        "v": "ns=1;s=Scalar.Double"
+      },
+      {
+        "p": "operation",
+        "vt": "str",
+        "v": "read"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 180,
+    "y": 120,
+    "wires": [
+      [
+        "v14-auth1-cli"
+      ]
+    ]
+  },
+  {
+    "id": "v14-auth1-cli",
+    "type": "opcua-client",
+    "z": "v14-auth1",
+    "name": "auth read",
+    "endpoint": "v14-ep-auth",
+    "defaultOperation": "read",
+    "x": 420,
+    "y": 120,
+    "wires": [
+      [
+        "v14-auth1-asrt"
+      ]
+    ]
+  },
+  {
+    "id": "v14-auth1-asrt",
+    "type": "function",
+    "z": "v14-auth1",
+    "name": "assert AUTH1",
+    "func": "const v = msg.payload;\nif (typeof v === 'number' && Math.abs(v - 2.718281828) < 1e-6) {\n  node.warn('[VALIDATE] AUTH1 endpoint USER/PASS: PASS (authenticated read as admin)');\n} else {\n  node.warn('[VALIDATE] AUTH1 endpoint USER/PASS: FAIL - got ' + JSON.stringify(v));\n}\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 640,
+    "y": 120,
+    "wires": [
+      [
+        "v14-auth1-dbg"
+      ]
+    ]
+  },
+  {
+    "id": "v14-auth1-dbg",
+    "type": "debug",
+    "z": "v14-auth1",
+    "name": "dbg",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 860,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "v13-t1",
+    "type": "tab",
+    "label": "T1 UDP-UADP scalars",
+    "info": ""
+  },
+  {
+    "id": "v13-t1-cmt",
+    "type": "comment",
+    "z": "v13-t1",
+    "name": "T1 \u2014 UDP-UADP round-trip of all scalar types (Double/String/Int32/Boolean/Float/UInt16); assert values + encoding/transport/headers",
+    "x": 480,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "t1-conn",
+    "type": "opcua-pubsub-connection",
+    "name": "T1 UDP",
+    "transportType": "udp",
+    "multicastGroup": "239.0.13.1",
+    "multicastInterface": "0.0.0.0",
+    "port": 4851,
+    "mtu": 1400,
+    "brokerUrl": "mqtt://val-mosquitto:1883",
+    "topicPrefix": "ua",
+    "qos": 1,
+    "publisherIdType": "String",
+    "publisherId": "13000000-0000-4000-8000-000000000001",
+    "certificateFile": "",
+    "privateKeyFile": "",
+    "caCertificateFile": ""
+  },
+  {
+    "id": "t1-inject",
+    "type": "inject",
+    "z": "v13-t1",
+    "name": "Publish",
+    "props": [
+      {
+        "p": "payload",
+        "vt": "json",
+        "v": "{\"D\":3.14159,\"S\":\"hello-t1\",\"I\":-12345,\"B\":true,\"F\":1.5,\"U\":60000}"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 150,
+    "y": 140,
+    "wires": [
+      [
+        "t1-pub"
+      ]
+    ]
+  },
+  {
+    "id": "t1-pub",
+    "type": "opcua-publisher",
+    "z": "v13-t1",
+    "name": "Pub (UADP)",
+    "connection": "t1-conn",
+    "messageEncoding": "uadp",
+    "publishMode": "acyclic",
+    "publishingInterval": 1000,
+    "keepAliveTime": "",
+    "writerGroupId": 1,
+    "priority": 128,
+    "maxNetworkMessageSize": 1400,
+    "writers": "[{\"dataSetWriterId\":1,\"dataSetName\":\"T1\",\"publishedDataSet\":{\"name\":\"T1\",\"fields\":[{\"name\":\"D\",\"dataType\":\"Double\"},{\"name\":\"S\",\"dataType\":\"String\"},{\"name\":\"I\",\"dataType\":\"Int32\"},{\"name\":\"B\",\"dataType\":\"Boolean\"},{\"name\":\"F\",\"dataType\":\"Float\"},{\"name\":\"U\",\"dataType\":\"UInt16\"}]}}]",
+    "x": 420,
+    "y": 140,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "t1-sub",
+    "type": "opcua-subscriber",
+    "z": "v13-t1",
+    "name": "Sub (UADP)",
+    "connection": "t1-conn",
+    "messageEncoding": "uadp",
+    "publisherId": "13000000-0000-4000-8000-000000000001",
+    "writerGroupId": 1,
+    "dataSetWriterId": 1,
+    "expectedConfigVersion": "",
+    "x": 430,
+    "y": 240,
+    "wires": [
+      [
+        "t1-assert"
+      ]
+    ]
+  },
+  {
+    "id": "t1-assert",
+    "type": "function",
+    "z": "v13-t1",
+    "name": "assert",
+    "func": "const p = msg.payload || {};\nconst errs = [];\nif (Math.abs(p.D - 3.14159) > 1e-9) errs.push(\"D=\" + p.D);\nif (p.S !== \"hello-t1\") errs.push(\"S=\" + p.S);\nif (p.I !== -12345) errs.push(\"I=\" + p.I);\nif (p.B !== true) errs.push(\"B=\" + p.B);\nif (Math.abs(p.F - 1.5) > 1e-3) errs.push(\"F=\" + p.F);\nif (p.U !== 60000) errs.push(\"U=\" + p.U);\nif (msg.encoding !== \"uadp\") errs.push(\"encoding=\" + msg.encoding);\nif (msg.transport !== \"udp\") errs.push(\"transport=\" + msg.transport);\nif (msg.publisherId === undefined) errs.push(\"no publisherId\");\nif (msg.writerGroupId !== 1) errs.push(\"wgId=\" + msg.writerGroupId);\nif (msg.dataSetWriterId !== 1) errs.push(\"dswId=\" + msg.dataSetWriterId);\nif (msg.sequenceNumber === undefined) errs.push(\"no seq\");\nnode.warn(errs.length ? \"[VALIDATE] T1 udp-uadp-scalars: FAIL - \" + errs.join(\", \")\n                      : \"[VALIDATE] T1 udp-uadp-scalars: PASS\");\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 650,
+    "y": 240,
+    "wires": [
+      [
+        "t1-dbg"
+      ]
+    ]
+  },
+  {
+    "id": "t1-dbg",
+    "type": "debug",
+    "z": "v13-t1",
+    "name": "T1 result",
+    "active": true,
+    "tosidebar": true,
+    "console": true,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 860,
+    "y": 240,
+    "wires": []
+  },
+  {
+    "id": "v13-t2",
+    "type": "tab",
+    "label": "T2 MQTT-UADP",
+    "info": ""
+  },
+  {
+    "id": "v13-t2-cmt",
+    "type": "comment",
+    "z": "v13-t2",
+    "name": "T2 \u2014 MQTT-UADP round-trip; assert fields + encoding=uadp, transport=mqtt, topic present",
+    "x": 480,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "t2-conn",
+    "type": "opcua-pubsub-connection",
+    "name": "T2 MQTT",
+    "transportType": "mqtt",
+    "multicastGroup": "239.0.0.1",
+    "multicastInterface": "0.0.0.0",
+    "port": 4840,
+    "mtu": 1400,
+    "brokerUrl": "mqtt://val-mosquitto:1883",
+    "topicPrefix": "val13t2",
+    "qos": 1,
+    "publisherIdType": "String",
+    "publisherId": "13000000-0000-4000-8000-000000000002",
+    "certificateFile": "",
+    "privateKeyFile": "",
+    "caCertificateFile": ""
+  },
+  {
+    "id": "t2-inject",
+    "type": "inject",
+    "z": "v13-t2",
+    "name": "Publish",
+    "props": [
+      {
+        "p": "payload",
+        "vt": "json",
+        "v": "{\"Temp\":42.25,\"Tag\":\"mqtt-uadp-t2\"}"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 150,
+    "y": 140,
+    "wires": [
+      [
+        "t2-pub"
+      ]
+    ]
+  },
+  {
+    "id": "t2-pub",
+    "type": "opcua-publisher",
+    "z": "v13-t2",
+    "name": "Pub (UADP)",
+    "connection": "t2-conn",
+    "messageEncoding": "uadp",
+    "publishMode": "acyclic",
+    "publishingInterval": 1000,
+    "keepAliveTime": "",
+    "writerGroupId": 2,
+    "priority": 128,
+    "maxNetworkMessageSize": 1400,
+    "writers": "[{\"dataSetWriterId\":1,\"dataSetName\":\"T2\",\"publishedDataSet\":{\"name\":\"T2\",\"fields\":[{\"name\":\"Temp\",\"dataType\":\"Double\"},{\"name\":\"Tag\",\"dataType\":\"String\"}]}}]",
+    "x": 420,
+    "y": 140,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "t2-sub",
+    "type": "opcua-subscriber",
+    "z": "v13-t2",
+    "name": "Sub (UADP)",
+    "connection": "t2-conn",
+    "messageEncoding": "uadp",
+    "publisherId": "13000000-0000-4000-8000-000000000002",
+    "writerGroupId": 2,
+    "dataSetWriterId": 1,
+    "expectedConfigVersion": "",
+    "x": 430,
+    "y": 240,
+    "wires": [
+      [
+        "t2-assert"
+      ]
+    ]
+  },
+  {
+    "id": "t2-assert",
+    "type": "function",
+    "z": "v13-t2",
+    "name": "assert",
+    "func": "const p = msg.payload || {};\nconst errs = [];\nif (Math.abs(p.Temp - 42.25) > 1e-9) errs.push(\"Temp=\" + p.Temp);\nif (p.Tag !== \"mqtt-uadp-t2\") errs.push(\"Tag=\" + p.Tag);\nif (msg.encoding !== \"uadp\") errs.push(\"encoding=\" + msg.encoding);\nif (msg.transport !== \"mqtt\") errs.push(\"transport=\" + msg.transport);\nif (!msg.topic) errs.push(\"no topic\");\nnode.warn(errs.length ? \"[VALIDATE] T2 mqtt-uadp: FAIL - \" + errs.join(\", \")\n                      : \"[VALIDATE] T2 mqtt-uadp: PASS\");\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 650,
+    "y": 240,
+    "wires": [
+      [
+        "t2-dbg"
+      ]
+    ]
+  },
+  {
+    "id": "t2-dbg",
+    "type": "debug",
+    "z": "v13-t2",
+    "name": "T2 result",
+    "active": true,
+    "tosidebar": true,
+    "console": true,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 860,
+    "y": 240,
+    "wires": []
+  },
+  {
+    "id": "v13-t3",
+    "type": "tab",
+    "label": "T3 MQTT-JSON",
+    "info": ""
+  },
+  {
+    "id": "v13-t3-cmt",
+    "type": "comment",
+    "z": "v13-t3",
+    "name": "T3 \u2014 MQTT-JSON; assert encoding=json, transport=mqtt, writerGroupId DEFINED (CR-02), timestamp=publish time (HI-01), numeric publisherId stays number (HI-02)",
+    "x": 480,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "t3-conn",
+    "type": "opcua-pubsub-connection",
+    "name": "T3 MQTT",
+    "transportType": "mqtt",
+    "multicastGroup": "239.0.0.1",
+    "multicastInterface": "0.0.0.0",
+    "port": 4840,
+    "mtu": 1400,
+    "brokerUrl": "mqtt://val-mosquitto:1883",
+    "topicPrefix": "val13t3",
+    "qos": 1,
+    "publisherIdType": "UInt32",
+    "publisherId": 305419896,
+    "certificateFile": "",
+    "privateKeyFile": "",
+    "caCertificateFile": ""
+  },
+  {
+    "id": "t3-inject",
+    "type": "inject",
+    "z": "v13-t3",
+    "name": "Publish",
+    "props": [
+      {
+        "p": "payload",
+        "vt": "json",
+        "v": "{\"V\":99.5,\"Name\":\"json-t3\"}"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 150,
+    "y": 140,
+    "wires": [
+      [
+        "t3-pub"
+      ]
+    ]
+  },
+  {
+    "id": "t3-pub",
+    "type": "opcua-publisher",
+    "z": "v13-t3",
+    "name": "Pub (JSON)",
+    "connection": "t3-conn",
+    "messageEncoding": "json",
+    "publishMode": "acyclic",
+    "publishingInterval": 1000,
+    "keepAliveTime": "",
+    "writerGroupId": 33,
+    "priority": 128,
+    "maxNetworkMessageSize": 1400,
+    "writers": "[{\"dataSetWriterId\":1,\"dataSetName\":\"T3\",\"publishedDataSet\":{\"name\":\"T3\",\"fields\":[{\"name\":\"V\",\"dataType\":\"Double\"},{\"name\":\"Name\",\"dataType\":\"String\"}]}}]",
+    "x": 420,
+    "y": 140,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "t3-sub",
+    "type": "opcua-subscriber",
+    "z": "v13-t3",
+    "name": "Sub (JSON)",
+    "connection": "t3-conn",
+    "messageEncoding": "json",
+    "publisherId": 305419896,
+    "writerGroupId": 33,
+    "dataSetWriterId": 1,
+    "expectedConfigVersion": "",
+    "x": 430,
+    "y": 240,
+    "wires": [
+      [
+        "t3-assert"
+      ]
+    ]
+  },
+  {
+    "id": "t3-assert",
+    "type": "function",
+    "z": "v13-t3",
+    "name": "assert",
+    "func": "const p = msg.payload || {};\nconst errs = [];\nif (Math.abs(p.V - 99.5) > 1e-9) errs.push(\"V=\" + p.V);\nif (p.Name !== \"json-t3\") errs.push(\"Name=\" + p.Name);\nif (msg.encoding !== \"json\") errs.push(\"encoding=\" + msg.encoding);\nif (msg.transport !== \"mqtt\") errs.push(\"transport=\" + msg.transport);\nif (msg.writerGroupId !== 33) errs.push(\"wgId(CR-02)=\" + msg.writerGroupId);\nif (typeof msg.publisherId !== \"number\") errs.push(\"pidType(HI-02)=\" + typeof msg.publisherId);\nif (msg.publisherId !== 305419896) errs.push(\"pid=\" + msg.publisherId);\nconst t = new Date(msg.timestamp).getTime();\nif (isNaN(t)) errs.push(\"ts not a date\");\nelse if (Math.abs(Date.now() - t) > 30000) errs.push(\"ts(HI-01) too far from now: \" + msg.timestamp);\nnode.warn(errs.length ? \"[VALIDATE] T3 mqtt-json: FAIL - \" + errs.join(\", \")\n                      : \"[VALIDATE] T3 mqtt-json: PASS\");\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 650,
+    "y": 240,
+    "wires": [
+      [
+        "t3-dbg"
+      ]
+    ]
+  },
+  {
+    "id": "t3-dbg",
+    "type": "debug",
+    "z": "v13-t3",
+    "name": "T3 result",
+    "active": true,
+    "tosidebar": true,
+    "console": true,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 860,
+    "y": 240,
+    "wires": []
+  },
+  {
+    "id": "v13-t4",
+    "type": "tab",
+    "label": "T4 Multi-Writer",
+    "info": ""
+  },
+  {
+    "id": "v13-t4-cmt",
+    "type": "comment",
+    "z": "v13-t4",
+    "name": "T4 \u2014 one publisher with TWO DataSetWriters (id 1 & 2); two subscribers each filter their own dataSetWriterId and must see only their dataset fields",
+    "x": 480,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "t4-conn",
+    "type": "opcua-pubsub-connection",
+    "name": "T4 UDP",
+    "transportType": "udp",
+    "multicastGroup": "239.0.13.2",
+    "multicastInterface": "0.0.0.0",
+    "port": 4852,
+    "mtu": 1400,
+    "brokerUrl": "mqtt://val-mosquitto:1883",
+    "topicPrefix": "ua",
+    "qos": 1,
+    "publisherIdType": "String",
+    "publisherId": "13000000-0000-4000-8000-000000000004",
+    "certificateFile": "",
+    "privateKeyFile": "",
+    "caCertificateFile": ""
+  },
+  {
+    "id": "t4-inject",
+    "type": "inject",
+    "z": "v13-t4",
+    "name": "Publish",
+    "props": [
+      {
+        "p": "payload",
+        "vt": "json",
+        "v": "{\"A\":111,\"B\":\"writer-two\"}"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 150,
+    "y": 140,
+    "wires": [
+      [
+        "t4-pub"
+      ]
+    ]
+  },
+  {
+    "id": "t4-pub",
+    "type": "opcua-publisher",
+    "z": "v13-t4",
+    "name": "Pub 2 writers",
+    "connection": "t4-conn",
+    "messageEncoding": "uadp",
+    "publishMode": "acyclic",
+    "publishingInterval": 1000,
+    "keepAliveTime": "",
+    "writerGroupId": 4,
+    "priority": 128,
+    "maxNetworkMessageSize": 1400,
+    "writers": "[{\"dataSetWriterId\":1,\"dataSetName\":\"DS1\",\"publishedDataSet\":{\"name\":\"DS1\",\"fields\":[{\"name\":\"A\",\"dataType\":\"Int32\"}]}},{\"dataSetWriterId\":2,\"dataSetName\":\"DS2\",\"publishedDataSet\":{\"name\":\"DS2\",\"fields\":[{\"name\":\"B\",\"dataType\":\"String\"}]}}]",
+    "x": 420,
+    "y": 140,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "t4-subA",
+    "type": "opcua-subscriber",
+    "z": "v13-t4",
+    "name": "Sub dsw1",
+    "connection": "t4-conn",
+    "messageEncoding": "uadp",
+    "publisherId": "13000000-0000-4000-8000-000000000004",
+    "writerGroupId": 4,
+    "dataSetWriterId": 1,
+    "expectedConfigVersion": "",
+    "x": 430,
+    "y": 220,
+    "wires": [
+      [
+        "t4-assertA"
+      ]
+    ]
+  },
+  {
+    "id": "t4-subB",
+    "type": "opcua-subscriber",
+    "z": "v13-t4",
+    "name": "Sub dsw2",
+    "connection": "t4-conn",
+    "messageEncoding": "uadp",
+    "publisherId": "13000000-0000-4000-8000-000000000004",
+    "writerGroupId": 4,
+    "dataSetWriterId": 2,
+    "expectedConfigVersion": "",
+    "x": 430,
+    "y": 300,
+    "wires": [
+      [
+        "t4-assertB"
+      ]
+    ]
+  },
+  {
+    "id": "t4-assertA",
+    "type": "function",
+    "z": "v13-t4",
+    "name": "assertA",
+    "func": "const p = msg.payload || {};\nconst errs = [];\nif (msg.dataSetWriterId !== 1) errs.push(\"dswId=\" + msg.dataSetWriterId);\nif (p.A !== 111) errs.push(\"A=\" + p.A);\nif (\"B\" in p) errs.push(\"leaked B\");\nnode.warn(errs.length ? \"[VALIDATE] T4a multi-writer-dsw1: FAIL - \" + errs.join(\", \")\n                      : \"[VALIDATE] T4a multi-writer-dsw1: PASS\");\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 650,
+    "y": 220,
+    "wires": [
+      [
+        "t4-dbg"
+      ]
+    ]
+  },
+  {
+    "id": "t4-assertB",
+    "type": "function",
+    "z": "v13-t4",
+    "name": "assertB",
+    "func": "const p = msg.payload || {};\nconst errs = [];\nif (msg.dataSetWriterId !== 2) errs.push(\"dswId=\" + msg.dataSetWriterId);\nif (p.B !== \"writer-two\") errs.push(\"B=\" + p.B);\nif (\"A\" in p) errs.push(\"leaked A\");\nnode.warn(errs.length ? \"[VALIDATE] T4b multi-writer-dsw2: FAIL - \" + errs.join(\", \")\n                      : \"[VALIDATE] T4b multi-writer-dsw2: PASS\");\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 650,
+    "y": 300,
+    "wires": [
+      [
+        "t4-dbg"
+      ]
+    ]
+  },
+  {
+    "id": "t4-dbg",
+    "type": "debug",
+    "z": "v13-t4",
+    "name": "T4 result",
+    "active": true,
+    "tosidebar": true,
+    "console": true,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 860,
+    "y": 260,
+    "wires": []
+  },
+  {
+    "id": "v13-t5",
+    "type": "tab",
+    "label": "T5 Cyclic+KeepAlive",
+    "info": ""
+  },
+  {
+    "id": "v13-t5-cmt",
+    "type": "comment",
+    "z": "v13-t5",
+    "name": "T5 \u2014 cyclic publish (600ms). First inject -> keyframe (non-empty payload). With no new input a later KeepAlive arrives (empty payload). Assert both.",
+    "x": 480,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "t5-conn",
+    "type": "opcua-pubsub-connection",
+    "name": "T5 UDP",
+    "transportType": "udp",
+    "multicastGroup": "239.0.13.3",
+    "multicastInterface": "0.0.0.0",
+    "port": 4853,
+    "mtu": 1400,
+    "brokerUrl": "mqtt://val-mosquitto:1883",
+    "topicPrefix": "ua",
+    "qos": 1,
+    "publisherIdType": "String",
+    "publisherId": "13000000-0000-4000-8000-000000000005",
+    "certificateFile": "",
+    "privateKeyFile": "",
+    "caCertificateFile": ""
+  },
+  {
+    "id": "t5-reset",
+    "type": "inject",
+    "z": "v13-t5",
+    "name": "1. reset+publish",
+    "props": [],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 150,
+    "y": 120,
+    "wires": [
+      [
+        "t5-resetfn"
+      ]
+    ]
+  },
+  {
+    "id": "t5-resetfn",
+    "type": "function",
+    "z": "v13-t5",
+    "name": "reset+setVal",
+    "func": "flow.set(\"t5_key\", false);\nflow.set(\"t5_keep\", false);\nconst v = (Date.now() & 0x7fffffff);\nflow.set(\"t5_expect\", v);\nmsg.payload = { Val: v };\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 650,
+    "y": 120,
+    "wires": [
+      [
+        "t5-pub"
+      ]
+    ]
+  },
+  {
+    "id": "t5-pub",
+    "type": "opcua-publisher",
+    "z": "v13-t5",
+    "name": "Pub cyclic",
+    "connection": "t5-conn",
+    "messageEncoding": "uadp",
+    "publishMode": "cyclic",
+    "publishingInterval": 600,
+    "keepAliveTime": "",
+    "writerGroupId": 5,
+    "priority": 128,
+    "maxNetworkMessageSize": 1400,
+    "writers": "[{\"dataSetWriterId\":1,\"dataSetName\":\"T5\",\"publishedDataSet\":{\"name\":\"T5\",\"fields\":[{\"name\":\"Val\",\"dataType\":\"Int32\"}]}}]",
+    "x": 420,
+    "y": 120,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "t5-sub",
+    "type": "opcua-subscriber",
+    "z": "v13-t5",
+    "name": "Sub",
+    "connection": "t5-conn",
+    "messageEncoding": "uadp",
+    "publisherId": "13000000-0000-4000-8000-000000000005",
+    "writerGroupId": 5,
+    "dataSetWriterId": 1,
+    "expectedConfigVersion": "",
+    "x": 430,
+    "y": 220,
+    "wires": [
+      [
+        "t5-classify"
+      ]
+    ]
+  },
+  {
+    "id": "t5-classify",
+    "type": "function",
+    "z": "v13-t5",
+    "name": "classify",
+    "func": "const p = msg.payload || {};\nconst empty = Object.keys(p).length === 0;\nif (empty) flow.set(\"t5_keep\", true);\nelse if (p.Val === flow.get(\"t5_expect\")) flow.set(\"t5_key\", true);\nreturn null;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 650,
+    "y": 220,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "t5-check",
+    "type": "inject",
+    "z": "v13-t5",
+    "name": "2. check (after ~2s)",
+    "props": [],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 150,
+    "y": 320,
+    "wires": [
+      [
+        "t5-assert"
+      ]
+    ]
+  },
+  {
+    "id": "t5-assert",
+    "type": "function",
+    "z": "v13-t5",
+    "name": "assert",
+    "func": "const key = flow.get(\"t5_key\");\nconst keep = flow.get(\"t5_keep\");\nconst errs = [];\nif (!key) errs.push(\"no keyframe\");\nif (!keep) errs.push(\"no keepalive\");\nnode.warn(errs.length ? \"[VALIDATE] T5 cyclic-keepalive: FAIL - \" + errs.join(\", \")\n                      : \"[VALIDATE] T5 cyclic-keepalive: PASS\");\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 650,
+    "y": 320,
+    "wires": [
+      [
+        "t5-dbg"
+      ]
+    ]
+  },
+  {
+    "id": "t5-dbg",
+    "type": "debug",
+    "z": "v13-t5",
+    "name": "T5 result",
+    "active": true,
+    "tosidebar": true,
+    "console": true,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 860,
+    "y": 320,
+    "wires": []
+  },
+  {
+    "id": "v13-t6",
+    "type": "tab",
+    "label": "T6 Chunking",
+    "info": ""
+  },
+  {
+    "id": "v13-t6-cmt",
+    "type": "comment",
+    "z": "v13-t6",
+    "name": "T6 \u2014 small MTU (200) + ~2000-char string over UDP-UADP forces multi-chunk; subscriber must reassemble the FULL string intact",
+    "x": 480,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "t6-conn",
+    "type": "opcua-pubsub-connection",
+    "name": "T6 UDP small-mtu",
+    "transportType": "udp",
+    "multicastGroup": "239.0.13.4",
+    "multicastInterface": "0.0.0.0",
+    "port": 4854,
+    "mtu": 200,
+    "brokerUrl": "mqtt://val-mosquitto:1883",
+    "topicPrefix": "ua",
+    "qos": 1,
+    "publisherIdType": "String",
+    "publisherId": "13000000-0000-4000-8000-000000000006",
+    "certificateFile": "",
+    "privateKeyFile": "",
+    "caCertificateFile": ""
+  },
+  {
+    "id": "t6-inject",
+    "type": "inject",
+    "z": "v13-t6",
+    "name": "Publish big",
+    "props": [
+      {
+        "p": "payload",
+        "vt": "json",
+        "v": "{\"Big\":\"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\",\"Marker\":\"end-2000\"}"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 150,
+    "y": 140,
+    "wires": [
+      [
+        "t6-pub"
+      ]
+    ]
+  },
+  {
+    "id": "t6-pub",
+    "type": "opcua-publisher",
+    "z": "v13-t6",
+    "name": "Pub (chunked)",
+    "connection": "t6-conn",
+    "messageEncoding": "uadp",
+    "publishMode": "acyclic",
+    "publishingInterval": 1000,
+    "keepAliveTime": "",
+    "writerGroupId": 6,
+    "priority": 128,
+    "maxNetworkMessageSize": 200,
+    "writers": "[{\"dataSetWriterId\":1,\"dataSetName\":\"T6\",\"publishedDataSet\":{\"name\":\"T6\",\"fields\":[{\"name\":\"Big\",\"dataType\":\"String\"},{\"name\":\"Marker\",\"dataType\":\"String\"}]}}]",
+    "x": 420,
+    "y": 140,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "t6-sub",
+    "type": "opcua-subscriber",
+    "z": "v13-t6",
+    "name": "Sub",
+    "connection": "t6-conn",
+    "messageEncoding": "uadp",
+    "publisherId": "13000000-0000-4000-8000-000000000006",
+    "writerGroupId": 6,
+    "dataSetWriterId": 1,
+    "expectedConfigVersion": "",
+    "x": 430,
+    "y": 240,
+    "wires": [
+      [
+        "t6-assert"
+      ]
+    ]
+  },
+  {
+    "id": "t6-assert",
+    "type": "function",
+    "z": "v13-t6",
+    "name": "assert",
+    "func": "const p = msg.payload || {};\nconst errs = [];\nconst big = p.Big || \"\";\nif (big.length !== 2000) errs.push(\"len=\" + big.length);\nif (big !== \"X\".repeat(2000)) errs.push(\"content mismatch\");\nif (p.Marker !== \"end-2000\") errs.push(\"Marker=\" + p.Marker);\nnode.warn(errs.length ? \"[VALIDATE] T6 chunking: FAIL - \" + errs.join(\", \")\n                      : \"[VALIDATE] T6 chunking: PASS\");\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 650,
+    "y": 240,
+    "wires": [
+      [
+        "t6-dbg"
+      ]
+    ]
+  },
+  {
+    "id": "t6-dbg",
+    "type": "debug",
+    "z": "v13-t6",
+    "name": "T6 result",
+    "active": true,
+    "tosidebar": true,
+    "console": true,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 860,
+    "y": 240,
+    "wires": []
+  },
+  {
+    "id": "v13-t7",
+    "type": "tab",
+    "label": "T7 PublisherId UInt32",
+    "info": ""
+  },
+  {
+    "id": "v13-t7-cmt",
+    "type": "comment",
+    "z": "v13-t7",
+    "name": "T7 \u2014 publisherIdType UInt32, numeric id 305419896 over UDP-UADP; assert msg.publisherId === 305419896 (number)",
+    "x": 480,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "t7-conn",
+    "type": "opcua-pubsub-connection",
+    "name": "T7 UDP UInt32",
+    "transportType": "udp",
+    "multicastGroup": "239.0.13.5",
+    "multicastInterface": "0.0.0.0",
+    "port": 4855,
+    "mtu": 1400,
+    "brokerUrl": "mqtt://val-mosquitto:1883",
+    "topicPrefix": "ua",
+    "qos": 1,
+    "publisherIdType": "UInt32",
+    "publisherId": 305419896,
+    "certificateFile": "",
+    "privateKeyFile": "",
+    "caCertificateFile": ""
+  },
+  {
+    "id": "t7-inject",
+    "type": "inject",
+    "z": "v13-t7",
+    "name": "Publish",
+    "props": [
+      {
+        "p": "payload",
+        "vt": "json",
+        "v": "{\"N\":1}"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 150,
+    "y": 140,
+    "wires": [
+      [
+        "t7-pub"
+      ]
+    ]
+  },
+  {
+    "id": "t7-pub",
+    "type": "opcua-publisher",
+    "z": "v13-t7",
+    "name": "Pub (UADP)",
+    "connection": "t7-conn",
+    "messageEncoding": "uadp",
+    "publishMode": "acyclic",
+    "publishingInterval": 1000,
+    "keepAliveTime": "",
+    "writerGroupId": 7,
+    "priority": 128,
+    "maxNetworkMessageSize": 1400,
+    "writers": "[{\"dataSetWriterId\":1,\"dataSetName\":\"T7\",\"publishedDataSet\":{\"name\":\"T7\",\"fields\":[{\"name\":\"N\",\"dataType\":\"Int32\"}]}}]",
+    "x": 420,
+    "y": 140,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "t7-sub",
+    "type": "opcua-subscriber",
+    "z": "v13-t7",
+    "name": "Sub",
+    "connection": "t7-conn",
+    "messageEncoding": "uadp",
+    "publisherId": 305419896,
+    "writerGroupId": 7,
+    "dataSetWriterId": 1,
+    "expectedConfigVersion": "",
+    "x": 430,
+    "y": 240,
+    "wires": [
+      [
+        "t7-assert"
+      ]
+    ]
+  },
+  {
+    "id": "t7-assert",
+    "type": "function",
+    "z": "v13-t7",
+    "name": "assert",
+    "func": "const errs = [];\nif (typeof msg.publisherId !== \"number\") errs.push(\"type=\" + typeof msg.publisherId);\nif (msg.publisherId !== 305419896) errs.push(\"pid=\" + msg.publisherId);\nnode.warn(errs.length ? \"[VALIDATE] T7 publisherid-uint32: FAIL - \" + errs.join(\", \")\n                      : \"[VALIDATE] T7 publisherid-uint32: PASS\");\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 650,
+    "y": 240,
+    "wires": [
+      [
+        "t7-dbg"
+      ]
+    ]
+  },
+  {
+    "id": "t7-dbg",
+    "type": "debug",
+    "z": "v13-t7",
+    "name": "T7 result",
+    "active": true,
+    "tosidebar": true,
+    "console": true,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 860,
+    "y": 240,
+    "wires": []
+  },
+  {
+    "id": "v13-t8",
+    "type": "tab",
+    "label": "T8 Filtering",
+    "info": ""
+  },
+  {
+    "id": "v13-t8-cmt",
+    "type": "comment",
+    "z": "v13-t8",
+    "name": "T8 \u2014 publisher writerGroupId 7; subA filters wg7 (must receive), subB filters wg999 (must receive NOTHING). subB-path sets flag; delayed check PASSes if no msg.",
+    "x": 480,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "t8-conn",
+    "type": "opcua-pubsub-connection",
+    "name": "T8 UDP",
+    "transportType": "udp",
+    "multicastGroup": "239.0.13.6",
+    "multicastInterface": "0.0.0.0",
+    "port": 4856,
+    "mtu": 1400,
+    "brokerUrl": "mqtt://val-mosquitto:1883",
+    "topicPrefix": "ua",
+    "qos": 1,
+    "publisherIdType": "String",
+    "publisherId": "13000000-0000-4000-8000-000000000008",
+    "certificateFile": "",
+    "privateKeyFile": "",
+    "caCertificateFile": ""
+  },
+  {
+    "id": "t8-inject",
+    "type": "inject",
+    "z": "v13-t8",
+    "name": "1. reset+publish",
+    "props": [
+      {
+        "p": "payload",
+        "vt": "json",
+        "v": "{\"X\":5}"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 150,
+    "y": 120,
+    "wires": [
+      [
+        "t8-resetfn",
+        "t8-pub"
+      ]
+    ]
+  },
+  {
+    "id": "t8-resetfn",
+    "type": "function",
+    "z": "v13-t8",
+    "name": "reset flags",
+    "func": "flow.set(\"t8_a\", false);\nflow.set(\"t8_b\", false);\nreturn null;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 650,
+    "y": 60,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "t8-pub",
+    "type": "opcua-publisher",
+    "z": "v13-t8",
+    "name": "Pub wg7",
+    "connection": "t8-conn",
+    "messageEncoding": "uadp",
+    "publishMode": "acyclic",
+    "publishingInterval": 1000,
+    "keepAliveTime": "",
+    "writerGroupId": 7,
+    "priority": 128,
+    "maxNetworkMessageSize": 1400,
+    "writers": "[{\"dataSetWriterId\":1,\"dataSetName\":\"T8\",\"publishedDataSet\":{\"name\":\"T8\",\"fields\":[{\"name\":\"X\",\"dataType\":\"Int32\"}]}}]",
+    "x": 420,
+    "y": 120,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "t8-subA",
+    "type": "opcua-subscriber",
+    "z": "v13-t8",
+    "name": "Sub wg7 (match)",
+    "connection": "t8-conn",
+    "messageEncoding": "uadp",
+    "publisherId": "13000000-0000-4000-8000-000000000008",
+    "writerGroupId": 7,
+    "dataSetWriterId": "",
+    "expectedConfigVersion": "",
+    "x": 430,
+    "y": 200,
+    "wires": [
+      [
+        "t8-markA"
+      ]
+    ]
+  },
+  {
+    "id": "t8-subB",
+    "type": "opcua-subscriber",
+    "z": "v13-t8",
+    "name": "Sub wg999 (no-match)",
+    "connection": "t8-conn",
+    "messageEncoding": "uadp",
+    "publisherId": "13000000-0000-4000-8000-000000000008",
+    "writerGroupId": 999,
+    "dataSetWriterId": "",
+    "expectedConfigVersion": "",
+    "x": 430,
+    "y": 280,
+    "wires": [
+      [
+        "t8-markB"
+      ]
+    ]
+  },
+  {
+    "id": "t8-markA",
+    "type": "function",
+    "z": "v13-t8",
+    "name": "markA",
+    "func": "flow.set(\"t8_a\", true); return null;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 650,
+    "y": 200,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "t8-markB",
+    "type": "function",
+    "z": "v13-t8",
+    "name": "markB",
+    "func": "flow.set(\"t8_b\", true); return null;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 650,
+    "y": 280,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "t8-check",
+    "type": "inject",
+    "z": "v13-t8",
+    "name": "2. check (after ~2s)",
+    "props": [],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 150,
+    "y": 360,
+    "wires": [
+      [
+        "t8-assert"
+      ]
+    ]
+  },
+  {
+    "id": "t8-assert",
+    "type": "function",
+    "z": "v13-t8",
+    "name": "assert",
+    "func": "const a = flow.get(\"t8_a\");\nconst b = flow.get(\"t8_b\");\nconst errs = [];\nif (!a) errs.push(\"subA(match) received nothing\");\nif (b) errs.push(\"subB(non-match) unexpectedly received\");\nnode.warn(errs.length ? \"[VALIDATE] T8 filtering: FAIL - \" + errs.join(\", \")\n                      : \"[VALIDATE] T8 filtering: PASS\");\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 650,
+    "y": 360,
+    "wires": [
+      [
+        "t8-dbg"
+      ]
+    ]
+  },
+  {
+    "id": "t8-dbg",
+    "type": "debug",
+    "z": "v13-t8",
+    "name": "T8 result",
+    "active": true,
+    "tosidebar": true,
+    "console": true,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 860,
+    "y": 360,
+    "wires": []
+  },
+  {
+    "id": "v13-t9",
+    "type": "tab",
+    "label": "T9 ConfigVersion mismatch",
+    "info": ""
+  },
+  {
+    "id": "v13-t9-cmt",
+    "type": "comment",
+    "z": "v13-t9",
+    "name": "T9 \u2014 publisher PDS configurationVersion {1,0}; subscriber expectedConfigVersion 2.0. Subscriber must NOT emit a normal msg (logs node.error). Delayed check PASSes if nothing arrived.",
+    "x": 480,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "t9-conn",
+    "type": "opcua-pubsub-connection",
+    "name": "T9 UDP",
+    "transportType": "udp",
+    "multicastGroup": "239.0.13.7",
+    "multicastInterface": "0.0.0.0",
+    "port": 4857,
+    "mtu": 1400,
+    "brokerUrl": "mqtt://val-mosquitto:1883",
+    "topicPrefix": "ua",
+    "qos": 1,
+    "publisherIdType": "String",
+    "publisherId": "13000000-0000-4000-8000-000000000009",
+    "certificateFile": "",
+    "privateKeyFile": "",
+    "caCertificateFile": ""
+  },
+  {
+    "id": "t9-inject",
+    "type": "inject",
+    "z": "v13-t9",
+    "name": "1. reset+publish",
+    "props": [
+      {
+        "p": "payload",
+        "vt": "json",
+        "v": "{\"V\":1}"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 150,
+    "y": 120,
+    "wires": [
+      [
+        "t9-resetfn",
+        "t9-pub"
+      ]
+    ]
+  },
+  {
+    "id": "t9-resetfn",
+    "type": "function",
+    "z": "v13-t9",
+    "name": "reset flag",
+    "func": "flow.set(\"t9_recv\", false); return null;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 650,
+    "y": 60,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "t9-pub",
+    "type": "opcua-publisher",
+    "z": "v13-t9",
+    "name": "Pub cv1.0",
+    "connection": "t9-conn",
+    "messageEncoding": "uadp",
+    "publishMode": "acyclic",
+    "publishingInterval": 1000,
+    "keepAliveTime": "",
+    "writerGroupId": 9,
+    "priority": 128,
+    "maxNetworkMessageSize": 1400,
+    "writers": "[{\"dataSetWriterId\":1,\"dataSetName\":\"T9\",\"publishedDataSet\":{\"name\":\"T9\",\"fields\":[{\"name\":\"V\",\"dataType\":\"Int32\"}],\"configurationVersion\":{\"major\":1,\"minor\":0}}}]",
+    "x": 420,
+    "y": 120,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "t9-sub",
+    "type": "opcua-subscriber",
+    "z": "v13-t9",
+    "name": "Sub expect 2.0",
+    "connection": "t9-conn",
+    "messageEncoding": "uadp",
+    "publisherId": "13000000-0000-4000-8000-000000000009",
+    "writerGroupId": 9,
+    "dataSetWriterId": 1,
+    "expectedConfigVersion": "2.0",
+    "x": 430,
+    "y": 200,
+    "wires": [
+      [
+        "t9-mark"
+      ]
+    ]
+  },
+  {
+    "id": "t9-mark",
+    "type": "function",
+    "z": "v13-t9",
+    "name": "mark recv",
+    "func": "flow.set(\"t9_recv\", true); return null;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 650,
+    "y": 200,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "t9-check",
+    "type": "inject",
+    "z": "v13-t9",
+    "name": "2. check (after ~2s)",
+    "props": [],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 150,
+    "y": 300,
+    "wires": [
+      [
+        "t9-assert"
+      ]
+    ]
+  },
+  {
+    "id": "t9-assert",
+    "type": "function",
+    "z": "v13-t9",
+    "name": "assert",
+    "func": "const recv = flow.get(\"t9_recv\");\nnode.warn(recv ? \"[VALIDATE] T9 configversion-mismatch: FAIL - unexpectedly received DataSet msg\"\n               : \"[VALIDATE] T9 configversion-mismatch: PASS (msg suppressed, error logged)\");\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 650,
+    "y": 300,
+    "wires": [
+      [
+        "t9-dbg"
+      ]
+    ]
+  },
+  {
+    "id": "t9-dbg",
+    "type": "debug",
+    "z": "v13-t9",
+    "name": "T9 result",
+    "active": true,
+    "tosidebar": true,
+    "console": true,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 860,
+    "y": 300,
+    "wires": []
+  }
+]
