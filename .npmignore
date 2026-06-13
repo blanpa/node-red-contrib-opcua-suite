@@ -22,6 +22,7 @@ docs/
 Dockerfile*
 docker-compose*
 docker-start.sh
+docker-entrypoint*.sh
 
 # Build / Dev tools
 Makefile
@@ -30,8 +31,16 @@ Makefile
 DOCKER.md
 QUICKSTART.md
 
-# Examples (available on GitHub)
-examples/
+# Examples: the user-facing flows (01-12) ARE shipped so Node-RED's
+# "Import → Examples → node-red-contrib-opcua-suite" works. Only the
+# comprehensive dev validation flows (13/14) are GitHub-only — they
+# reference the bundled Docker test stack (test server + MQTT broker).
+examples/13*
+examples/14*
+
+# Internal planning / code-review artifacts (GitHub only)
+.planning/
+REVIEW.md
 
 # Environment
 .env*

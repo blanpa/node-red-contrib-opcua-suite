@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.0 (2026-06-13)
+
 ### Added — OPC UA PubSub (v0.1.0 milestone)
 
 A complete, purely additive OPC UA PubSub Publisher/Subscriber layer — zero breaking changes to the existing eight Client/Server nodes. ([#13](https://github.com/blanpa/node-red-contrib-opcua-suite/issues/13))
@@ -16,11 +18,13 @@ A complete, purely additive OPC UA PubSub Publisher/Subscriber layer — zero br
 - **Config-object layer** (`lib/pubsub-config.js`) – validate+factory hybrids for WriterGroup / DataSetWriter / PublishedDataSet / DataSetReader with frozen returns and cross-field validation (e.g. `KeepAliveTime ≥ PublishingInterval`).
 - **Round-trip + redeploy tests** – Mocha round-trip coverage for all three shipped combinations (UDP-UADP, MQTT-UADP via in-process `aedes` broker, MQTT-JSON), a 20-cycle redeploy acceptance test, and confirmation of the 8-combination UADP flag matrix. (Open62541 byte-for-byte reference capture is a tracked manual follow-up.)
 - **Three example flows** – `10 - PubSub UDP-UADP Loopback` (self-contained, no external infrastructure), `11 - PubSub MQTT-UADP`, and `12 - PubSub MQTT-JSON`, all validated by the example-flow harness.
+- **Two comprehensive self-asserting validation flows** (GitHub repo, target the bundled Docker test stack) – `13 - PubSub Full Validation` (9 PubSub scenarios) and `14 - Full Suite Validation` (24 tabs exercising every node, classic + PubSub). Both were run live against a real Node-RED + test server + MQTT broker with every tab reporting `PASS`.
 - **README PubSub section** – configuration hierarchy, full `msg` shape, the UDP-only-UADP rule, and the multicast NIC-selection caveat.
 
 ### Changed
 
 - **Unified palette presentation** – all draggable OPC UA nodes now share a single `opcua-suite` palette category and the same suite color (`#3a8cba`), so the Client/Server and the new PubSub nodes group and render consistently.
+- **Example flows now ship in the npm package** – the user-facing example flows (`01`–`12`) are now included in the published package so **Import → Examples → node-red-contrib-opcua-suite** works after `npm install` (previously the whole `examples/` directory was excluded). Internal planning/review artifacts (`.planning/`, `REVIEW.md`) are excluded from the package.
 
 ### Fixed
 
