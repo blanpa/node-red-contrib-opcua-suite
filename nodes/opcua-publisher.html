@@ -1,0 +1,173 @@
+<script type="text/javascript">
+    RED.nodes.registerType("opcua-publisher", {
+        category: "function",
+        color: "#2e7d9a",
+        defaults: {
+            name: { value: "" },
+            connection: { value: "", type: "opcua-pubsub-connection", required: true },
+            messageEncoding: { value: "uadp" },            // "uadp" | "json" (D4-03)
+            publishMode: { value: "acyclic" },             // "acyclic" | "cyclic" (D4-06)
+            publishingInterval: { value: 1000, required: true, validate: RED.validators.number() },
+            keepAliveTime: { value: "" },
+            writerGroupId: { value: 1, required: true, validate: RED.validators.number() },
+            priority: { value: 128 },
+            maxNetworkMessageSize: { value: 1400 },
+            writers: { value: "[{\"dataSetWriterId\":1,\"dataSetName\":\"DataSet1\",\"publishedDataSet\":{\"name\":\"DataSet1\",\"fields\":[{\"name\":\"value\",\"dataType\":\"Double\"}]}}]" }
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "opcua.svg",
+        label: function () {
+            return this.name || "OPC UA Publisher";
+        },
+        labelStyle: function () {
+            return this.name ? "node_label_italic" : "";
+        },
+        oneditprepare: function () {
+            // Populate the writers JSON editor from the stored value.
+            var writersVal = this.writers;
+            try {
+                // Pretty-print for editing if it parses; otherwise show as-is.
+                writersVal = JSON.stringify(JSON.parse(this.writers || "[]"), null, 2);
+            } catch (e) { /* leave raw */ }
+            $("#node-input-writers-json").val(writersVal);
+
+            // Hint: publishingInterval drives the cyclic interval.
+            function updateModeHint() {
+                var mode = $("#node-input-publishMode").val();
+                if (mode === "cyclic") {
+                    $("#opcua-pub-mode-hint").text("Cyclic: publishes every Publishing Interval ms; sends KeepAlive when nothing changed.");
+                } else {
+                    $("#opcua-pub-mode-hint").text("Acyclic: publishes once per inbound msg.payload.");
+                }
+            }
+            $("#node-input-publishMode").on("change", updateModeHint);
+            updateModeHint();
+        },
+        oneditsave: function () {
+            // Serialize the writers JSON editor back into the hidden writers field.
+            var raw = $("#node-input-writers-json").val();
+            try {
+                // Validate + compact before storing.
+                this.writers = JSON.stringify(JSON.parse(raw));
+            } catch (e) {
+                // On parse error, keep the previous stored value untouched.
+            }
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="opcua-publisher">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="OPC UA Publisher">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-connection"><i class="fa fa-plug"></i> Connection</label>
+        <input type="text" id="node-input-connection">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-messageEncoding"><i class="fa fa-code"></i> Encoding</label>
+        <select id="node-input-messageEncoding">
+            <option value="uadp">UADP (binary)</option>
+            <option value="json">JSON</option>
+        </select>
+    </div>
+    <div class="form-tips" style="margin-bottom:10px;">
+        UDP transport supports UADP only; JSON requires MQTT (D4-03).
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-publishMode"><i class="fa fa-clock-o"></i> Publish Mode</label>
+        <select id="node-input-publishMode">
+            <option value="acyclic">Acyclic (msg-driven)</option>
+            <option value="cyclic">Cyclic (interval)</option>
+        </select>
+    </div>
+    <div class="form-tips" id="opcua-pub-mode-hint" style="margin-bottom:10px;"></div>
+
+    <hr/>
+    <h4>WriterGroup</h4>
+
+    <div class="form-row">
+        <label for="node-input-publishingInterval"><i class="fa fa-hourglass"></i> Publishing Interval (ms)</label>
+        <input type="text" id="node-input-publishingInterval" placeholder="1000">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-keepAliveTime"><i class="fa fa-heartbeat"></i> KeepAlive Time (ms)</label>
+        <input type="text" id="node-input-keepAliveTime" placeholder="(defaults to Publishing Interval)">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-writerGroupId"><i class="fa fa-hashtag"></i> WriterGroupId</label>
+        <input type="text" id="node-input-writerGroupId" placeholder="1">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-priority"><i class="fa fa-sort-amount-asc"></i> Priority</label>
+        <input type="text" id="node-input-priority" placeholder="128">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-maxNetworkMessageSize"><i class="fa fa-expand"></i> Max Msg Size</label>
+        <input type="text" id="node-input-maxNetworkMessageSize" placeholder="1400">
+    </div>
+
+    <hr/>
+    <h4>DataSetWriters</h4>
+    <div class="form-row" style="margin-bottom:5px;">
+        <label style="width:100%;" for="node-input-writers-json">
+            <i class="fa fa-list"></i> Writers (JSON)
+        </label>
+    </div>
+    <div class="form-row">
+        <textarea id="node-input-writers-json" rows="10"
+            style="width:100%; font-family:monospace; white-space:pre;"></textarea>
+    </div>
+    <div class="form-tips">
+        Array of DataSetWriters. Each:
+        <code>{ "dataSetWriterId": 1, "dataSetName": "...", "publishedDataSet": { "name": "...", "fields": [{ "name": "...", "dataType": "Double" }] } }</code>
+    </div>
+
+    <!-- hidden field that actually stores the serialized writers value -->
+    <input type="hidden" id="node-input-writers">
+</script>
+
+<script type="text/html" data-help-name="opcua-publisher">
+    <p>Publishes OPC UA PubSub <b>NetworkMessages</b> over the transport owned by an
+    <code>opcua-pubsub-connection</code> config node.</p>
+
+    <h3>Configuration hierarchy (D4-04)</h3>
+    <p>Connection &rarr; <b>WriterGroup</b> (exactly one) &rarr; one or more
+    <b>DataSetWriters</b>, each bound to one <b>PublishedDataSet</b>. The
+    PublishedDataSet <code>fields[]</code> (<code>{ name, dataType }</code>) are the
+    authority for typing outgoing field values.</p>
+
+    <h3>Input (acyclic, D4-05)</h3>
+    <p><code>msg.payload</code> is an object keyed by field name:
+    <code>{ &lt;fieldName&gt;: &lt;rawValue&gt; }</code>. Each declared PublishedDataSet
+    field present in the payload becomes a Variant in one keyframe DataSetMessage per
+    DataSetWriter. <b>Missing fields are omitted</b>, never fabricated. One inbound msg
+    &rarr; one outbound NetworkMessage.</p>
+
+    <h3>Publish mode (D4-06)</h3>
+    <ul>
+        <li><b>Acyclic</b> (default): one NetworkMessage per inbound msg.</li>
+        <li><b>Cyclic</b>: a single interval per WriterGroup fires every Publishing
+        Interval ms, sending a keyframe when values changed since the last tick and a
+        <b>KeepAlive</b> NetworkMessage (empty fields) when nothing changed. The
+        sequence number increments on both.</li>
+    </ul>
+
+    <h3>Encoding (D4-03)</h3>
+    <p><code>messageEncoding</code> is <code>uadp</code> or <code>json</code>. UDP
+    transport supports <b>UADP only</b> — selecting JSON over a UDP connection is
+    rejected at startup. MQTT allows either.</p>
+
+    <h3>Status</h3>
+    <p>Idle (blue dot) &rarr; connected (green dot) &rarr; publishing (green ring);
+    disconnected (yellow ring); error (red ring).</p>
+</script>

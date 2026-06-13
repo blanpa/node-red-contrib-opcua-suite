@@ -239,3 +239,135 @@ describe("opcua-publisher node (Task 1)", function () {
         expect(doneCb.calledOnce).to.be.true;
     });
 });
+
+// ─── Task 2: cyclic mode + KeepAlive + interval cleanup + HTML ───
+
+describe("opcua-publisher node (Task 2 - cyclic)", function () {
+
+    it("cyclic mode: input msg merges values but does NOT emit immediately", function () {
+        const conn = makeConn();
+        const RED = createRED({ conn1: conn });
+        const ctor = loadPublisher(RED);
+        const node = {};
+        ctor.call(node, validConfig({ publishMode: "cyclic", publishingInterval: 100, writers: validConfig().writers.replace("temp", "value") }));
+        const send = sinon.stub();
+        const done = sinon.stub();
+        node._events["input"][0]({ payload: { value: 1 } }, send, done);
+        expect(conn._fakeTransport.send.called).to.be.false;
+        expect(node._dirty).to.be.true;
+        expect(node._latestValues.value).to.equal(1);
+        // cleanup the interval
+        node._events["close"][0](false, sinon.stub());
+    });
+
+    it("cyclic tick after a value change emits a keyframe", function () {
+        const clock = sinon.useFakeTimers();
+        try {
+            const conn = makeConn();
+            const RED = createRED({ conn1: conn });
+            const ctor = loadPublisher(RED);
+            const node = {};
+            ctor.call(node, validConfig({ publishMode: "cyclic", publishingInterval: 100 }));
+            const emitted = [];
+            const origEmit = node._emit;
+            node._emit = function (nm) { emitted.push(nm); return origEmit.call(node, nm); };
+            node._events["input"][0]({ payload: { temp: 1 } }, sinon.stub(), sinon.stub());
+            clock.tick(100);
+            expect(conn._fakeTransport.send.calledOnce).to.be.true;
+            expect(emitted[0].payload[0].messageType).to.equal("keyframe");
+            node._events["close"][0](false, sinon.stub());
+        } finally {
+            clock.restore();
+        }
+    });
+
+    it("cyclic tick with NO change emits a KeepAlive (messageType 'keepalive', empty fields)", function () {
+        const clock = sinon.useFakeTimers();
+        try {
+            const conn = makeConn();
+            const RED = createRED({ conn1: conn });
+            const ctor = loadPublisher(RED);
+            const node = {};
+            ctor.call(node, validConfig({ publishMode: "cyclic", publishingInterval: 100 }));
+            const emitted = [];
+            const origEmit = node._emit;
+            node._emit = function (nm) { emitted.push(nm); return origEmit.call(node, nm); };
+            node._events["input"][0]({ payload: { temp: 1 } }, sinon.stub(), sinon.stub());
+            clock.tick(100); // keyframe
+            clock.tick(100); // no change → keepalive
+            expect(emitted[1].payload[0].messageType).to.equal("keepalive");
+            expect(Object.keys(emitted[1].payload[0].fields).length).to.equal(0);
+            node._events["close"][0](false, sinon.stub());
+        } finally {
+            clock.restore();
+        }
+    });
+
+    it("sequenceNumber increments on keepalive too", function () {
+        const clock = sinon.useFakeTimers();
+        try {
+            const conn = makeConn();
+            const RED = createRED({ conn1: conn });
+            const ctor = loadPublisher(RED);
+            const node = {};
+            ctor.call(node, validConfig({ publishMode: "cyclic", publishingInterval: 100 }));
+            const emitted = [];
+            const origEmit = node._emit;
+            node._emit = function (nm) { emitted.push(nm); return origEmit.call(node, nm); };
+            node._events["input"][0]({ payload: { temp: 1 } }, sinon.stub(), sinon.stub());
+            clock.tick(100); // keyframe
+            clock.tick(100); // keepalive
+            expect(emitted[1].groupHeader.sequenceNumber).to.equal(emitted[0].groupHeader.sequenceNumber + 1);
+            node._events["close"][0](false, sinon.stub());
+        } finally {
+            clock.restore();
+        }
+    });
+
+    it("close clears the cyclic interval (no further sends after close)", function () {
+        const clock = sinon.useFakeTimers();
+        try {
+            const conn = makeConn();
+            const RED = createRED({ conn1: conn });
+            const ctor = loadPublisher(RED);
+            const node = {};
+            ctor.call(node, validConfig({ publishMode: "cyclic", publishingInterval: 100 }));
+            node._events["input"][0]({ payload: { temp: 1 } }, sinon.stub(), sinon.stub());
+            clock.tick(100);
+            const countAfterTick = conn._fakeTransport.send.callCount;
+            const doneCb = sinon.stub();
+            node._events["close"][0](false, doneCb);
+            clock.tick(500);
+            expect(conn._fakeTransport.send.callCount).to.equal(countAfterTick);
+            expect(doneCb.calledOnce).to.be.true;
+        } finally {
+            clock.restore();
+        }
+    });
+});
+
+// ─── Task 2: editor HTML ───
+
+describe("opcua-publisher.html (Task 2 - editor)", function () {
+    const HTML_PATH = path.resolve(__dirname, "..", "nodes", "opcua-publisher.html");
+    let html;
+
+    before(function () {
+        html = fs.readFileSync(HTML_PATH, "utf8");
+    });
+
+    it("registers type 'opcua-publisher' with category 'function'", function () {
+        expect(html).to.match(/RED\.nodes\.registerType\(\s*["']opcua-publisher["']/);
+        expect(html).to.match(/category:\s*["']function["']/);
+    });
+
+    it("defaults include connection, messageEncoding, publishMode, publishingInterval, writerGroupId, writers", function () {
+        ["connection", "messageEncoding", "publishMode", "publishingInterval", "writerGroupId", "writers"].forEach(function (k) {
+            expect(html).to.contain(k);
+        });
+    });
+
+    it("connection picker references the opcua-pubsub-connection config node type", function () {
+        expect(html).to.match(/type:\s*["']opcua-pubsub-connection["']/);
+    });
+});
