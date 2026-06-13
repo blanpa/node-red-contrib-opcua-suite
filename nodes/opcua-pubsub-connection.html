@@ -43,7 +43,7 @@
             publisherIdType: { value: "String" },
             publisherId: { value: "" }, // set in oneditprepare for new nodes
             // Cert placeholders — hidden under Advanced for Phase 3.1 mTLS
-            // schema stability (RESEARCH A1). Reserved for v2 mTLS support.
+            // schema stability. Reserved for v2 mTLS support.
             certificateFile: { value: "" },
             privateKeyFile: { value: "" },
             caCertificateFile: { value: "" }
@@ -62,7 +62,7 @@
         oneditprepare: function() {
             var node = this;
 
-            // D-10: default a fresh node's String PublisherId to a UUID v4.
+            // Default a fresh node's String PublisherId to a UUID v4.
             if (
                 (this.publisherId === "" || this.publisherId === undefined) &&
                 this.publisherIdType === "String"
@@ -84,7 +84,7 @@
             $("#node-config-input-transportType").on("change", updateTransportUI);
             updateTransportUI();
 
-            // ─── PublisherId adaptive value input (D-09) ───
+            // ─── PublisherId adaptive value input ───
             function updatePublisherIdUI() {
                 var t = $("#node-config-input-publisherIdType").val();
                 var $val = $("#node-config-input-publisherId");

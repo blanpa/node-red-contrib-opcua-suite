@@ -5,11 +5,11 @@
         defaults: {
             name: { value: "" },
             connection: { value: "", type: "opcua-pubsub-connection", required: true },
-            messageEncoding: { value: "uadp" },            // "uadp" | "json" (D4-03)
+            messageEncoding: { value: "uadp" },            // "uadp" | "json"
             publisherId: { value: "" },                    // DataSetReader filter (string|number)
             writerGroupId: { value: "" },                  // DataSetReader filter (number)
             dataSetWriterId: { value: "" },                // DataSetReader filter (number)
-            expectedConfigVersion: { value: "" }           // optional "M.m" ConfigurationVersion check (D4-08)
+            expectedConfigVersion: { value: "" }           // optional "M.m" ConfigurationVersion check
         },
         inputs: 0,
         outputs: 1,
@@ -22,7 +22,7 @@
         },
         oneditprepare: function () {
             // When the picked connection is UDP, force messageEncoding to uadp and
-            // disable the json option, surfacing the D4-03 rule in the editor.
+            // disable the json option, surfacing the UDP-only-UADP rule in the editor.
             function applyTransportRule() {
                 var connId = $("#node-input-connection").val();
                 var connNode = connId ? RED.nodes.node(connId) : null;
@@ -30,7 +30,7 @@
                 if (connNode && connNode.transportType === "udp") {
                     $("#node-input-messageEncoding").val("uadp");
                     jsonOption.prop("disabled", true);
-                    $("#opcua-sub-encoding-hint").text("UDP transport supports UADP only (D4-03).");
+                    $("#opcua-sub-encoding-hint").text("UDP transport supports UADP only.");
                 } else {
                     jsonOption.prop("disabled", false);
                     $("#opcua-sub-encoding-hint").text("");
@@ -80,7 +80,7 @@
         <label for="node-input-expectedConfigVersion"><i class="fa fa-check-circle"></i> Expected Config Version</label>
         <input type="text" id="node-input-expectedConfigVersion" placeholder="M.m (optional)">
     </div>
-    <div class="form-tips" style="margin-bottom:8px;">If set, a DataSetMessage whose ConfigurationVersion differs raises an error (D4-08).</div>
+    <div class="form-tips" style="margin-bottom:8px;">If set, a DataSetMessage whose ConfigurationVersion differs raises an error.</div>
 </script>
 
 <script type="text/html" data-help-name="opcua-subscriber">

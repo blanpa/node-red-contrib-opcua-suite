@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+### Added — OPC UA PubSub (v0.1.0 milestone)
+
+A complete, purely additive OPC UA PubSub Publisher/Subscriber layer — zero breaking changes to the existing eight Client/Server nodes. ([#13](https://github.com/blanpa/node-red-contrib-opcua-suite/issues/13))
+
+- **`opcua-publisher` node** – references an `opcua-pubsub-connection`, declares one WriterGroup with one or more DataSetWriters (each bound to a PublishedDataSet), and publishes in **acyclic** (msg-driven: one `msg.payload` field map → one NetworkMessage) or **cyclic** mode (one `setInterval` per WriterGroup at `PublishingInterval`, sending a KeepAlive NetworkMessage when no field value changed between ticks). Encoding (`uadp`/`json`) is selectable; UDP rejects JSON at startup.
+- **`opcua-subscriber` node** – references an `opcua-pubsub-connection`, declares one DataSetReader filtering on PublisherId/WriterGroupId/DataSetWriterId, decodes received NetworkMessages (UADP or JSON), and emits one `msg` per matched DataSetMessage with `payload` plus `publisherId`, `writerGroupId`, `dataSetWriterId`, `sequenceNumber`, `timestamp`, `statusCode`, `encoding`, `transport`, and `topic` (MQTT only). A ConfigurationVersion mismatch surfaces as a visible `node.error()` and is never silently dropped.
+- **`opcua-pubsub-connection` config node** – owns the transport lifecycle with ref-counted acquire/release + a 500 ms grace timer (so rapid redeploys reuse the same socket), fans out `connected`/`disconnected`/`reconnecting`/`error` status to worker nodes, and reuses the drag-and-drop cert dropzone. `transportType` dropdown (UDP / MQTT) and a String/UInt16/UInt32/UInt64 PublisherId.
+- **UDP-UADP transport** – `dgram` multicast with `reuseAddr`, multicast loopback, chunk reassembly (30 s expiry + 1000-entry overflow guard), and clean `socket.close(done)` teardown (no `EADDRINUSE` across 20 rapid redeploy cycles).
+- **MQTT transport** – MQTT 5.0 with one-shot fallback to 3.1.1, `retain: false` hard-coded on data topics (not caller-overridable), topic-injection guard, and graceful `client.end(false, …)` close. Credentials via the Node-RED credentials block.
+- **UADP binary encoder/decoder** (`lib/uadp-encoder.js`) – NetworkMessage + DataSetMessage codec with the full ExtendedFlags1/2 cascade, all PublisherId variants, three field encodings (Variant/RawData/DataValue), and sender-side chunking against a 1400-byte MTU. Verified across all 8 flag-presence combinations.
+- **JSON encoder/decoder** (`lib/json-encoder.js`) – Part 14 §7.2.5 JSON NetworkMessage codec with deterministic field order and structured decode errors.
+- **Config-object layer** (`lib/pubsub-config.js`) – validate+factory hybrids for WriterGroup / DataSetWriter / PublishedDataSet / DataSetReader with frozen returns and cross-field validation (e.g. `KeepAliveTime ≥ PublishingInterval`).
+- **Round-trip + redeploy tests** – Mocha round-trip coverage for all three shipped combinations (UDP-UADP, MQTT-UADP via in-process `aedes` broker, MQTT-JSON), a 20-cycle redeploy acceptance test, and confirmation of the 8-combination UADP flag matrix. (Open62541 byte-for-byte reference capture is a tracked manual follow-up.)
+- **Three example flows** – `10 - PubSub UDP-UADP Loopback` (self-contained, no external infrastructure), `11 - PubSub MQTT-UADP`, and `12 - PubSub MQTT-JSON`, all validated by the example-flow harness.
+- **README PubSub section** – configuration hierarchy, full `msg` shape, the UDP-only-UADP rule, and the multicast NIC-selection caveat.
+
+### Changed
+
+- **Unified palette presentation** – all draggable OPC UA nodes now share a single `opcua-suite` palette category and the same suite color (`#3a8cba`), so the Client/Server and the new PubSub nodes group and render consistently.
+
 ### Fixed
 
 - **Browse results capped at the server's per-browse limit (e.g. 100 items on S7-1500)** – Neither the client manager's `browse()` nor the browse-client editor tree followed OPC UA continuation points. Servers with a low `MaxReferencesPerNode` (the S7-1500 returns at most 100 references per Browse response) silently truncated the result. All browse paths (`opcua-browser`, `opcua-client` browse operation, and the `opcua-browse-client` editor tree including its unfiltered fallback browse) now call `browseNext` until the server has returned all references, with a safety cap against servers that never exhaust their continuation point. ([#14](https://github.com/blanpa/node-red-contrib-opcua-suite/issues/14))

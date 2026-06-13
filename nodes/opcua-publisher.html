@@ -5,8 +5,8 @@
         defaults: {
             name: { value: "" },
             connection: { value: "", type: "opcua-pubsub-connection", required: true },
-            messageEncoding: { value: "uadp" },            // "uadp" | "json" (D4-03)
-            publishMode: { value: "acyclic" },             // "acyclic" | "cyclic" (D4-06)
+            messageEncoding: { value: "uadp" },            // "uadp" | "json"
+            publishMode: { value: "acyclic" },             // "acyclic" | "cyclic"
             publishingInterval: { value: 1000, required: true, validate: RED.validators.number() },
             keepAliveTime: { value: "" },
             writerGroupId: { value: 1, required: true, validate: RED.validators.number() },
@@ -76,7 +76,7 @@
         </select>
     </div>
     <div class="form-tips" style="margin-bottom:10px;">
-        UDP transport supports UADP only; JSON requires MQTT (D4-03).
+        UDP transport supports UADP only; JSON requires MQTT.
     </div>
 
     <div class="form-row">
@@ -140,20 +140,20 @@
     <p>Publishes OPC UA PubSub <b>NetworkMessages</b> over the transport owned by an
     <code>opcua-pubsub-connection</code> config node.</p>
 
-    <h3>Configuration hierarchy (D4-04)</h3>
+    <h3>Configuration hierarchy</h3>
     <p>Connection &rarr; <b>WriterGroup</b> (exactly one) &rarr; one or more
     <b>DataSetWriters</b>, each bound to one <b>PublishedDataSet</b>. The
     PublishedDataSet <code>fields[]</code> (<code>{ name, dataType }</code>) are the
     authority for typing outgoing field values.</p>
 
-    <h3>Input (acyclic, D4-05)</h3>
+    <h3>Input (acyclic)</h3>
     <p><code>msg.payload</code> is an object keyed by field name:
     <code>{ &lt;fieldName&gt;: &lt;rawValue&gt; }</code>. Each declared PublishedDataSet
     field present in the payload becomes a Variant in one keyframe DataSetMessage per
     DataSetWriter. <b>Missing fields are omitted</b>, never fabricated. One inbound msg
     &rarr; one outbound NetworkMessage.</p>
 
-    <h3>Publish mode (D4-06)</h3>
+    <h3>Publish mode</h3>
     <ul>
         <li><b>Acyclic</b> (default): one NetworkMessage per inbound msg.</li>
         <li><b>Cyclic</b>: a single interval per WriterGroup fires every Publishing
@@ -162,7 +162,7 @@
         sequence number increments on both.</li>
     </ul>
 
-    <h3>Encoding (D4-03)</h3>
+    <h3>Encoding</h3>
     <p><code>messageEncoding</code> is <code>uadp</code> or <code>json</code>. UDP
     transport supports <b>UADP only</b> — selecting JSON over a UDP connection is
     rejected at startup. MQTT allows either.</p>
