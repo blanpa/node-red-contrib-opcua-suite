@@ -1,0 +1,102 @@
+[
+    {
+        "id": "ex11-conn",
+        "type": "opcua-pubsub-connection",
+        "name": "MQTT Broker",
+        "transportType": "mqtt",
+        "multicastGroup": "239.0.0.1",
+        "multicastInterface": "0.0.0.0",
+        "port": 4840,
+        "mtu": 1400,
+        "brokerUrl": "mqtt://localhost:1883",
+        "topicPrefix": "ua",
+        "qos": 1,
+        "publisherIdType": "String",
+        "publisherId": "11000000-0000-4000-8000-000000000011",
+        "certificateFile": "",
+        "privateKeyFile": "",
+        "caCertificateFile": ""
+    },
+    {
+        "id": "ex11-tab",
+        "type": "tab",
+        "label": "11 - PubSub MQTT-UADP",
+        "info": "Broker-mediated OPC UA **PubSub** with **UADP (binary)** encoding over MQTT.\n\n**Requires a local MQTT broker** (e.g. Mosquitto) reachable at `mqtt://localhost:1883`. Start one before deploying — e.g.\n\n    docker run -p 1883:1883 eclipse-mosquitto\n\nThe publisher publishes one DataSet to `ua/{publisherId}/{writerGroupId}/{dataSetWriterId}`; the subscriber receives it and the debug node shows the round-tripped `msg` (`msg.encoding` `uadp`, `msg.transport` `mqtt`, and `msg.topic` set).\n\nClick the **Publish DataSet** inject after the broker is running and the flow is deployed."
+    },
+    {
+        "id": "ex11-comment",
+        "type": "comment",
+        "z": "ex11-tab",
+        "name": "MQTT-UADP — requires a local MQTT broker at mqtt://localhost:1883 (docker run -p 1883:1883 eclipse-mosquitto)",
+        "x": 460,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "ex11-inject",
+        "type": "inject",
+        "z": "ex11-tab",
+        "name": "Publish DataSet",
+        "props": [
+            { "p": "payload", "vt": "json", "v": "{\"Temperature\":23.5,\"Label\":\"sensor-1\"}" }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "x": 150,
+        "y": 140,
+        "wires": [["ex11-pub"]]
+    },
+    {
+        "id": "ex11-pub",
+        "type": "opcua-publisher",
+        "z": "ex11-tab",
+        "name": "Publish (UADP)",
+        "connection": "ex11-conn",
+        "messageEncoding": "uadp",
+        "publishMode": "acyclic",
+        "publishingInterval": 1000,
+        "keepAliveTime": "",
+        "writerGroupId": 1,
+        "priority": 128,
+        "maxNetworkMessageSize": 1400,
+        "writers": "[{\"dataSetWriterId\":1,\"dataSetName\":\"DemoDataSet\",\"publishedDataSet\":{\"name\":\"DemoDataSet\",\"fields\":[{\"name\":\"Temperature\",\"dataType\":\"Double\"},{\"name\":\"Label\",\"dataType\":\"String\"}]}}]",
+        "x": 400,
+        "y": 140,
+        "wires": [[]]
+    },
+    {
+        "id": "ex11-sub",
+        "type": "opcua-subscriber",
+        "z": "ex11-tab",
+        "name": "Subscribe (UADP)",
+        "connection": "ex11-conn",
+        "messageEncoding": "uadp",
+        "publisherId": "11000000-0000-4000-8000-000000000011",
+        "writerGroupId": 1,
+        "dataSetWriterId": 1,
+        "expectedConfigVersion": "",
+        "x": 410,
+        "y": 240,
+        "wires": [["ex11-debug"]]
+    },
+    {
+        "id": "ex11-debug",
+        "type": "debug",
+        "z": "ex11-tab",
+        "name": "Received DataSet",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 650,
+        "y": 240,
+        "wires": []
+    }
+]

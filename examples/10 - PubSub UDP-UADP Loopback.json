@@ -1,0 +1,102 @@
+[
+    {
+        "id": "ex10-conn",
+        "type": "opcua-pubsub-connection",
+        "name": "UDP Loopback",
+        "transportType": "udp",
+        "multicastGroup": "239.0.0.1",
+        "multicastInterface": "0.0.0.0",
+        "port": 4840,
+        "mtu": 1400,
+        "brokerUrl": "mqtt://localhost:1883",
+        "topicPrefix": "ua",
+        "qos": 1,
+        "publisherIdType": "String",
+        "publisherId": "10000000-0000-4000-8000-000000000010",
+        "certificateFile": "",
+        "privateKeyFile": "",
+        "caCertificateFile": ""
+    },
+    {
+        "id": "ex10-tab",
+        "type": "tab",
+        "label": "10 - PubSub UDP-UADP Loopback",
+        "info": "Self-contained OPC UA **PubSub** loopback — **no external infrastructure required**.\n\nThe publisher and subscriber share ONE `opcua-pubsub-connection` on the UDP multicast group `239.0.0.1:4840`, so the DataSet a single host publishes is received by the same host's subscriber. There is no broker and no OPC UA test server in this flow.\n\nClick the **Publish DataSet** inject to publish one DataSet; the subscriber decodes it and the debug node shows the round-tripped `msg` (payload `{ Temperature, Label }`, `msg.encoding` `uadp`, `msg.transport` `udp`, plus a `sequenceNumber`).\n\n**UDP-only-UADP rule (D4-03):** the UDP transport carries UADP binary NetworkMessages only — JSON encoding requires MQTT.\n\n**multicastInterface caveat:** leave `0.0.0.0` to let the OS choose the outgoing NIC. On a multi-NIC host the OS may pick the wrong interface — set the host's IP on the PubSub LAN if datagrams are not received."
+    },
+    {
+        "id": "ex10-comment",
+        "type": "comment",
+        "z": "ex10-tab",
+        "name": "Self-contained UDP-UADP loopback — publisher and subscriber on multicast 239.0.0.1:4840, no broker, no test server",
+        "x": 470,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "ex10-inject",
+        "type": "inject",
+        "z": "ex10-tab",
+        "name": "Publish DataSet",
+        "props": [
+            { "p": "payload", "vt": "json", "v": "{\"Temperature\":23.5,\"Label\":\"sensor-1\"}" }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "x": 150,
+        "y": 140,
+        "wires": [["ex10-pub"]]
+    },
+    {
+        "id": "ex10-pub",
+        "type": "opcua-publisher",
+        "z": "ex10-tab",
+        "name": "Publish (UADP)",
+        "connection": "ex10-conn",
+        "messageEncoding": "uadp",
+        "publishMode": "acyclic",
+        "publishingInterval": 1000,
+        "keepAliveTime": "",
+        "writerGroupId": 1,
+        "priority": 128,
+        "maxNetworkMessageSize": 1400,
+        "writers": "[{\"dataSetWriterId\":1,\"dataSetName\":\"DemoDataSet\",\"publishedDataSet\":{\"name\":\"DemoDataSet\",\"fields\":[{\"name\":\"Temperature\",\"dataType\":\"Double\"},{\"name\":\"Label\",\"dataType\":\"String\"}]}}]",
+        "x": 400,
+        "y": 140,
+        "wires": [[]]
+    },
+    {
+        "id": "ex10-sub",
+        "type": "opcua-subscriber",
+        "z": "ex10-tab",
+        "name": "Subscribe (UADP)",
+        "connection": "ex10-conn",
+        "messageEncoding": "uadp",
+        "publisherId": "10000000-0000-4000-8000-000000000010",
+        "writerGroupId": 1,
+        "dataSetWriterId": 1,
+        "expectedConfigVersion": "",
+        "x": 410,
+        "y": 240,
+        "wires": [["ex10-debug"]]
+    },
+    {
+        "id": "ex10-debug",
+        "type": "debug",
+        "z": "ex10-tab",
+        "name": "Received DataSet",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 650,
+        "y": 240,
+        "wires": []
+    }
+]

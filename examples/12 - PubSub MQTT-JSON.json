@@ -1,0 +1,102 @@
+[
+    {
+        "id": "ex12-conn",
+        "type": "opcua-pubsub-connection",
+        "name": "MQTT Broker",
+        "transportType": "mqtt",
+        "multicastGroup": "239.0.0.1",
+        "multicastInterface": "0.0.0.0",
+        "port": 4840,
+        "mtu": 1400,
+        "brokerUrl": "mqtt://localhost:1883",
+        "topicPrefix": "ua",
+        "qos": 1,
+        "publisherIdType": "String",
+        "publisherId": "12000000-0000-4000-8000-000000000012",
+        "certificateFile": "",
+        "privateKeyFile": "",
+        "caCertificateFile": ""
+    },
+    {
+        "id": "ex12-tab",
+        "type": "tab",
+        "label": "12 - PubSub MQTT-JSON",
+        "info": "Broker-mediated OPC UA **PubSub** with **JSON** encoding over MQTT.\n\n**Requires a local MQTT broker** (e.g. Mosquitto) reachable at `mqtt://localhost:1883`. Start one before deploying — e.g.\n\n    docker run -p 1883:1883 eclipse-mosquitto\n\nJSON encoding is the **cloud-friendly, self-describing** combination: each NetworkMessage carries its own field names and types, so no metadata pre-exchange is required and any JSON-aware consumer can read it.\n\nNote: JSON NetworkMessages have **no groupHeader**, so the subscriber filters on `publisherId` and `dataSetWriterId` (not `writerGroupId`). The debug node shows the round-tripped `msg` (`msg.encoding` `json`, `msg.transport` `mqtt`, `msg.topic` set).\n\nClick the **Publish DataSet** inject after the broker is running and the flow is deployed."
+    },
+    {
+        "id": "ex12-comment",
+        "type": "comment",
+        "z": "ex12-tab",
+        "name": "MQTT-JSON — requires a local MQTT broker at mqtt://localhost:1883; filter on publisherId/dataSetWriterId (JSON has no groupHeader)",
+        "x": 510,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "ex12-inject",
+        "type": "inject",
+        "z": "ex12-tab",
+        "name": "Publish DataSet",
+        "props": [
+            { "p": "payload", "vt": "json", "v": "{\"Temperature\":23.5,\"Label\":\"sensor-1\"}" }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "x": 150,
+        "y": 140,
+        "wires": [["ex12-pub"]]
+    },
+    {
+        "id": "ex12-pub",
+        "type": "opcua-publisher",
+        "z": "ex12-tab",
+        "name": "Publish (JSON)",
+        "connection": "ex12-conn",
+        "messageEncoding": "json",
+        "publishMode": "acyclic",
+        "publishingInterval": 1000,
+        "keepAliveTime": "",
+        "writerGroupId": 1,
+        "priority": 128,
+        "maxNetworkMessageSize": 1400,
+        "writers": "[{\"dataSetWriterId\":1,\"dataSetName\":\"DemoDataSet\",\"publishedDataSet\":{\"name\":\"DemoDataSet\",\"fields\":[{\"name\":\"Temperature\",\"dataType\":\"Double\"},{\"name\":\"Label\",\"dataType\":\"String\"}]}}]",
+        "x": 400,
+        "y": 140,
+        "wires": [[]]
+    },
+    {
+        "id": "ex12-sub",
+        "type": "opcua-subscriber",
+        "z": "ex12-tab",
+        "name": "Subscribe (JSON)",
+        "connection": "ex12-conn",
+        "messageEncoding": "json",
+        "publisherId": "12000000-0000-4000-8000-000000000012",
+        "writerGroupId": "",
+        "dataSetWriterId": 1,
+        "expectedConfigVersion": "",
+        "x": 410,
+        "y": 240,
+        "wires": [["ex12-debug"]]
+    },
+    {
+        "id": "ex12-debug",
+        "type": "debug",
+        "z": "ex12-tab",
+        "name": "Received DataSet",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 650,
+        "y": 240,
+        "wires": []
+    }
+]
