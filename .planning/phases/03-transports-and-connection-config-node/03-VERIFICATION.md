@@ -1,7 +1,8 @@
 ---
-status: human_needed
+status: passed
 phase: 03-transports-and-connection-config-node
 verified: 2026-06-13
+human_verify: approved 2026-06-13 — opcua-pubsub-connection loads in the live Node-RED editor (Docker, port 1888) and drives a working UDP transport end-to-end (publisher+subscriber sharing the ref-counted connection; round-trip confirmed).
 requirements: [TRP-01, TRP-02, CFG-01, CFG-02]
 plans_complete: 4
 plans_total: 4

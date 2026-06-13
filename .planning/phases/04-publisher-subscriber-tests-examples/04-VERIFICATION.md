@@ -1,7 +1,8 @@
 ---
-status: human_needed
+status: passed
 phase: 04-publisher-subscriber-tests-examples
 verified: 2026-06-13
+human_verify: approved 2026-06-13 — flow 10 (UDP-UADP) imported, deployed, and round-tripped live in Node-RED (Docker, port 1888); debug emitted exact D4-09 msg. MQTT flows 11/12 covered by automated aedes round-trip tests.
 requirements: [PUB-01, PUB-02, PUB-03, SUB-01, SUB-02, STAT-01, TEST-01, TEST-02, TEST-03, DOC-01, DOC-02]
 plans_complete: 4
 plans_total: 4
