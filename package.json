@@ -25,7 +25,7 @@
     }
   },
   "scripts": {
-    "test": "mocha test/**/*.test.js --timeout 30000 --exit",
+    "test": "mocha \"test/**/*.test.js\" --timeout 30000 --exit",
     "test:integration": "node test-server/test-client.js",
     "lint": "eslint nodes/*.js lib/*.js",
     "format": "prettier --write nodes/**/*.js lib/**/*.js"
