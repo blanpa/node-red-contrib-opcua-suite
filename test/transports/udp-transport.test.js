@@ -356,7 +356,7 @@ describe("UdpTransport — _reassemble (UADP chunking)", function () {
       chunk: {
         messageSequenceNumber: seq, // distinct per call -> distinct key
         chunkOffset: 0,
-        totalSize: 1000000, // never completes (huge)
+        totalSize: 100, // under the ME-04 cap, but never completes (chunkData is only 10 bytes)
         chunkData: Buffer.alloc(10),
       },
     }));
@@ -432,21 +432,19 @@ describe("UdpTransport — _reassemble (UADP chunking)", function () {
     expect(transport._chunks.size).to.equal(0, "bad-tiling entry must be dropped");
   });
 
-  it("ME-04: gapped chunk offsets do NOT complete (length reaches totalSize but a hole remains)", function () {
-    // Offsets [0,10) and [12,22): lengths sum to 20, but totalSize 20 with a gap at [10,12).
-    const mk = (offset, len) => ({
+  it("ME-04: a chunk extending past totalSize is dropped per-chunk (never stored, 'warn')", function () {
+    // totalSize 20 but the chunk claims [12,22) — its end (22) exceeds totalSize, so it
+    // can never be part of a valid tiling and is rejected on arrival.
+    sinon.stub(uadp, "decodeNetworkMessage").returns({
       publisherId: 7,
       groupHeader: { writerGroupId: 1 },
       chunk: {
         messageSequenceNumber: 3,
-        chunkOffset: offset,
+        chunkOffset: 12,
         totalSize: 20,
-        chunkData: Buffer.alloc(len),
+        chunkData: Buffer.alloc(10), // 12 + 10 = 22 > 20
       },
     });
-    const stub = sinon.stub(uadp, "decodeNetworkMessage");
-    stub.onCall(0).returns(mk(0, 10));
-    stub.onCall(1).returns(mk(12, 10)); // gap at [10,12); but last byte 22 > totalSize 20 too
 
     const warnSpy = sinon.spy();
     const msgSpy = sinon.spy();
@@ -454,12 +452,11 @@ describe("UdpTransport — _reassemble (UADP chunking)", function () {
     transport.on("message", msgSpy);
 
     transport._onDatagram(Buffer.alloc(4), {});
-    transport._onDatagram(Buffer.alloc(4), {});
 
-    expect(msgSpy.called).to.equal(false, "gapped chunks must not reassemble");
+    expect(msgSpy.called).to.equal(false, "over-long chunk must not reassemble");
     expect(warnSpy.called).to.equal(true);
     expect(warnSpy.firstCall.args[0].message).to.match(/UDP_REASSEMBLY_BAD_TILING/);
-    expect(transport._chunks.size).to.equal(0);
+    expect(transport._chunks.size).to.equal(0, "rejected chunk leaves no entry");
   });
 
   it("malformed datagram: decode error is caught and emitted as 'error', listener stays alive", function () {
