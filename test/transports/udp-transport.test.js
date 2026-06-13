@@ -269,6 +269,41 @@ describe("UdpTransport — _reassemble (UADP chunking)", function () {
     expect(transport._chunks.size).to.equal(0, "entry removed after completion");
   });
 
+  it("CR-01: reassembled buffer decodes back into the ORIGINAL NetworkMessage (round-trip)", function () {
+    // Reference: encode the SAME NetworkMessage without chunking (large MTU) and decode it.
+    const original = encodeNetworkMessage(bigNm(), { mtu: 100000 });
+    expect(Buffer.isBuffer(original)).to.equal(true, "reference must be a single Buffer");
+    const referenceDecoded = uadp.decodeNetworkMessage(original);
+
+    // Force chunking with a tiny MTU.
+    const chunks = encodeNetworkMessage(bigNm(), { mtu: 200 });
+    expect(Array.isArray(chunks)).to.equal(true);
+    expect(chunks.length).to.be.greaterThanOrEqual(2);
+
+    const spy = sinon.spy();
+    transport.on("message", spy);
+    chunks.forEach((c) => transport._onDatagram(c, {}));
+
+    expect(spy.calledOnce).to.equal(true, "exactly one 'message' after last chunk");
+    const assembled = spy.firstCall.args[0];
+    expect(Buffer.isBuffer(assembled)).to.equal(true);
+
+    // CR-01: the reassembled bytes MUST be a complete NetworkMessage the
+    // subscriber can decode directly — not raw DataSetMessage bodies.
+    // Before the fix this throws UADP_DECODE_UNSUPPORTED_VERSION.
+    const reDecoded = uadp.decodeNetworkMessage(assembled);
+
+    // Reassembled buffer must equal the non-chunked encoding byte-for-byte.
+    expect(assembled.equals(original)).to.equal(true, "reassembled buffer == non-chunked encoded NetworkMessage");
+
+    // And the decoded DataSetMessage fields must equal the original.
+    expect(reDecoded.payload).to.be.an("array").with.lengthOf(referenceDecoded.payload.length);
+    const got = reDecoded.payload[0].fields.blob;
+    const want = referenceDecoded.payload[0].fields.blob;
+    expect(got.value).to.equal(want.value);
+    expect(got.value).to.equal("x".repeat(2000));
+  });
+
   it("multi-chunk reassembly: out-of-order chunks reassemble correctly", function () {
     const chunks = encodeNetworkMessage(bigNm(), { mtu: 200 });
     const totalSize = uadp.decodeNetworkMessage(chunks[0]).chunk.totalSize;
