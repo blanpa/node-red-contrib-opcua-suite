@@ -79,7 +79,12 @@ Plans:
   3. A ConfigurationVersion mismatch between Publisher and Subscriber surfaces as a visible `node.error()` on the Subscriber node — it is never silently dropped.
   4. Mocha round-trip tests pass for all three transport × encoding combinations shipped in v1: UDP-UADP, MQTT-UADP, MQTT-JSON (`npm test`).
   5. All three example flows (`10 - PubSub UDP-UADP Loopback.json`, `11 - PubSub MQTT-UADP.json`, `12 - PubSub MQTT-JSON.json`) import cleanly into Node-RED and can be deployed without errors.
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 04-01-PLAN.md — opcua-publisher node + editor HTML: connection ref, WriterGroup/DataSetWriter/PublishedDataSet config, acyclic + cyclic/KeepAlive publish, status (PUB-01, PUB-02, PUB-03, STAT-01)
+- [ ] 04-02-PLAN.md — opcua-subscriber node + editor HTML: DataSetReader filter, transport message listener + cleanup, decode + exact msg shape, ConfigurationVersion-mismatch error (SUB-01, SUB-02, STAT-01)
+- [ ] 04-03-PLAN.md — round-trip tests (UDP-UADP / MQTT-UADP / MQTT-JSON via aedes loopback) + 20-redeploy acceptance + TEST-03 8-combo confirm (TEST-01, TEST-02, TEST-03)
+- [ ] 04-04-PLAN.md — three example flows (10/11/12) + run-examples harness extension + README PubSub section (DOC-01, DOC-02)
 **UI hint**: yes
 
 ## Progress
