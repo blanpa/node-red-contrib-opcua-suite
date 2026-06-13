@@ -118,7 +118,11 @@ module.exports = function (RED) {
     // { value: { dataType, value }, statusCode?, ... }.
     function unwrap(w) {
       if (w == null) return w;
-      // DataValue: { value: { dataType, value } }
+      // DataValue: { value: { dataType, value } }.
+      // LO-03: this duck-types a DataValue by checking for a nested `value` key.
+      // Phase-1 scope is SCALAR fields; a Variant whose value is itself an
+      // object that happens to have a `value` property (e.g. a structured
+      // ExtensionObject) is OUT OF SCOPE and would be mis-unwrapped here.
       if (w.value && typeof w.value === "object" && "value" in w.value) {
         return w.value.value;
       }

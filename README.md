@@ -228,7 +228,7 @@ Per matched DataSetMessage the subscriber emits one `msg`:
 | `msg.dataSetWriterId` | DataSetWriter id |
 | `msg.sequenceNumber` | NetworkMessage sequence number (DataSetMessage fallback for JSON) |
 | `msg.timestamp` | `Date` of the DataSetMessage |
-| `msg.statusCode` | Status code (`0` = Good) |
+| `msg.statusCode` | 16-bit DataSetMessage **status summary** (`0` = Good), i.e. the Part 14 §7.2.4.5.2 Good/Bad/Uncertain summary — **not** a full 32-bit OPC UA StatusCode |
 | `msg.encoding` | `"uadp"` or `"json"` |
 | `msg.transport` | `"udp"` or `"mqtt"` |
 | `msg.topic` | MQTT only — omitted entirely for UDP |
