@@ -32,6 +32,7 @@
   "author": "blanpa",
   "license": "MIT",
   "dependencies": {
+    "mqtt": "^5.15.1",
     "node-opcua": "^2.115.0"
   },
   "devDependencies": {
