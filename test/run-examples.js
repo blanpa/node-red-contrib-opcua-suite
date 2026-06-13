@@ -66,14 +66,25 @@ function loadAndPatchExamples() {
     const meta = [];
     for (const file of examples) {
         const flows = JSON.parse(fs.readFileSync(path.join(EXAMPLES_DIR, file), 'utf8'));
+        // PubSub flows (10-12) have no opcua-endpoint and therefore no
+        // endpointUrl to patch — the patch loop below is a harmless no-op for
+        // them. Record the set of opcua-pubsub-connection transportType values
+        // so the runner can label a flow "udp"/"mqtt" and warn for MQTT flows
+        // that need a broker.
+        const pubsubConns = flows.filter(n => n.type === 'opcua-pubsub-connection');
+        const transports = [...new Set(pubsubConns.map(n => n.transportType))];
         const exMeta = {
             file,
             tab: flows.find(n => n.type === 'tab')?.id,
             label: flows.find(n => n.type === 'tab')?.label || file,
             injects: flows.filter(n => n.type === 'inject').map(n => ({ id: n.id, name: n.name })),
-            debugs: flows.filter(n => n.type === 'debug').map(n => n.id)
+            debugs: flows.filter(n => n.type === 'debug').map(n => n.id),
+            transports,
+            brokerUrls: [...new Set(pubsubConns.filter(n => n.transportType === 'mqtt').map(n => n.brokerUrl))]
         };
         for (const n of flows) {
+            // Only classic client/server flows carry an opcua-endpoint to patch;
+            // PubSub flows skip this branch entirely (no-op).
             if (n.type === 'opcua-endpoint' && n.endpointUrl &&
                 n.endpointUrl.includes('localhost:4841')) {
                 n.endpointUrl = OPCUA_URL_INTERNAL;
@@ -162,6 +173,17 @@ async function main() {
 
     for (const ex of meta) {
         console.log(cyan(`── ${ex.label} ──`));
+        // PubSub-aware annotation: label the transport(s) and, for MQTT flows
+        // (11, 12), note the broker prerequisite. A missing broker is an
+        // environment requirement, not a flow defect — so we surface it as a
+        // dim() informational note rather than treating it like a code error.
+        if (ex.transports && ex.transports.length) {
+            console.log(dim(`  PubSub transport: ${ex.transports.join(', ')}`));
+            if (ex.transports.includes('mqtt')) {
+                const broker = (ex.brokerUrls && ex.brokerUrls[0]) || 'mqtt://localhost:1883';
+                console.log(dim(`  note: requires an MQTT broker at ${broker} (e.g. docker run -p 1883:1883 eclipse-mosquitto)`));
+            }
+        }
         capture.byTab.set(ex.tab, []);
         const exResults = { label: ex.label, file: ex.file, injects: [], errors: [] };
 
