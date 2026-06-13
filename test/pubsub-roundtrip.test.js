@@ -156,15 +156,11 @@ function publisherConfig(encoding) {
   };
 }
 
-// MQTT-JSON carries no groupHeader (writerGroupId undefined), so the JSON
-// subscriber MUST filter on publisherId, not writerGroupId (04-02 nuance).
+// Both UADP and JSON now carry the writer-group identity (CR-02 fix), so every
+// transport can filter on writerGroupId.
 function subscriberConfig(encoding, publisherId) {
   const cfg = { id: "sub1", connection: "conn1", messageEncoding: encoding };
-  if (encoding === "json") {
-    cfg.publisherId = String(publisherId);
-  } else {
-    cfg.writerGroupId = 1;
-  }
+  cfg.writerGroupId = 1;
   return cfg;
 }
 
@@ -352,7 +348,7 @@ describe("PubSub round-trip — TEST-01", function () {
       mq = await startAedes();
     });
 
-    it("round-trips fields/types (encoding=json; filters on publisherId, no writerGroupId)", async function () {
+    it("round-trips fields/types AND delivers a writerGroupId-filtered message (CR-02)", async function () {
       const transport = new MqttTransport({
         brokerUrl: mq.url,
         qos: 0,
@@ -378,10 +374,11 @@ describe("PubSub round-trip — TEST-01", function () {
       expect(msg.encoding).to.equal("json");
       expect(msg.transport).to.equal("mqtt");
       expect(msg.topic).to.equal("ua/pub1/1/1");
-      // JSON NetworkMessage has no groupHeader → writerGroupId is undefined and
-      // sequenceNumber falls back to the DataSetMessage value (04-02 nuance).
-      expect(msg.writerGroupId).to.equal(undefined);
+      // CR-02: the JSON NetworkMessage now carries the writer-group identity, so a
+      // writerGroupId-filtered subscriber receives the message with the group id set.
+      expect(msg.writerGroupId).to.equal(1);
       expect(msg.dataSetWriterId).to.equal(1);
+      // sequenceNumber comes from the NM groupHeader sequence on BOTH transports.
       expect(msg.sequenceNumber).to.equal(1);
     });
   });

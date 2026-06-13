@@ -188,6 +188,79 @@ describe("json-encoder", function () {
     });
   });
 
+  // ─── NetworkMessage group header / timestamp / publisherId parity ───
+  // (CR-02 writerGroupId, HI-01 NM timestamp, HI-02 publisherId type parity)
+
+  describe("NetworkMessage group header (CR-02)", function () {
+    it("emits NM-level WriterGroupId and SequenceNumber from groupHeader", function () {
+      const json = encodeNetworkMessage({
+        messageId: "m1",
+        publisherId: "pub-A",
+        groupHeader: { writerGroupId: 7, sequenceNumber: 3 },
+        payload: [{ messageType: "keyframe", fields: {} }],
+      });
+      const parsed = JSON.parse(json);
+      expect(parsed.WriterGroupId).to.equal(7);
+      expect(parsed.SequenceNumber).to.equal(3);
+    });
+
+    it("round-trips groupHeader.writerGroupId so a writerGroupId filter can match", function () {
+      const model = {
+        messageId: "m1",
+        publisherId: "pub-A",
+        groupHeader: { writerGroupId: 42, sequenceNumber: 9 },
+        payload: [{ dataSetWriterId: 1, messageType: "keyframe", fields: { a: { dataType: "Int32", value: 1 } } }],
+      };
+      const decoded = decodeNetworkMessage(encodeNetworkMessage(model));
+      expect(decoded.groupHeader).to.be.an("object");
+      expect(decoded.groupHeader.writerGroupId).to.equal(42);
+      expect(decoded.groupHeader.sequenceNumber).to.equal(9);
+    });
+  });
+
+  describe("NetworkMessage timestamp (HI-01)", function () {
+    it("emits the NM-level timestamp and decodes it back into nm.timestamp", function () {
+      const ts = new Date("2026-06-13T10:11:12.345Z");
+      const json = encodeNetworkMessage({
+        messageId: "m1",
+        timestamp: ts,
+        payload: [{ messageType: "keyframe", fields: {} }],
+      });
+      const parsed = JSON.parse(json);
+      expect(parsed.Timestamp).to.equal("2026-06-13T10:11:12.345Z");
+
+      const decoded = decodeNetworkMessage(json);
+      expect(decoded.timestamp).to.be.an.instanceof(Date);
+      expect(decoded.timestamp.toISOString()).to.equal(ts.toISOString());
+    });
+  });
+
+  describe("PublisherId type parity (HI-02)", function () {
+    it("round-trips a NUMERIC publisherId back to a number (not a string)", function () {
+      const decoded = decodeNetworkMessage(
+        encodeNetworkMessage({
+          messageId: "m1",
+          publisherId: 5,
+          payload: [{ messageType: "keyframe", fields: {} }],
+        })
+      );
+      expect(decoded.publisherId).to.equal(5);
+      expect(typeof decoded.publisherId).to.equal("number");
+    });
+
+    it("round-trips a STRING publisherId back to a string", function () {
+      const decoded = decodeNetworkMessage(
+        encodeNetworkMessage({
+          messageId: "m1",
+          publisherId: "pub-A",
+          payload: [{ messageType: "keyframe", fields: {} }],
+        })
+      );
+      expect(decoded.publisherId).to.equal("pub-A");
+      expect(typeof decoded.publisherId).to.equal("string");
+    });
+  });
+
   // ─── Structured decoder errors (D-08) ───
 
   describe("decodeNetworkMessage structured errors", function () {
