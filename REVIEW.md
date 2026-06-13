@@ -197,7 +197,7 @@ connected; at minimum document the pre-connect drop.
 
 ## Medium
 
-### ME-01 — `createError()` returns a plain object, not an `Error`; thrown as exceptions in several places
+### ME-01 — `createError()` returns a plain object, not an `Error`; thrown as exceptions in several places — FIXED
 
 **Files:** `lib/opcua-utils.js:155-161`; thrown via `throw createError(...)` in
 `lib/uadp-encoder.js` (many), `lib/json-encoder.js` (many), `lib/pubsub-config.js`
@@ -215,7 +215,7 @@ non-standard.
 error; return e;`) or introduce a dedicated `class PubSubError extends Error`. Keeps `.message`
 working and fixes `instanceof`/stack/`done(err)` semantics.
 
-### ME-02 — Publisher `groupHeader` omits `groupVersion`/`networkMessageNumber`; encoder writes `undefined` as 0 silently
+### ME-02 — Publisher `groupHeader` omits `groupVersion`/`networkMessageNumber`; encoder writes `undefined` as 0 silently — DOCUMENTED
 
 **Files:** `nodes/opcua-publisher.js:171-174, 199-203`, `lib/uadp-encoder.js:554-560`
 
@@ -230,7 +230,7 @@ contract is violated (a missing field is written as a present zero rather than s
 them (`gh.groupVersion || 0`) intentionally and document that they are always emitted. Relying on
 `writeUInt32LE(undefined) === 0` is accidental behavior.
 
-### ME-03 — Subscriber `statusCode` default of `0` conflates "no status" with "Good", and UADP status is UInt16 while StatusCode is UInt32
+### ME-03 — Subscriber `statusCode` default of `0` conflates "no status" with "Good", and UADP status is UInt16 while StatusCode is UInt32 — DOCUMENTED
 
 **Files:** `nodes/opcua-subscriber.js:201`, `lib/uadp-encoder.js:705, 766`
 
@@ -270,7 +270,7 @@ verify chunk offsets are non-overlapping and cover `[0, totalSize)` exactly befo
 and reject `chunkData.length` that would exceed `totalSize`. The subscriber decode is already
 try/caught, which contains the blast radius.
 
-### ME-05 — Grace-timer close races a concurrent `send`/`message` on the same transport instance
+### ME-05 — Grace-timer close races a concurrent `send`/`message` on the same transport instance — FIXED
 
 **Files:** `nodes/opcua-pubsub-connection.js:165-228`, `udp-transport.js:126-137`,
 `mqtt-transport.js:228-260`
@@ -314,7 +314,7 @@ collected `err.errors` list rather than only `errors[0].message` for better oper
 
 ## Low
 
-### LO-01 — Publisher `done(e)` receives a non-Error (see ME-01)
+### LO-01 — Publisher `done(e)` receives a non-Error (see ME-01) — FIXED via ME-01
 `nodes/opcua-publisher.js:278` — `done(e)` where `e` may be a `createError` plain object.
 Node-RED expects an Error. Cosmetic until ME-01 is fixed.
 
@@ -328,18 +328,18 @@ the ternary are `"uadp"`, so the conditional is a no-op. Either intentional (MQT
 UADP) — in which case simplify to `config.messageEncoding || "uadp"` — or a latent bug if MQTT was
 meant to default to `"json"`. Clarify intent.
 
-### LO-03 — `unwrap` mis-handles a legitimate field whose value is itself an object containing a `value` key
+### LO-03 — `unwrap` mis-handles a legitimate field whose value is itself an object containing a `value` key — DOCUMENTED
 `nodes/opcua-subscriber.js:118-127`: a Variant carrying a struct value `{ value: 1, other: 2 }`
 matches the DataValue branch (`w.value && "value" in w.value`) and is unwrapped to the inner
 `value`, losing data. Phase-1 scope is scalars, so low risk, but the heuristic is ambiguous.
 Prefer explicit shape tagging (e.g. check for `dataType` to detect Variant) over duck-typing.
 
-### LO-04 — `setMulticastLoopback(true)` means a co-located publisher's own datagrams loop back
+### LO-04 — `setMulticastLoopback(true)` means a co-located publisher's own datagrams loop back — DOCUMENTED
 `lib/transports/udp-transport.js:87`: with loopback on, a publisher+subscriber sharing one
 connection node will receive their own frames. Combined with no source filtering, a node can
 consume its own publications. May be intended for the round-trip test; confirm for production.
 
-### LO-05 — MQTT subscribes to `${prefix}/#` — every publisher on the prefix is received and filtered in software
+### LO-05 — MQTT subscribes to `${prefix}/#` — every publisher on the prefix is received and filtered in software — DOCUMENTED
 `lib/transports/mqtt-transport.js:135`: correct for the shared-transport design, but means QoS and
 bandwidth scale with *all* traffic under the prefix, and software filtering is the only access
 control. Acceptable; note it.
