@@ -17,7 +17,7 @@ flows. Shipping as v0.1.0 marks the transition from pure Client/Server to a full
 
 - [x] **Phase 1: Pre-Work** - Consolidate PubSub-impacted tech debt so new nodes do not clone known-bad patterns
 - [x] **Phase 2: Encoders and Config Objects** - Stateless UADP + JSON encoders and pure config-object layer
-- [ ] **Phase 3: Transports and Connection Config Node** - UDP/MQTT transport adapters and the opcua-pubsub-connection config node
+- [x] **Phase 3: Transports and Connection Config Node** - UDP/MQTT transport adapters and the opcua-pubsub-connection config node
 - [ ] **Phase 4: Publisher, Subscriber, Tests, and Examples** - Worker nodes, round-trip tests, example flows, and README docs
 
 ## Phase Details
@@ -63,10 +63,10 @@ Plans:
   5. `socket.close(done)` / `client.end(false, done)` is used in all transport adapters so Node-RED's close event completes synchronously with zero leaked sockets.
 **Plans**: 4 plans
 Plans:
-- [ ] 03-01-PLAN.md — BaseTransport abstract class + mqtt@^5.15.1 dependency (TRP-01, TRP-02 foundation)
-- [ ] 03-02-PLAN.md — UdpTransport: dgram multicast, 20-cycle EADDRINUSE acceptance, chunk reassembly w/ 30s expiry + 1000-entry overflow guard (TRP-01)
-- [ ] 03-03-PLAN.md — MqttTransport: mqtt 5.0→3.1.1 fallback, retain=false hardcoded, topic-injection guard (TRP-02)
-- [ ] 03-04-PLAN.md — opcua-pubsub-connection config node + editor HTML: refCount + 500ms grace timer + status fan-out + PublisherId UX + cert dropzone (CFG-01, CFG-02)
+- [x] 03-01-PLAN.md — BaseTransport abstract class + mqtt@^5.15.1 dependency (TRP-01, TRP-02 foundation)
+- [x] 03-02-PLAN.md — UdpTransport: dgram multicast, 20-cycle EADDRINUSE acceptance, chunk reassembly w/ 30s expiry + 1000-entry overflow guard (TRP-01)
+- [x] 03-03-PLAN.md — MqttTransport: mqtt 5.0→3.1.1 fallback, retain=false hardcoded, topic-injection guard (TRP-02)
+- [x] 03-04-PLAN.md — opcua-pubsub-connection config node + editor HTML: refCount + 500ms grace timer + status fan-out + PublisherId UX + cert dropzone (CFG-01, CFG-02)
 **UI hint**: yes
 
 ### Phase 4: Publisher, Subscriber, Tests, and Examples
@@ -90,5 +90,5 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Pre-Work | 3/3 | Complete | 2026-05-09 |
 | 2. Encoders and Config Objects | 5/5 | Complete | 2026-05-13 |
-| 3. Transports and Connection Config Node | 0/4 | Planned | - |
+| 3. Transports and Connection Config Node | 4/4 | Complete (UX checkpoint pending) | 2026-06-13 |
 | 4. Publisher, Subscriber, Tests, and Examples | 0/TBD | Not started | - |
