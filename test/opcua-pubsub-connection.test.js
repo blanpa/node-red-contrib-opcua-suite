@@ -206,6 +206,52 @@ describe('opcua-pubsub-connection config node', function() {
         clock.restore();
     });
 
+    it('11b. ME-05: grace-timer fire then re-acquire yields a FRESH usable transport (not the closing one)', function() {
+        const clock = sinon.useFakeTimers();
+        const node = createNode();
+        sinon.stub(UdpTransport.prototype, 'connect').resolves();
+        const closeStub = sinon.stub(UdpTransport.prototype, 'close').resolves();
+
+        const t1 = node.acquireTransport();
+        node.releaseTransport();          // refCount -> 0, grace timer armed
+        clock.tick(501);                  // grace timer FIRES -> closes t1, nulls _sharedTransport
+
+        expect(closeStub.calledOnce).to.be.true;
+        expect(node._sharedTransport).to.be.null;
+
+        // Re-acquire in the redeploy window AFTER the close fired: must build a
+        // FRESH instance, never hand back the closed t1.
+        const t2 = node.acquireTransport();
+        expect(node._refCount).to.equal(1);
+        expect(node._sharedTransport).to.equal(t2);
+        expect(t2).to.not.equal(t1);      // fresh instance, not the closed one
+        expect(t2).to.be.instanceof(UdpTransport);
+        clock.restore();
+    });
+
+    it('11c. ME-05: a re-acquire BEFORE the grace callback runs is not closed out from under it', function() {
+        // Simulate the race where the timer is scheduled, a re-acquire bumps
+        // refCount back to 1, and the (already-pending) callback then runs. The
+        // re-check on refCount must prevent the close so the live consumer keeps
+        // a usable transport (no *_SEND_NOT_CONNECTED).
+        const clock = sinon.useFakeTimers();
+        const node = createNode();
+        sinon.stub(UdpTransport.prototype, 'connect').resolves();
+        const closeStub = sinon.stub(UdpTransport.prototype, 'close').resolves();
+
+        const t1 = node.acquireTransport();
+        node.releaseTransport();          // refCount -> 0, grace timer armed
+
+        // Force the refCount back up WITHOUT cancelling the timer, to model a
+        // re-acquire whose clearTimeout lost the race with the timer firing.
+        node._refCount = 1;
+        clock.tick(501);                  // pending grace callback runs
+
+        expect(closeStub.called).to.be.false;        // guarded by refCount re-check
+        expect(node._sharedTransport).to.equal(t1);  // live transport retained
+        clock.restore();
+    });
+
     // ─── status fan-out ───
 
     it('12. status fan-out: connected event reaches all registered callbacks', function() {

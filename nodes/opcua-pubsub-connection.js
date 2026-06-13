@@ -218,10 +218,23 @@ module.exports = function (RED) {
       if (node._refCount === 0 && node._sharedTransport) {
         node._graceTimer = setTimeout(() => {
           node._graceTimer = null;
-          if (node._sharedTransport) {
-            node._sharedTransport.close().catch(() => {});
+          // ME-05: re-check refCount. A consumer can have re-acquired AFTER the
+          // grace window started — acquireTransport() only cancels a PENDING
+          // timer, not one whose callback has already begun running here. If a
+          // re-acquire happened, refCount is back > 0 and we must NOT close the
+          // transport it is now using.
+          if (node._refCount === 0 && node._sharedTransport) {
+            // ME-05: detach the instance from the node BEFORE awaiting close().
+            // close() is async; if we left _sharedTransport pointing at it, a
+            // concurrent acquireTransport() racing this close could hand a
+            // CLOSING transport to a publisher/subscriber (its next send would
+            // hit *_SEND_NOT_CONNECTED and inbound messages would be lost on a
+            // closing socket). Nulling first guarantees a concurrent acquire
+            // builds a FRESH instance instead of reusing the closing one.
+            const closing = node._sharedTransport;
             node._sharedTransport = null;
             node._statusCallbacks.clear();
+            closing.close().catch(() => {});
           }
         }, RECONNECT_GRACE_MS);
       }
