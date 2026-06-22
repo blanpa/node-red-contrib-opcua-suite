@@ -137,3 +137,6 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Auto-generated OPC UA test-server certificates (benchmark / integration runs)
+test-server/pki/

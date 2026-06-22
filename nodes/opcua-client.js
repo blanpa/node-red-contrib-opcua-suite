@@ -71,6 +71,16 @@ module.exports = function (RED) {
     // If already connected (another client node connected first), update status
     if (clientManager.isConnected) {
       node.status({ fill: "green", shape: "dot", text: "connected" });
+    } else if (config.autoConnect !== false) {
+      // Connect proactively on deploy so the status reflects the real
+      // connection state immediately, instead of staying "not connected"
+      // until the first input message triggers ensureConnected().
+      node.status({ fill: "yellow", shape: "ring", text: "connecting..." });
+      clientManager.connect().catch((err) => {
+        if (verboseLog) node.warn(`Initial connect failed: ${err.message}`);
+        // statusCallback("error") already updates the node status via the
+        // manager's "error" event; scheduleReconnect() keeps retrying.
+      });
     }
 
     // ─── Input Handler ───
@@ -165,6 +175,16 @@ module.exports = function (RED) {
     // user configuration keeps working unchanged.
     const retryAttempts = Number(config.retryAttempts) || 0;
 
+    // Bounded operation-level retry: a single session drop under concurrent
+    // load can outlast one retry (a second drop can land during the first
+    // reconnect). Retry connection-lost operations up to maxOperationRetries
+    // times with exponential backoff before surfacing the error.
+    const maxOperationRetries =
+      config.maxOperationRetries != null
+        ? Number(config.maxOperationRetries)
+        : 3;
+    const retryBackoffMs = Number(config.retryBackoffMs) || 100;
+
     function forceReconnect(reason) {
       return clientManager
         .reconnect({ reason, maxAttempts: retryAttempts })
@@ -180,27 +200,46 @@ module.exports = function (RED) {
         "read"
       ).toLowerCase();
 
-      async function tryOnce() {
-        await ensureConnected();
-        return await executeOperation(msg, operation, send);
-      }
+      const isConnLost = (error) =>
+        clientManager._isConnectionLostError &&
+        clientManager._isConnectionLostError(error);
 
       try {
         let result;
-        try {
-          result = await tryOnce();
-        } catch (error) {
-          if (clientManager._isConnectionLostError && clientManager._isConnectionLostError(error)) {
-            if (verboseLog) node.warn(`Connection lost (${error.message}) – reconnecting...`);
-            node.status({ fill: "yellow", shape: "ring", text: "reconnecting..." });
-            // Call manager.reconnect() directly so failures propagate to the
-            // outer catch block (and surface via node.error). The forceReconnect
-            // wrapper above is kept for migration-friendliness but uses .catch
-            // for fire-and-forget callers.
-            await clientManager.reconnect({ reason: "session-lost", maxAttempts: retryAttempts });
+        let attempt = 0;
+        // Bounded retry loop. Each iteration: ensure connected, run the op.
+        // On a connection-lost error (and while retries remain) reconnect,
+        // back off, and try again. Non-connection errors propagate at once.
+        for (;;) {
+          try {
+            await ensureConnected();
             result = await executeOperation(msg, operation, send);
-          } else {
-            throw error;
+            break;
+          } catch (error) {
+            if (!isConnLost(error) || attempt >= maxOperationRetries) {
+              throw error;
+            }
+            attempt++;
+            if (verboseLog) {
+              node.warn(
+                `Connection lost (${error.message}) – reconnect attempt ` +
+                  `${attempt}/${maxOperationRetries}...`,
+              );
+            }
+            node.status({ fill: "yellow", shape: "ring", text: "reconnecting..." });
+            try {
+              await clientManager.reconnect({
+                reason: "session-lost",
+                maxAttempts: retryAttempts,
+              });
+            } catch (reconnectErr) {
+              // Reconnect itself failed; if no retries remain surface it,
+              // otherwise the loop's next ensureConnected() will try again.
+              if (attempt >= maxOperationRetries) throw reconnectErr;
+            }
+            // Exponential backoff (capped) so we don't hammer a flapping link.
+            const backoff = Math.min(retryBackoffMs * 2 ** (attempt - 1), 2000);
+            await new Promise((r) => setTimeout(r, backoff));
           }
         }
 

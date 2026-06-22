@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 0.1.2 (2026-06-22)
+
+### Added
+
+- **Benchmark & stress-test harness** (`test-server/benchmark.js`, `npm run bench` / `bench:quick`) – drives the real `OpcUaClientManager` against the bundled test server and reports throughput + latency percentiles + error counts for read / readMultiple / write, plus resilience phases (connect/disconnect churn and reconnect-under-load with forced session loss) and a subscribe stress phase. Steady-state phases must be error-free; the reconnect phase is judged on recovery rate.
+- **`opcua-client`: connect on deploy** – new **Connect on deploy** option (`autoConnect`, default on) so the node establishes the shared connection immediately and its status reflects the real connection state instead of staying "not connected" until the first message.
+- **`opcua-client`: bounded operation retry** – new **Operation Retries** (`maxOperationRetries`, default 3) and **Retry Backoff** (`retryBackoffMs`, default 100 ms, capped at 2 s) options. A connection-lost operation is now retried multiple times with exponential backoff instead of exactly once.
+- **`opcua-endpoint`: optional session pool** – new **Session Pool** option (`poolSize`, default 1). With `poolSize > 1`, stateless operations round-robin across N sessions (`lib/opcua-pool.js`); subscriptions and registered nodes stay on the primary member. Default `poolSize 1` keeps the single-shared-session behaviour byte-for-byte unchanged.
+
+### Fixed
+
+- **Reconnect storm under high concurrency left ~0.2% of in-flight operations unrecovered.** Three changes drive recovery to 100% in the reconnect-under-load benchmark: (1) the client node's bounded retry above; (2) a reconnect cool-down in `OpcUaClientManager` (`reconnectCooldownMs`, default 250 ms) so a redundant `reconnect()` arriving right after a successful one — while still connected — is a no-op instead of forcing another teardown+connect that briefly flips `isConnected` to false under other operations; (3) wider connection-lost classification — `_isConnectionLostError()` now also matches the channel-teardown abort ("Transaction has been canceled because client channel is being closed") and `BadSessionClosed` / `BadSessionIdInvalid` / `BadConnectionClosed` / `BadSecureChannelClosed`, so those are retried rather than surfaced as failures.
+
 ## 0.1.0 (2026-06-13)
 
 ### Added — OPC UA PubSub (v0.1.0 milestone)

@@ -6,6 +6,7 @@
 
 const fs = require('fs');
 const OpcUaClientManager = require('../lib/opcua-client-manager');
+const PooledClientManager = require('../lib/opcua-pool');
 const { registerCertRoutes, getCertsDir } = require('../lib/cert-store');
 
 module.exports = function(RED) {
@@ -35,6 +36,10 @@ module.exports = function(RED) {
         // User Certificate (X509 Token) Settings
         node.userCertificateFile = config.userCertificateFile || '';
         node.userPrivateKeyFile = config.userPrivateKeyFile || '';
+
+        // Optional session pool (opt-in). 1 = single shared session (default,
+        // unchanged behaviour); >1 round-robins stateless ops across N sessions.
+        node.poolSize = Math.max(1, parseInt(config.poolSize, 10) || 1);
 
         // ─── Shared Connection ───
         node._sharedManager = null;
@@ -87,7 +92,10 @@ module.exports = function(RED) {
                     userCertificateFile: certData.userCertificateFile || '',
                     userPrivateKeyFile: certData.userPrivateKeyFile || ''
                 };
-                node._sharedManager = new OpcUaClientManager(managerConfig);
+                node._sharedManager =
+                    node.poolSize > 1
+                        ? new PooledClientManager(managerConfig, node.poolSize)
+                        : new OpcUaClientManager(managerConfig);
 
                 // Propagate status events to all registered client nodes
                 node._sharedManager.on('connected', () => {
@@ -103,7 +111,10 @@ module.exports = function(RED) {
                     node._statusCallbacks.forEach(cb => cb('error', error));
                 });
 
-                node.log(`Shared connection created for ${node.endpointUrl}`);
+                node.log(
+                    `Shared connection created for ${node.endpointUrl}` +
+                        (node.poolSize > 1 ? ` (pool size ${node.poolSize})` : ''),
+                );
             }
 
             return node._sharedManager;

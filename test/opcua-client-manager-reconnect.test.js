@@ -70,10 +70,41 @@ describe("OpcUaClientManager.reconnect / _isConnectionLostError (DEBT-01)", func
       await p1;
       expect(mgr._reconnectPromise).to.be.null;
 
+      // Simulate a genuine new connection loss so the cool-down guard does
+      // not coalesce (the guard only skips while still connected).
+      mgr.isConnected = false;
       const p2 = mgr.reconnect({ initialDelay: 1, maxDelay: 1 });
       // Different promise instance — first one was cleared
       expect(p1).to.not.equal(p2);
       await p2;
+      expect(mgr.connect.callCount).to.equal(2);
+    });
+
+    it("cool-down: a redundant reconnect() while still connected is a no-op", async function () {
+      const mgr = makeManager();
+      mgr._reconnectCooldownMs = 250;
+      mgr.connect = sinon.stub().callsFake(async () => {
+        mgr.isConnected = true;
+      });
+
+      await mgr.reconnect({ initialDelay: 1, maxDelay: 1 });
+      expect(mgr.connect.callCount).to.equal(1);
+      expect(mgr.isConnected).to.be.true;
+
+      // Second call arrives within the cool-down while connected → coalesced.
+      await mgr.reconnect({ initialDelay: 1, maxDelay: 1 });
+      expect(mgr.connect.callCount).to.equal(1); // no extra teardown/connect
+    });
+
+    it("cool-down disabled (0) always forces a fresh reconnect", async function () {
+      const mgr = makeManager();
+      mgr._reconnectCooldownMs = 0;
+      mgr.connect = sinon.stub().callsFake(async () => {
+        mgr.isConnected = true;
+      });
+
+      await mgr.reconnect({ initialDelay: 1, maxDelay: 1 });
+      await mgr.reconnect({ initialDelay: 1, maxDelay: 1 });
       expect(mgr.connect.callCount).to.equal(2);
     });
   });
@@ -234,6 +265,30 @@ describe("OpcUaClientManager.reconnect / _isConnectionLostError (DEBT-01)", func
           new Error("transport: socket has been disconnected"),
         ),
       ).to.be.true;
+    });
+
+    it("returns true for the channel-teardown transaction abort (the leak the benchmark exposed)", function () {
+      expect(
+        mgr._isConnectionLostError(
+          new Error(
+            "Error reading: Transaction has been canceled because client channel  is being closed",
+          ),
+        ),
+      ).to.be.true;
+    });
+
+    it("returns true for Bad* channel/session-closed status messages", function () {
+      for (const m of [
+        "BadSessionClosed",
+        "BadSessionIdInvalid",
+        "BadConnectionClosed",
+        "BadSecureChannelClosed",
+      ]) {
+        expect(
+          mgr._isConnectionLostError(new Error(m)),
+          `expected ${m} to classify as connection-lost`,
+        ).to.be.true;
+      }
     });
 
     it("returns false for 'timeout reading'", function () {

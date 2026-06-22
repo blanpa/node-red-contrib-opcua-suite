@@ -145,7 +145,7 @@ describe("opcua-client session retry", function () {
     expect(mgr.read.calledTwice).to.be.true;
     expect(mgr.connect.calledOnce).to.be.true;
     expect(node.warn.called).to.be.true;
-    expect(node.warn.firstCall.args[0]).to.include("reconnecting");
+    expect(node.warn.firstCall.args[0]).to.include("reconnect");
     expect(send.calledOnce).to.be.true;
     expect(done.calledOnce).to.be.true;
     expect(done.firstCall.args).to.have.lengthOf(0);
@@ -270,15 +270,17 @@ describe("opcua-client session retry", function () {
     expect(done.firstCall.args[0]).to.be.instanceOf(Error);
   });
 
-  it("should fail after retry if second attempt also throws session error", async function () {
-    mgr.read.onFirstCall().callsFake(async () => {
+  it("should fail after exhausting bounded retries if every attempt throws session error", async function () {
+    // Every read throws a connection-lost error → bounded retry loop runs
+    // the initial attempt + maxOperationRetries (default 3) = 4 reads, then
+    // gives up and surfaces the error exactly once.
+    mgr.read.callsFake(async () => {
       mgr.isConnected = false;
       throw new Error("Session is no longer valid");
     });
-    mgr.read.onSecondCall().rejects(new Error("Session is no longer valid"));
 
     const node = {};
-    ctor.call(node, { id: "c4", endpoint: "ep1" });
+    ctor.call(node, { id: "c4", endpoint: "ep1", retryBackoffMs: 1 });
 
     const msg = { topic: "ns=2;s=Var" };
     const send = sinon.stub();
@@ -286,10 +288,52 @@ describe("opcua-client session retry", function () {
 
     await node._events["input"][0](msg, send, done);
 
-    expect(mgr.read.calledTwice).to.be.true;
+    expect(mgr.read.callCount).to.equal(4); // 1 initial + 3 retries
     expect(node.error.calledOnce).to.be.true;
     expect(node.status.calledWith(sinon.match({ fill: "red" }))).to.be.true;
     expect(done.firstCall.args[0]).to.be.instanceOf(Error);
+  });
+
+  it("should recover when an operation succeeds on a later bounded-retry attempt", async function () {
+    // Fails twice (two session drops), succeeds on the 3rd read — within the
+    // default budget of 3 retries. Verifies multi-drop resilience.
+    mgr.read.onFirstCall().callsFake(async () => {
+      mgr.isConnected = false;
+      throw new Error("Session is no longer valid");
+    });
+    mgr.read.onSecondCall().callsFake(async () => {
+      mgr.isConnected = false;
+      throw new Error("Not connected");
+    });
+    mgr.read.onThirdCall().resolves({
+      value: { value: 99, dataType: 6 },
+      statusCode: {
+        value: 0,
+        name: "Good",
+        toString: () => "Good (0x00000000)",
+      },
+      sourceTimestamp: new Date(),
+      serverTimestamp: new Date(),
+    });
+
+    const node = {};
+    ctor.call(node, { id: "c4b", endpoint: "ep1", retryBackoffMs: 1 });
+
+    const msg = { topic: "ns=2;s=Var" };
+    const send = sinon.stub();
+    const done = sinon.stub();
+
+    await node._events["input"][0](msg, send, done);
+
+    expect(mgr.read.callCount).to.equal(3);
+    expect(send.calledOnce).to.be.true;
+    expect(send.firstCall.args[0].payload).to.deep.equal({
+      value: 99,
+      dataType: 6,
+    });
+    expect(node.error.called).to.be.false;
+    expect(done.firstCall.args).to.have.lengthOf(0);
+    expect(node.status.calledWith(sinon.match({ fill: "green" }))).to.be.true;
   });
 
   it("should NOT retry on non-session errors", async function () {

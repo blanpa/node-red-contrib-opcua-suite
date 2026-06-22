@@ -62,16 +62,20 @@ Set `msg.topic` to the NodeId and the client's default operation to **Subscribe*
 
 ### opcua-endpoint (Config Node)
 
-Shared connection configuration. All nodes referencing the same endpoint share **one** TCP connection.
+Shared connection configuration. All nodes referencing the same endpoint share **one** TCP connection (ref-counted: connected on first node, disconnected when the last node closes).
 
+```mermaid
+flowchart LR
+    R["Client: Read"] --> EP
+    W["Client: Write"] --> EP
+    S["Client: Subscribe"] --> EP
+    B["Browser"] --> EP
+    M["Method"] --> EP
+    E["Event"] --> EP
+    EP{{"opcua-endpoint<br/>(1 shared connection,<br/>ref-counted)"}} -->|"opc.tcp"| SRV[("OPC UA Server")]
 ```
-[Client: Read] ──┐
-[Client: Write] ──┤
-[Client: Sub]   ──┤── Endpoint (1 shared connection) ──► OPC UA Server
-[Browser]       ──┤
-[Method]        ──┤
-[Event]         ──┘
-```
+
+With **Session Pool** > 1 the endpoint holds N sessions instead of one — see [Session pool routing](#session-pool-routing).
 
 | Field | Description |
 |---|---|
@@ -80,6 +84,7 @@ Shared connection configuration. All nodes referencing the same endpoint share *
 | Security Policy | None, Basic128Rsa15, Basic256, Basic256Sha256, Aes128/Aes256 |
 | Username / Password | Optional credentials |
 | Certificates | Drag & drop upload for client cert, private key, CA cert, X509 user token |
+| Session Pool | Number of sessions (default 1 = single shared session). `>1` round-robins stateless reads/writes/browse across N sessions; subscriptions & registered nodes stay on the primary. Only helps when a single session is the bottleneck — see [Benchmark](#benchmark--stress-test). |
 
 Authentication priority: X509 User Token > Username/Password > Anonymous.
 
@@ -104,6 +109,8 @@ Single node for all OPC UA operations. Set via `msg.operation` or the default op
 | `translatebrowsepath` | — | Browse path | Translate browse path to NodeId |
 
 When `msg.items` is present, the client automatically switches to batch mode — even if the operation is set to `read` or `write`.
+
+**Advanced settings** (resilience): the client connects on deploy (**Connect on deploy**, default on) so its status reflects the real connection immediately. On a connection-lost error each message is retried up to **Operation Retries** times (default 3) with exponential **Retry Backoff** (default 100 ms, capped at 2 s) — see [Resilience hardening](#resilience-hardening-implemented).
 
 ### opcua-item (Item Collector)
 
@@ -197,6 +204,21 @@ Receives DataSets over the referenced `opcua-pubsub-connection`. Declares a Data
 PubSub adds broker-less (**UDP-UADP** multicast) and broker-mediated (**MQTT**, UADP or JSON) publish/subscribe alongside the Client/Server nodes. The three shipped combinations are **UDP-UADP**, **MQTT-UADP**, and **MQTT-JSON** — there is **no UDP-JSON** combination. Configuration lives on the `opcua-pubsub-connection` config node (transport, multicast group / broker URL, PublisherId); the `opcua-publisher` and `opcua-subscriber` worker nodes reference it.
 
 ### Configuration hierarchy
+
+```mermaid
+flowchart TD
+    subgraph PUB["Publisher side"]
+        C1["opcua-pubsub-connection<br/>(transport, PublisherId)"] --> WG["WriterGroup<br/>(writerGroupId, publishingInterval)"]
+        WG --> DW1["DataSetWriter"]
+        WG --> DW2["DataSetWriter …"]
+        DW1 --> PDS1["PublishedDataSet<br/>fields[]: {name, dataType}"]
+        DW2 --> PDS2["PublishedDataSet"]
+    end
+    subgraph SUB["Subscriber side"]
+        C2["opcua-pubsub-connection"] --> DR["DataSetReader<br/>filter: PublisherId /<br/>WriterGroupId / DataSetWriterId"]
+    end
+    PDS1 -.->|"NetworkMessage<br/>(UDP-UADP / MQTT-UADP / MQTT-JSON)"| DR
+```
 
 **Publisher** — `opcua-pubsub-connection` → **WriterGroup** → **DataSetWriter** → **PublishedDataSet**:
 
@@ -325,6 +347,119 @@ docker compose build --no-cache && docker compose up -d --force-recreate  # Rebu
 npm test                  # 120 unit tests
 node test/live-integration.js  # 36 live integration tests (requires Docker)
 ```
+
+## Benchmark & Stress Test
+
+Drives the real `OpcUaClientManager` (the engine behind `opcua-client`) against
+the bundled test server and reports throughput, latency percentiles (p50/p95/p99),
+and error counts under sustained concurrent load. The test server is started
+automatically. Phases:
+
+- **Throughput/latency** — `read` (sequential + concurrent), `readMultiple`, `write`
+- **Resilience** — connect/disconnect churn (lifecycle leaks) and reconnect
+  under load (forced session loss mid-stream, measures recovery rate)
+- **Subscribe stress** — N monitored items @100 ms, counts notifications +
+  item/teardown errors
+
+```bash
+npm run bench             # full run  (5s/phase, 50 concurrent, 200 sub items)
+npm run bench:quick       # short run (1.5s/phase) — CI-friendly
+```
+
+Tunable via env vars / flags:
+
+```bash
+BENCH_DURATION_MS=10000 BENCH_CONCURRENCY=100 BENCH_SUB_ITEMS=500 npm run bench
+BENCH_POOL_SIZE=4 npm run bench   # exercise the opt-in session pool
+node test-server/benchmark.js --no-spawn --endpoint opc.tcp://host:4840/UA/TestServer
+```
+
+Steady-state phases must be error-free or the run exits non-zero (so it doubles
+as a load-soak smoke test). The reconnect phase is a deliberate fault-injection
+storm — it passes on recovery rate (≥99%) + final connected state. After the
+resilience hardening below it now recovers **100% of ops** from forced session
+drops in typical runs.
+
+Indicative numbers on an 8-core dev box (node 20):
+
+| Phase | Throughput | Latency |
+|-------|-----------|---------|
+| read (sequential) | ~1,100 ops/s | p50 ≈ 0.7 ms |
+| read (×50 concurrent) | ~6,500 ops/s | p50 ≈ 6 ms, p99 ≈ 20 ms |
+| readMultiple (7/call) | ~5,000 ops/s | ≈ 35k values/s |
+| write (×50 concurrent) | ~5,500 ops/s | p50 ≈ 7 ms |
+| connect/disconnect churn | — | ~60 ms/cycle |
+| reconnect under load (4 forced drops) | recovers | 100% ops ok, 0 errors |
+| subscribe (200 items) | 127 notif/s | 0 errors |
+
+### Resilience hardening (implemented)
+
+The reconnect-under-load benchmark originally surfaced ~0.2% unrecovered ops
+during a forced session-loss storm. The operation path now retries cleanly:
+
+```mermaid
+flowchart TD
+    IN["msg in"] --> ENS["ensureConnected()"]
+    ENS --> OP["run operation<br/>(read / write / browse / ...)"]
+    OP --> OK{"success?"}
+    OK -->|yes| SEND["status: connected<br/>send msg"]
+    OK -->|error| LOST{"connection-lost?<br/>(_isConnectionLostError)"}
+    LOST -->|"no (e.g. BadNodeId)"| FAIL["status: error<br/>node.error + msg.error"]
+    LOST -->|yes| BUDG{"attempts left?<br/>(< maxOperationRetries)"}
+    BUDG -->|no| FAIL
+    BUDG -->|yes| RC["reconnect()<br/>(cool-down coalesced)"]
+    RC --> BACK["exponential backoff<br/>(retryBackoffMs, cap 2s)"]
+    BACK --> ENS
+```
+
+Three fixes:
+
+- **Bounded operation retry** (`opcua-client` node). A connection-lost operation
+  is now retried up to `maxOperationRetries` times (default 3) with exponential
+  backoff (`retryBackoffMs`, capped at 2 s) instead of exactly once — so a
+  second drop landing during the first reconnect no longer fails the message.
+- **Reconnect cool-down** (`OpcUaClientManager`). After a successful reconnect,
+  a redundant `reconnect()` arriving within `reconnectCooldownMs` (default
+  250 ms) while still connected is a no-op, removing the race where a burst of
+  callers each forced another teardown+connect that briefly flipped
+  `isConnected` to false under other in-flight operations.
+- **Wider connection-lost classification.** `_isConnectionLostError()` now also
+  recognises the channel-teardown abort ("Transaction has been canceled because
+  client channel is being closed") and `BadSessionClosed` / `BadSessionIdInvalid`
+  / `BadConnectionClosed` / `BadSecureChannelClosed` status errors, so those are
+  retried rather than surfaced as failures.
+
+- **Optional session pool** (implemented, opt-in). The endpoint config node has
+  a **Session Pool** field (default 1 = single shared session, unchanged). With
+  `poolSize > 1`, stateless operations (read/write/browse/...) round-robin across
+  N sessions; session-bound operations (subscriptions, registered nodes) stay on
+  the primary member. A pool only raises throughput when a single session/channel
+  is genuinely the bottleneck (high-latency links, servers that serialize per
+  session) — on a local low-latency server the server/CPU is the limit, so a pool
+  shows no gain there. Default behaviour is byte-for-byte unchanged at `poolSize 1`.
+
+#### Session pool routing
+
+```mermaid
+flowchart TD
+    OP["operation"] --> KIND{"operation kind?"}
+    KIND -->|"session-bound<br/>subscribe · registerNodes ·<br/>constructExtensionObject"| PRIM["primary member<br/>(members[0])"]
+    KIND -->|"stateless<br/>read · write · browse ·<br/>callMethod · history"| RR["round-robin<br/>next connected member"]
+    RR --> M0["session 0 (primary)"]
+    RR --> M1["session 1"]
+    RR --> M2["session N…"]
+    PRIM --> M0
+```
+
+Session-bound work keeps its session affinity on the primary; stateless work
+spreads across all connected sessions. If no member is connected, the call
+falls through to the primary so the retry/reconnect path above kicks in.
+
+### Further ideas
+
+- **`readMultiple` is the throughput win.** One batch call returns ~7× the values
+  of a single read at similar latency — prefer it (or subscriptions) over many
+  single `read` ops in hot flows.
 
 ## License
 

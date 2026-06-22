@@ -10,7 +10,10 @@
             maxReconnectAttempts: { value: 10 },
             reconnectDelay: { value: 5000 },
             retryAttempts: { value: 0 },
+            maxOperationRetries: { value: 3 },
+            retryBackoffMs: { value: 100 },
             verboseLog: { value: true },
+            autoConnect: { value: true },
         },
         inputs: 1,
         outputs: 1,
@@ -134,6 +137,21 @@
             </span>
         </div>
 
+        <div class="form-row" style="padding-left:2px;">
+            <label for="node-input-autoConnect" style="width:auto;">
+                <input
+                    type="checkbox"
+                    id="node-input-autoConnect"
+                    style="width:auto; margin:0 8px 0 0; vertical-align:middle;"
+                />
+                <i class="fa fa-plug" style="margin-right:4px;"></i>
+                Connect on deploy
+            </label>
+            <span style="font-size:11px;color:#999;margin-left:8px;">
+                Connect immediately instead of on first message
+            </span>
+        </div>
+
         <div class="opcua-toggle-row" id="opcua-client-toggle-advanced">
             <i class="fa fa-chevron-right"></i>
             <span>Advanced Settings</span>
@@ -192,7 +210,39 @@
                     placeholder="0"
                 />
                 <span style="font-size:11px;color:#999;margin-left:4px"
-                    >per message (0 = infinite)</span
+                    >reconnect attempts (0 = infinite)</span
+                >
+            </div>
+            <div class="form-row">
+                <label for="node-input-maxOperationRetries"
+                    ><i class="fa fa-repeat"></i> Operation Retries</label
+                >
+                <input
+                    type="number"
+                    id="node-input-maxOperationRetries"
+                    min="0"
+                    max="20"
+                    style="width:80px;"
+                    placeholder="3"
+                />
+                <span style="font-size:11px;color:#999;margin-left:4px"
+                    >retries per message on connection loss</span
+                >
+            </div>
+            <div class="form-row">
+                <label for="node-input-retryBackoffMs"
+                    ><i class="fa fa-clock-o"></i> Retry Backoff</label
+                >
+                <input
+                    type="number"
+                    id="node-input-retryBackoffMs"
+                    min="0"
+                    max="5000"
+                    style="width:100px;"
+                    placeholder="100"
+                />
+                <span style="font-size:11px;color:#999;margin-left:4px"
+                    >ms (exponential, capped at 2s)</span
                 >
             </div>
         </div>

@@ -1,5 +1,20 @@
 # Docker Deployment Guide
 
+The compose stack runs two containers on a private `opcua-network` bridge:
+
+```mermaid
+flowchart LR
+    HOST["Host"] -->|"localhost:1881"| NR
+    HOST -->|"localhost:4841"| SRV
+    subgraph NET["opcua-network (bridge)"]
+        NR["node-red<br/>(:1880)"] -->|"opc.tcp://opcua-server:4840"| SRV["opcua-server<br/>(:4840)"]
+    end
+    NR -.->|depends_on| SRV
+```
+
+Inside the network the nodes reach the server at `opc.tcp://opcua-server:4840`;
+the host sees them on the remapped ports `1881` / `4841`.
+
 ## Quick Start
 
 ```bash

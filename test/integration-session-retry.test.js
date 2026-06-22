@@ -231,7 +231,7 @@ describe("Integration: session retry with real OPC UA server", function () {
 
       // Verify the warn was triggered
       expect(node.warn.called).to.be.true;
-      expect(node.warn.firstCall.args[0]).to.include("reconnecting");
+      expect(node.warn.firstCall.args[0]).to.include("reconnect");
 
       // Verify status went yellow then green
       const statusCalls = node.status.args.map((a) => a[0]);

@@ -15,7 +15,8 @@
             privateKeyFile: { value: '' },
             caCertificateFile: { value: '' },
             userCertificateFile: { value: '' },
-            userPrivateKeyFile: { value: '' }
+            userPrivateKeyFile: { value: '' },
+            poolSize: { value: 1, validate: function(v) { return v === '' || v === undefined || parseInt(v, 10) >= 1; } }
         },
         credentials: {
             userName: { type: 'text' },
@@ -368,6 +369,11 @@
         <div class="form-row">
             <label for="node-config-input-password"><i class="fa fa-key"></i> Password</label>
             <input type="password" id="node-config-input-password" placeholder="optional">
+        </div>
+        <div class="form-row">
+            <label for="node-config-input-poolSize"><i class="fa fa-database"></i> Session Pool</label>
+            <input type="number" id="node-config-input-poolSize" min="1" max="16" style="width:80px;" placeholder="1">
+            <span style="font-size:11px;color:#999;margin-left:4px">sessions (1 = shared single session)</span>
         </div>
     </div>
 
