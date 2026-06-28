@@ -373,6 +373,39 @@ describe('opcua-item node', function () {
         });
     });
 
+    describe('extension object and array fields', function () {
+        it('should pass dataTypeNodeId and arrayType into msg.items', function () {
+            const { handlers } = createItemNode({
+                items: [{
+                    nodeId: 'ns=2;s=MyStruct',
+                    datatype: 'ExtensionObject',
+                    dataTypeNodeId: 'ns=2;i=3003'
+                }, {
+                    nodeId: 'ns=2;s=Arr',
+                    datatype: 'Int32',
+                    arrayType: 'Array'
+                }],
+                collector: true
+            });
+            const { send } = triggerInput(handlers, {});
+            const items = send.firstCall.args[0].items;
+            expect(items[0].dataTypeNodeId).to.equal('ns=2;i=3003');
+            expect(items[0].datatype).to.equal('ExtensionObject');
+            expect(items[1].arrayType).to.equal('Array');
+        });
+
+        it('should omit dataTypeNodeId/arrayType when not configured', function () {
+            const { handlers } = createItemNode({
+                items: [{ nodeId: 'ns=2;s=Plain', datatype: 'Double' }],
+                collector: true
+            });
+            const { send } = triggerInput(handlers, {});
+            const item = send.firstCall.args[0].items[0];
+            expect(item.dataTypeNodeId).to.be.undefined;
+            expect(item.arrayType).to.be.undefined;
+        });
+    });
+
     describe('registration', function () {
         it('should register as "opcua-item" type', function () {
             expect(RED.nodes._types).to.have.property('opcua-item');

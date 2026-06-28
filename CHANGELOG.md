@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 0.1.5 (2026-06-28)
+
+### Added
+
+- **`opcua-item`: complete OPC UA DataType set** – the per-item **DataType** dropdown now exposes the full enum: the previously added scalars plus `ExpandedNodeId`, the structured `ExtensionObject`, and an *Advanced (rarely writable)* group (`DataValue`, `Variant`, `DiagnosticInfo`). The advanced types are offered for completeness — an incompatible value surfaces a server-side write error.
+- **`opcua-item` / `opcua-client`: array (ValueRank) writes** – a per-item `[]` checkbox (or `arrayType: "Array"` on an item / `msg.arrayType` for single write) builds the Variant with `VariantArrayType.Array`, so array-valued nodes (e.g. `Int32[]`) can be written. The payload must be a JS array; the element DataType comes from the selected DataType or is inferred from the first element. Scalar behaviour is unchanged when the flag is off.
+- **`opcua-item`: ExtensionObject DataType NodeId field** – selecting `ExtensionObject` reveals a **DataType NodeId** input (e.g. `ns=2;i=3003`), so structured-type writes can be configured entirely in the Item node UI (previously only via a function node setting `msg.items`). Reading ExtensionObjects still needs no configuration.
+
+### Tests
+
+- Added end-to-end coverage proving the **read** path serializes ExtensionObject values to plain JSON (`read` and `readMultiple`), plus array-Variant construction and arrayType/dataTypeNodeId passthrough from the Item node through the client to the manager.
+
 ## 0.1.4 (2026-06-28)
 
 ### Changed

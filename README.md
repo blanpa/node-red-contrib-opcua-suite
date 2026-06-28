@@ -130,7 +130,11 @@ Defines OPC UA items (variables) for batch operations. Each item needs a **NodeI
 
 In **Collector Mode** (default), items are appended to `msg.items` for batch operations. In **Legacy Mode** (collector off), only the first item is set on `msg.topic` / `msg.datatype` for single operations.
 
-**DataType** (per item, write-only) covers the full set of OPC UA scalar types: booleans/integers (`Boolean`, `SByte`/`Byte`, `Int16`–`Int64`, `UInt16`–`UInt64`), floating point (`Float`, `Double`), text/time (`String`, `DateTime`, `LocalizedText`, `QualifiedName`, `XmlElement`) and binary/identifier types (`ByteString`, `Guid`, `NodeId`, `StatusCode`). The DataType is only used for writes — reads always return the server's type. Leave it on **Auto** to let node-opcua infer the type from the JS value.
+**DataType** (per item, write-only) covers the full OPC UA type set: booleans/integers (`Boolean`, `SByte`/`Byte`, `Int16`–`Int64`, `UInt16`–`UInt64`), floating point (`Float`, `Double`), text/time (`String`, `DateTime`, `LocalizedText`, `QualifiedName`, `XmlElement`), binary/identifier types (`ByteString`, `Guid`, `NodeId`, `ExpandedNodeId`, `StatusCode`), the structured `ExtensionObject`, and an *Advanced (rarely writable)* group (`DataValue`, `Variant`, `DiagnosticInfo`, offered for completeness — incompatible values surface a server write error). The DataType is only used for writes — reads always return the server's type. Leave it on **Auto** to let node-opcua infer the type from the JS value.
+
+**Array (`[]`)** — tick the per-item `[]` box to write the value as an array (ValueRank); the payload must be a JS array (e.g. `[1, 2, 3]`). Sets `arrayType: "Array"` on the item (or `msg.arrayType` for a single write).
+
+**ExtensionObject** — selecting `ExtensionObject` reveals a **DataType NodeId** field (e.g. `ns=2;i=3003`); the payload is a plain JSON object of the struct fields. See [ExtensionObjects](#extensionobjects-structured-types).
 
 **Operation** (optional) sets `msg.operation` (Read / Write / Subscribe / Unsubscribe) so the downstream client knows what to do without a separate config — leave on *don't set* to keep the client's default or an existing `msg.operation`.
 

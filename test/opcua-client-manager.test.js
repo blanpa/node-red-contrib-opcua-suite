@@ -134,6 +134,29 @@ describe("OpcUaClientManager", function () {
       expect(variant).to.have.property("value");
       expect(variant).to.have.property("dataType");
     });
+
+    it("should build an Array variant when arrayType is 'Array' (explicit datatype)", function () {
+      const { DataType, VariantArrayType } = require("node-opcua");
+      const variant = mgr._createVariant([1, 2, 3], "Int32", "Array");
+      expect(variant.arrayType).to.equal(VariantArrayType.Array);
+      expect(variant.dataType).to.equal(DataType.Int32);
+      // node-opcua coerces an Int32 array into a typed Int32Array
+      expect(Array.from(variant.value)).to.deep.equal([1, 2, 3]);
+    });
+
+    it("should infer the element type for an Array variant in auto mode", function () {
+      const { DataType, VariantArrayType } = require("node-opcua");
+      const variant = mgr._createVariant([1.5, 2.5], null, "Array");
+      expect(variant.arrayType).to.equal(VariantArrayType.Array);
+      // 1.5 is non-integer -> Double inferred from the first element
+      expect(variant.dataType).to.equal(DataType.Double);
+    });
+
+    it("should stay scalar when arrayType is not set", function () {
+      const { VariantArrayType } = require("node-opcua");
+      const variant = mgr._createVariant(5, "Int32");
+      expect(variant.arrayType).to.equal(VariantArrayType.Scalar);
+    });
   });
 
   // ─── _toOpcUaNodeId ───
@@ -695,6 +718,34 @@ describe("OpcUaClientManager", function () {
       // session.read should only be called once (no fallback)
       expect(mgr.session.read.calledOnce).to.be.true;
     });
+
+    it("should serialize an ExtensionObject value to plain JSON", async function () {
+      // A read whose value is a typed ExtensionObject (DataType 22) must be
+      // flattened to a plain JSON object via _serializeValue.
+      const extObj = {
+        schema: {
+          name: "SensorReading",
+          fields: [{ name: "temperature" }, { name: "unit" }],
+        },
+        temperature: 25.5,
+        unit: "Celsius",
+      };
+      mgr.session = {
+        read: sinon.stub().resolves({
+          value: { value: extObj, dataType: 22 /* ExtensionObject */ },
+          statusCode: { value: 0, name: "Good", toString: () => "Good (0x00000000)" },
+          sourceTimestamp: new Date(),
+          serverTimestamp: new Date(),
+        }),
+      };
+
+      const result = await mgr.read("ns=2;s=MyStruct");
+      expect(result.dataType).to.equal("ExtensionObject");
+      expect(result.value).to.have.property("_typeName", "SensorReading");
+      expect(result.value).to.have.property("temperature", 25.5);
+      expect(result.value).to.have.property("unit", "Celsius");
+      expect(result.value).to.not.have.property("schema");
+    });
   });
 
   // ─── readMultiple (fallback for non-Variable nodes) ───
@@ -749,6 +800,39 @@ describe("OpcUaClientManager", function () {
       expect(results[1].dataType).to.equal("Object");
       expect(results[1].value).to.have.property("browseName", "Obj");
       expect(results[1].value).to.have.property("displayName", "Object Node");
+    });
+
+    it("should serialize ExtensionObject values in a batch to plain JSON", async function () {
+      const extObj = {
+        schema: { name: "Point", fields: [{ name: "x" }, { name: "y" }] },
+        x: 1.5,
+        y: 2.5,
+      };
+      mgr.session = {
+        read: sinon.stub().resolves([
+          {
+            value: { value: 7, dataType: 6 /* Int32-ish */ },
+            statusCode: { value: 0, name: "Good", toString: () => "Good (0x00000000)" },
+            sourceTimestamp: new Date(),
+            serverTimestamp: new Date(),
+          },
+          {
+            value: { value: extObj, dataType: 22 /* ExtensionObject */ },
+            statusCode: { value: 0, name: "Good", toString: () => "Good (0x00000000)" },
+            sourceTimestamp: new Date(),
+            serverTimestamp: new Date(),
+          },
+        ]),
+      };
+
+      const results = await mgr.readMultiple(["ns=2;s=Scalar", "ns=2;s=Struct"]);
+      expect(results).to.have.lengthOf(2);
+      expect(results[0].value).to.equal(7);
+      expect(results[1].dataType).to.equal("ExtensionObject");
+      expect(results[1].value).to.have.property("_typeName", "Point");
+      expect(results[1].value).to.have.property("x", 1.5);
+      expect(results[1].value).to.have.property("y", 2.5);
+      expect(results[1].value).to.not.have.property("schema");
     });
   });
 

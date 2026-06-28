@@ -49,29 +49,58 @@
                 '<option value="ByteString">ByteString</option>' +
                 '<option value="Guid">Guid</option>' +
                 '<option value="NodeId">NodeId</option>' +
+                '<option value="ExpandedNodeId">ExpandedNodeId</option>' +
                 '<option value="StatusCode">StatusCode</option>' +
+                '</optgroup>' +
+                '<optgroup label="Structured">' +
+                '<option value="ExtensionObject">ExtensionObject</option>' +
+                '</optgroup>' +
+                '<optgroup label="Advanced (rarely writable)">' +
+                '<option value="DataValue">DataValue</option>' +
+                '<option value="Variant">Variant</option>' +
+                '<option value="DiagnosticInfo">DiagnosticInfo</option>' +
                 '</optgroup>';
 
-            function addItemRow(nid, iname, dt) {
+            function addItemRow(nid, iname, dt, dtNodeId, arr) {
+                var item = $('<div class="opcua-il-item"></div>');
                 var row = $('<div class="opcua-il-row">' +
                     '<input type="text" class="opcua-il-nodeId" placeholder="ns=2;s=Variable">' +
                     '<input type="text" class="opcua-il-itemName" placeholder="Name">' +
                     '<select class="opcua-il-datatype">' + datatypeOpts + '</select>' +
+                    '<label class="opcua-il-arr" title="Write the value as an array (ValueRank)"><input type="checkbox" class="opcua-il-arrcb"> []</label>' +
                     '<button type="button" class="opcua-il-remove red-ui-button red-ui-button-small"><i class="fa fa-remove"></i></button>' +
+                    '</div>');
+                var extRow = $('<div class="opcua-il-extrow">' +
+                    '<input type="text" class="opcua-il-dtnodeid" placeholder="DataType NodeId (e.g. ns=2;i=3003)">' +
                     '</div>');
                 row.find('.opcua-il-nodeId').val(nid || '');
                 row.find('.opcua-il-itemName').val(iname || '');
                 row.find('.opcua-il-datatype').val(dt || '');
+                row.find('.opcua-il-arrcb').prop('checked', !!arr);
+                extRow.find('.opcua-il-dtnodeid').val(dtNodeId || '');
+
+                // The DataType NodeId field is only relevant for ExtensionObject
+                function syncExtRow() {
+                    if (row.find('.opcua-il-datatype').val() === 'ExtensionObject') {
+                        extRow.show();
+                    } else {
+                        extRow.hide();
+                    }
+                }
+                row.find('.opcua-il-datatype').on('change', syncExtRow);
+                syncExtRow();
+
                 row.find('.opcua-il-remove').on('click', function() {
-                    row.remove();
+                    item.remove();
                     updatePreview();
                 });
-                $('#opcua-il-list').append(row);
+                item.append(row).append(extRow);
+                $('#opcua-il-list').append(item);
                 updatePreview();
             }
 
             $('#opcua-il-add-btn').on('click', function() {
-                addItemRow('', '', '');
+                addItemRow('', '', '', '', false);
             });
 
             // Migrate from old format (nodeId/datatype/itemName/itemList)
@@ -90,7 +119,7 @@
             }
 
             for (var i = 0; i < items.length; i++) {
-                addItemRow(items[i].nodeId, items[i].itemName, items[i].datatype);
+                addItemRow(items[i].nodeId, items[i].itemName, items[i].datatype, items[i].dataTypeNodeId, items[i].arrayType);
             }
 
             function updatePreview() {
@@ -110,14 +139,18 @@
         },
         oneditsave: function() {
             var items = [];
-            $('#opcua-il-list .opcua-il-row').each(function() {
+            $('#opcua-il-list .opcua-il-item').each(function() {
                 var nodeId = $(this).find('.opcua-il-nodeId').val();
                 if (nodeId && nodeId.trim()) {
-                    items.push({
+                    var item = {
                         nodeId: nodeId.trim(),
                         itemName: ($(this).find('.opcua-il-itemName').val() || '').trim(),
                         datatype: $(this).find('.opcua-il-datatype').val() || ''
-                    });
+                    };
+                    var dtn = ($(this).find('.opcua-il-dtnodeid').val() || '').trim();
+                    if (dtn) item.dataTypeNodeId = dtn;
+                    if ($(this).find('.opcua-il-arrcb').is(':checked')) item.arrayType = 'Array';
+                    items.push(item);
                 }
             });
             this.items = items;
@@ -165,7 +198,34 @@
     .opcua-il-row .opcua-il-nodeId { flex: 1; min-width: 180px; }
     .opcua-il-row .opcua-il-itemName { width: 130px; }
     .opcua-il-row .opcua-il-datatype { width: 130px; }
+    .opcua-il-row .opcua-il-arr {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        flex-shrink: 0;
+        font-size: 12px;
+        color: #555;
+        white-space: nowrap;
+    }
+    .opcua-il-row .opcua-il-arr input[type="checkbox"] {
+        width: auto;
+        height: auto;
+        margin: 0;
+    }
     .opcua-il-row .opcua-il-remove { flex-shrink: 0; }
+    .opcua-il-item { margin-bottom: 6px; }
+    .opcua-il-item .opcua-il-row { margin-bottom: 0; }
+    .opcua-il-extrow {
+        display: none;
+        margin: 4px 0 0 0;
+        padding-left: 4px;
+    }
+    .opcua-il-extrow .opcua-il-dtnodeid {
+        width: 100%;
+        height: 30px;
+        font-size: 12px;
+        box-sizing: border-box;
+    }
     #opcua-il-list {
         max-height: 360px;
         overflow-y: auto;
@@ -221,7 +281,24 @@
 
     <h3>Items</h3>
     <p>Add one or more items via the <b>Add Item</b> button. Each item needs a <b>NodeId</b>,
-    and optionally a <b>Name</b> and <b>DataType</b>.</p>
+    and optionally a <b>Name</b>, a <b>DataType</b> and an <b>array</b> flag (<code>[]</code>).</p>
+
+    <h4>DataType (write only)</h4>
+    <p>The DataType is used for <b>writes</b> only — reads always return the server's type.
+    The dropdown lists the full OPC UA type set. <b>Auto</b> infers the type from the JS value.
+    The <i>Advanced</i> types (<code>DataValue</code>, <code>Variant</code>, <code>DiagnosticInfo</code>)
+    are rarely writable as a variable value and will surface a server error if the value does not
+    match — they are offered for completeness.</p>
+
+    <h4>Array (ValueRank)</h4>
+    <p>Tick <code>[]</code> to write the value as an <b>array</b> (e.g. <code>Int32[]</code>).
+    The payload must then be a JS array. Sets <code>arrayType: "Array"</code> on the item.</p>
+
+    <h4>ExtensionObject (structured types)</h4>
+    <p>Select <b>ExtensionObject</b> to reveal a <b>DataType NodeId</b> field — enter the NodeId of
+    the structured DataType definition (e.g. <code>ns=2;i=3003</code>). The payload is a plain JSON
+    object of the struct fields. Reading ExtensionObjects needs no configuration — they come back
+    as JSON automatically.</p>
 
     <h4>Chain Pattern</h4>
     <p>Multiple Item nodes can be chained — each adds its items to <code>msg.items</code>:</p>

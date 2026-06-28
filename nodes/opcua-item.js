@@ -52,7 +52,9 @@ module.exports = function(RED) {
                     allItems.push({
                         nodeId: cfg.nodeId,
                         datatype: cfg.datatype || undefined,
-                        itemName: cfg.itemName || undefined
+                        itemName: cfg.itemName || undefined,
+                        dataTypeNodeId: cfg.dataTypeNodeId || undefined,
+                        arrayType: cfg.arrayType || undefined
                     });
                 }
             }

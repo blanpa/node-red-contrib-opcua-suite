@@ -441,6 +441,7 @@ module.exports = function (RED) {
       value,
       msg.datatype || null,
       msg.dataTypeNodeId || null,
+      msg.arrayType || null,
     );
     return {
       payload: value,
@@ -481,6 +482,7 @@ module.exports = function (RED) {
               value: valObj.value,
               datatype: valObj.datatype || null,
               dataTypeNodeId: valObj.dataTypeNodeId || null,
+              arrayType: valObj.arrayType || null,
               name: valObj.name,
             };
           }
@@ -507,6 +509,7 @@ module.exports = function (RED) {
         value: item.value,
         datatype: item.datatype || null,
         dataTypeNodeId: item.dataTypeNodeId || null,
+        arrayType: item.arrayType || null,
       };
     });
 
