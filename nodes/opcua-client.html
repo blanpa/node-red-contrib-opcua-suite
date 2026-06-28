@@ -275,6 +275,13 @@
         Via <code>msg.operation</code> or default operation in the
         configuration:
     </p>
+    <p>
+        Every output (including the error output) carries the resolved
+        operation in <code>msg.operation</code> — e.g. <code>"read"</code>,
+        <code>"write"</code>, <code>"browse"</code>, or the more specific
+        <code>"readmultiple"</code> / <code>"writemultiple"</code> when a batch
+        ran — so a downstream <b>switch</b> node can branch on it.
+    </p>
 
     <h4>Read (single)</h4>
     <ul>

@@ -208,6 +208,12 @@ module.exports = function (RED) {
         "read"
       ).toLowerCase();
 
+      // Reflect the resolved operation on the output so downstream nodes can
+      // branch (read / write / browse / …). Handlers that run a more specific
+      // variant (e.g. readmultiple) override this via Object.assign below, and
+      // the error path keeps it set too.
+      msg.operation = operation;
+
       const isConnLost = (error) =>
         clientManager._isConnectionLostError &&
         clientManager._isConnectionLostError(error);

@@ -110,6 +110,8 @@ Single node for all OPC UA operations. Set via `msg.operation` or the default op
 
 When `msg.items` is present, the client automatically switches to batch mode — even if the operation is set to `read` or `write`.
 
+Every output (including the error output) carries the resolved operation in `msg.operation` — `"read"`, `"write"`, `"browse"`, … (lower-cased), or the more specific `"readmultiple"` / `"writemultiple"` when a batch ran — so a downstream **switch** node can branch on it.
+
 **Advanced settings** (resilience): the client connects on deploy (**Connect on deploy**, default on) so its status reflects the real connection immediately. On a connection-lost error each message is retried up to **Operation Retries** times (default 3) with exponential **Retry Backoff** (default 100 ms, capped at 2 s) — see [Resilience hardening](#resilience-hardening-implemented).
 
 ### opcua-item (Item Collector)

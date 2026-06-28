@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.4 (2026-06-28)
+
+### Changed
+
+- **`opcua-client`: resolved operation on every output** – every output message (including the error output) now carries the resolved operation in `msg.operation` — `"read"`, `"write"`, `"browse"`, `"method"`, `"history"`, … (lower-cased), or the more specific `"readmultiple"` / `"writemultiple"` when a batch ran. Previously only the multiple/subscribe variants set it, so a downstream **switch** node could not reliably branch on single read/write/browse. Existing flows are unaffected — the field is only added where it was missing.
+
 ## 0.1.3 (2026-06-28)
 
 ### Added
