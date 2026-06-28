@@ -14,6 +14,7 @@
             retryBackoffMs: { value: 100 },
             verboseLog: { value: true },
             autoConnect: { value: true },
+            unwrapSingle: { value: false },
         },
         inputs: 1,
         outputs: 1,
@@ -149,6 +150,21 @@
             </label>
             <span style="font-size:11px;color:#999;margin-left:8px;">
                 Connect immediately instead of on first message
+            </span>
+        </div>
+
+        <div class="form-row" style="padding-left:2px;">
+            <label for="node-input-unwrapSingle" style="width:auto;">
+                <input
+                    type="checkbox"
+                    id="node-input-unwrapSingle"
+                    style="width:auto; margin:0 8px 0 0; vertical-align:middle;"
+                />
+                <i class="fa fa-compress" style="margin-right:4px;"></i>
+                Unwrap single value
+            </label>
+            <span style="font-size:11px;color:#999;margin-left:8px;">
+                Single read → scalar in msg.payload (not a 1-element array)
             </span>
         </div>
 
@@ -310,6 +326,18 @@
 
     <h4>Subscribe / Browse / Method / History</h4>
     <p>See example flows for all supported operations.</p>
+
+    <h3>Unwrap single value</h3>
+    <p>
+        A read that resolves to exactly one item (e.g. one Item node, or a
+        single-entry <code>msg.items</code>) normally returns a one-element
+        array in <code>msg.payload</code>. Enable <b>Unwrap single value</b> to
+        receive the scalar value directly instead, with its metadata
+        (<code>dataType</code>, <code>statusCode</code>, <code>nodeId</code>, …)
+        flattened onto <code>msg</code>. Override per message with
+        <code>msg.unwrapSingle = true | false</code>. Reads of two or more items
+        are unaffected.
+    </p>
 
     <h3>ExtensionObject (Structured Types) Support</h3>
     <p>

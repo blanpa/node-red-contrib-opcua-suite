@@ -128,6 +128,12 @@ Defines OPC UA items (variables) for batch operations. Each item needs a **NodeI
 
 In **Collector Mode** (default), items are appended to `msg.items` for batch operations. In **Legacy Mode** (collector off), only the first item is set on `msg.topic` / `msg.datatype` for single operations.
 
+**DataType** (per item, write-only) covers the full set of OPC UA scalar types: booleans/integers (`Boolean`, `SByte`/`Byte`, `Int16`–`Int64`, `UInt16`–`UInt64`), floating point (`Float`, `Double`), text/time (`String`, `DateTime`, `LocalizedText`, `QualifiedName`, `XmlElement`) and binary/identifier types (`ByteString`, `Guid`, `NodeId`, `StatusCode`). The DataType is only used for writes — reads always return the server's type. Leave it on **Auto** to let node-opcua infer the type from the JS value.
+
+**Operation** (optional) sets `msg.operation` (Read / Write / Subscribe / Unsubscribe) so the downstream client knows what to do without a separate config — leave on *don't set* to keep the client's default or an existing `msg.operation`.
+
+**Unwrap single value** sets `msg.unwrapSingle = true`. When a read resolves to exactly one item, the client delivers the scalar value in `msg.payload` (e.g. `false`) instead of a one-element array (`[{value:false, …}]`). The same option also exists on the client node; see [Single-value reads](#single-value-reads).
+
 ### opcua-browser
 
 Browses the OPC UA address space. Send a NodeId via `msg.topic` to browse from that node, or leave empty to start from `RootFolder`.
@@ -293,7 +299,13 @@ See [docs/MSG-SCHEMA.md](docs/MSG-SCHEMA.md) for the full message field referenc
 | `string` | String |
 | `Date` | DateTime |
 
-Explicit override: `msg.datatype = "UInt16"` or in item config.
+Explicit override: `msg.datatype = "UInt16"` or in item config. The item node's **DataType** dropdown offers the full OPC UA scalar set (see [opcua-item](#opcua-item-item-collector)); the override applies to writes only.
+
+### Single-value reads
+
+A read that resolves to **exactly one item** — one Item node, or a single-entry `msg.items` — returns a one-element array in `msg.payload` by default (`[{value:false, …}]`), because the client treats `msg.items` as a batch read.
+
+Enable **Unwrap single value** on the client node (or set `msg.unwrapSingle = true`, e.g. via the item node's checkbox) to receive the scalar value directly in `msg.payload`, with its metadata (`dataType`, `statusCode`, `nodeId`, `sourceTimestamp`, `serverTimestamp`) flattened onto `msg`. `msg.unwrapSingle` overrides the node setting per message; reads of two or more items are never unwrapped.
 
 ### ExtensionObjects (Structured Types)
 

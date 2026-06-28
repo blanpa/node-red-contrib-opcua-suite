@@ -18,6 +18,10 @@ module.exports = function (RED) {
     RED.nodes.createNode(this, config);
     const node = this;
     const verboseLog = config.verboseLog !== false;
+    // When a read resolves to exactly one item, return the scalar value in
+    // msg.payload instead of a single-element array. Overridable per message
+    // via msg.unwrapSingle.
+    const unwrapSingleDefault = config.unwrapSingle === true;
 
     const endpointConfig = RED.nodes.getNode(config.endpoint);
     if (!endpointConfig) {
@@ -90,11 +94,15 @@ module.exports = function (RED) {
 
       switch (operation) {
         case "read":
-          result = await handleRead(msg, clientManager);
+          result = await handleRead(msg, clientManager, {
+            unwrapSingle: unwrapSingleDefault,
+          });
           break;
 
         case "readmultiple":
-          result = await handleReadMultiple(msg, clientManager);
+          result = await handleReadMultiple(msg, clientManager, {
+            unwrapSingle: unwrapSingleDefault,
+          });
           break;
 
         case "write":
@@ -299,10 +307,10 @@ module.exports = function (RED) {
 
   // ─── Single Read ───
 
-  async function handleRead(msg, mgr) {
+  async function handleRead(msg, mgr, opts = {}) {
     // If msg.items is present, automatically switch to readmultiple
     if (msg.items && Array.isArray(msg.items) && msg.items.length > 0) {
-      return handleReadMultiple(msg, mgr);
+      return handleReadMultiple(msg, mgr, opts);
     }
 
     const nodeIdString = msg.topic || msg.nodeId;
@@ -325,7 +333,7 @@ module.exports = function (RED) {
 
   // ─── Multiple Read ───
 
-  async function handleReadMultiple(msg, mgr) {
+  async function handleReadMultiple(msg, mgr, opts = {}) {
     // Support msg.payload as items source:
     //   Array: [{nodeId: "ns=1;s=Var1"}, ...]
     //   Object: {"Temp": "ns=1;s=Temp", "Press": "ns=1;s=Press"}
@@ -372,6 +380,27 @@ module.exports = function (RED) {
       ...r,
       itemName: items[idx].itemName || items[idx].name || undefined,
     }));
+
+    // Unwrap: when exactly one item was read and unwrapping is requested,
+    // return the scalar value in msg.payload (with its metadata flattened)
+    // instead of a single-element array. msg.unwrapSingle overrides the
+    // node-level default.
+    const unwrap =
+      msg.unwrapSingle !== undefined ? msg.unwrapSingle : opts.unwrapSingle;
+    if (unwrap && enrichedResults.length === 1) {
+      const single = enrichedResults[0];
+      return {
+        payload: single.value,
+        dataType: single.dataType,
+        statusCode: single.statusCode,
+        sourceTimestamp: single.sourceTimestamp,
+        serverTimestamp: single.serverTimestamp,
+        nodeId: single.nodeId,
+        itemName: single.itemName,
+        operation: "readmultiple",
+        count: 1,
+      };
+    }
 
     return {
       payload: enrichedResults,

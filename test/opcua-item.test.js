@@ -334,6 +334,45 @@ describe('opcua-item node', function () {
 
     // ─── Registration ───
 
+    describe('operation and unwrapSingle', function () {
+        it('should set msg.operation when configured', function () {
+            const { handlers } = createItemNode({
+                items: [{ nodeId: 'ns=2;s=Temp' }],
+                operation: 'read'
+            });
+            const { send } = triggerInput(handlers, {});
+            expect(send.firstCall.args[0].operation).to.equal('read');
+        });
+
+        it('should not touch msg.operation when not configured', function () {
+            const { handlers } = createItemNode({
+                items: [{ nodeId: 'ns=2;s=Temp' }]
+            });
+            const { send } = triggerInput(handlers, { operation: 'write' });
+            expect(send.firstCall.args[0].operation).to.equal('write');
+        });
+
+        it('should set msg.unwrapSingle when enabled', function () {
+            const { handlers } = createItemNode({
+                items: [{ nodeId: 'ns=2;s=Temp' }],
+                unwrapSingle: true
+            });
+            const { send } = triggerInput(handlers, {});
+            expect(send.firstCall.args[0].unwrapSingle).to.equal(true);
+        });
+
+        it('should make configured operation drive write value attachment', function () {
+            // operation:'write' set by the item node must be visible to the
+            // write-detection logic, so msg.payload is attached to the item.
+            const { handlers } = createItemNode({
+                items: [{ nodeId: 'ns=2;s=Temp' }],
+                operation: 'write'
+            });
+            const { send } = triggerInput(handlers, { payload: 42 });
+            expect(send.firstCall.args[0].items[0].value).to.equal(42);
+        });
+    });
+
     describe('registration', function () {
         it('should register as "opcua-item" type', function () {
             expect(RED.nodes._types).to.have.property('opcua-item');

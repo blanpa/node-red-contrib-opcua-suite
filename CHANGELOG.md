@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.1.3 (2026-06-28)
+
+### Added
+
+- **`opcua-item`: full OPC UA scalar DataType set** – the per-item **DataType** dropdown now covers all scalar types, grouped for readability: booleans/integers, floating point (`Float`/`Double`), text/time (`String`, `DateTime`, `LocalizedText`, `QualifiedName`, `XmlElement`) and binary/identifier types (`ByteString`, `Guid`, `NodeId`, `StatusCode`). Previously only 14 numeric/text types were offered. The DataType is used for writes only; reads always return the server's type. The item-row fields were also enlarged for easier editing.
+- **`opcua-item`: optional Operation** – new **Operation** dropdown (Read / Write / Subscribe / Unsubscribe) sets `msg.operation` so the downstream client knows what to do without separate configuration. Default *don't set* preserves an existing `msg.operation` / the client's default operation.
+- **`opcua-client` & `opcua-item`: unwrap single read value** – new **Unwrap single value** option (`unwrapSingle`, default off on the client; checkbox on the item node sets `msg.unwrapSingle`). When a read resolves to exactly one item, the scalar value is returned in `msg.payload` (e.g. `false`) with its metadata flattened onto `msg`, instead of a one-element array (`[{value:false, …}]`). `msg.unwrapSingle` overrides per message; reads of two or more items are unaffected.
+
 ## 0.1.2 (2026-06-22)
 
 ### Added

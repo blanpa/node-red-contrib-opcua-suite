@@ -5,6 +5,8 @@
         defaults: {
             name: { value: '' },
             collector: { value: true },
+            operation: { value: '' },
+            unwrapSingle: { value: false },
             items: { value: [] }
         },
         inputs: 1,
@@ -21,6 +23,7 @@
         oneditprepare: function() {
             var node = this;
             var datatypeOpts = '<option value="">Auto</option>' +
+                '<optgroup label="Boolean / Integer">' +
                 '<option value="Boolean">Boolean</option>' +
                 '<option value="SByte">SByte</option>' +
                 '<option value="Int16">Int16</option>' +
@@ -30,10 +33,24 @@
                 '<option value="UInt16">UInt16</option>' +
                 '<option value="UInt32">UInt32</option>' +
                 '<option value="UInt64">UInt64</option>' +
+                '</optgroup>' +
+                '<optgroup label="Floating Point">' +
                 '<option value="Float">Float</option>' +
                 '<option value="Double">Double</option>' +
+                '</optgroup>' +
+                '<optgroup label="Text / Time">' +
                 '<option value="String">String</option>' +
-                '<option value="DateTime">DateTime</option>';
+                '<option value="DateTime">DateTime</option>' +
+                '<option value="LocalizedText">LocalizedText</option>' +
+                '<option value="QualifiedName">QualifiedName</option>' +
+                '<option value="XmlElement">XmlElement</option>' +
+                '</optgroup>' +
+                '<optgroup label="Binary / Identifier">' +
+                '<option value="ByteString">ByteString</option>' +
+                '<option value="Guid">Guid</option>' +
+                '<option value="NodeId">NodeId</option>' +
+                '<option value="StatusCode">StatusCode</option>' +
+                '</optgroup>';
 
             function addItemRow(nid, iname, dt) {
                 var row = $('<div class="opcua-il-row">' +
@@ -135,16 +152,22 @@
     .opcua-checkbox-row .opcua-cb-hint { font-size: 11px; color: #999; }
     .opcua-il-row {
         display: flex;
-        gap: 4px;
+        gap: 6px;
         align-items: center;
-        margin-bottom: 4px;
+        margin-bottom: 6px;
     }
-    .opcua-il-row .opcua-il-nodeId { flex: 1; min-width: 140px; font-size: 12px; }
-    .opcua-il-row .opcua-il-itemName { width: 100px; font-size: 12px; }
-    .opcua-il-row .opcua-il-datatype { width: 90px; font-size: 12px; }
+    .opcua-il-row input,
+    .opcua-il-row select {
+        height: 32px;
+        font-size: 13px;
+        box-sizing: border-box;
+    }
+    .opcua-il-row .opcua-il-nodeId { flex: 1; min-width: 180px; }
+    .opcua-il-row .opcua-il-itemName { width: 130px; }
+    .opcua-il-row .opcua-il-datatype { width: 130px; }
     .opcua-il-row .opcua-il-remove { flex-shrink: 0; }
     #opcua-il-list {
-        max-height: 300px;
+        max-height: 360px;
         overflow-y: auto;
         padding: 4px 0;
     }
@@ -164,11 +187,29 @@
         <button type="button" id="opcua-il-add-btn" class="red-ui-button red-ui-button-small"><i class="fa fa-plus"></i> Add Item</button>
     </div>
 
+    <div class="form-row">
+        <label for="node-input-operation"><i class="fa fa-cog"></i> Operation</label>
+        <select id="node-input-operation" style="width:70%">
+            <option value="">— don't set (use Client default / msg.operation) —</option>
+            <option value="read">Read</option>
+            <option value="write">Write</option>
+            <option value="subscribe">Subscribe</option>
+            <option value="unsubscribe">Unsubscribe</option>
+        </select>
+    </div>
+
     <div class="opcua-checkbox-row">
         <input type="checkbox" id="node-input-collector">
         <div>
             <div class="opcua-cb-label">Collector Mode</div>
             <div class="opcua-cb-hint">Add items to msg.items (for batch read/write)</div>
+        </div>
+    </div>
+    <div class="opcua-checkbox-row">
+        <input type="checkbox" id="node-input-unwrapSingle">
+        <div>
+            <div class="opcua-cb-label">Unwrap single value</div>
+            <div class="opcua-cb-hint">On read with one item, deliver the scalar in msg.payload instead of a 1-element array</div>
         </div>
     </div>
     <div class="opcua-item-preview" id="opcua-item-preview"></div>
@@ -195,4 +236,14 @@
 
     <h3>Legacy Mode (Collector off)</h3>
     <p>Sets <code>msg.topic</code> and <code>msg.datatype</code> directly — only uses the first item.</p>
+
+    <h3>Operation</h3>
+    <p>Optionally sets <code>msg.operation</code> so the downstream Client knows what to do
+    (Read, Write, Subscribe, Unsubscribe). Leave on <i>don't set</i> to keep the Client's
+    default operation or an existing <code>msg.operation</code>.</p>
+
+    <h3>Unwrap single value</h3>
+    <p>When reading and exactly one item is resolved, the Client returns the scalar value in
+    <code>msg.payload</code> (e.g. <code>false</code>) instead of a one-element array
+    (<code>[{value:false, ...}]</code>). Sets <code>msg.unwrapSingle = true</code>.</p>
 </script>

@@ -15,6 +15,11 @@ module.exports = function(RED) {
 
         node.collector = config.collector !== undefined ? config.collector : true;
 
+        // Optional: this node may impose the operation and/or request that the
+        // client unwrap a single read result into a scalar payload.
+        node.operation = config.operation || '';
+        node.unwrapSingle = config.unwrapSingle === true || config.unwrapSingle === 'true';
+
         // Unified items list — also migrates old single-item format
         node.items = config.items || [];
         if (node.items.length === 0 && config.nodeId) {
@@ -33,6 +38,13 @@ module.exports = function(RED) {
         }
 
         node.on('input', function(msg, send, done) {
+            // Item node may set the operation (so the downstream Client knows
+            // what to do) and request single-value unwrapping. Set these early
+            // so the write detection below sees the right operation. A value
+            // already on msg is not overwritten unless this node configures one.
+            if (node.operation) msg.operation = node.operation;
+            if (node.unwrapSingle) msg.unwrapSingle = true;
+
             // Build list of configured items (skip empty nodeIds)
             const allItems = [];
             for (const cfg of node.items) {
