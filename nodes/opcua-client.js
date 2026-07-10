@@ -45,6 +45,54 @@ module.exports = function (RED) {
 
     let subscription = null;
     const monitorItems = new Map();
+    // Remembers every active subscribe request (nodeId → sampling options) so
+    // the node can transparently replay them after the OPC UA server drops the
+    // session (e.g. a Siemens S7 ~60s session timeout) and the manager stands
+    // up a fresh one. Without this, data silently stops after a reconnect and a
+    // later "subscribe" crashes reusing a subscription bound to the dead
+    // session ("expecting a valid session"). See issue #15.
+    const subscribedTopics = new Map();
+    let resubscribeInFlight = false;
+
+    // Rebuild every remembered subscription on the fresh session. The previous
+    // ClientSubscription/ClientMonitoredItem objects are bound to the now-dead
+    // session, so we discard them and create new ones from scratch.
+    async function resubscribeAll() {
+      if (resubscribeInFlight || subscribedTopics.size === 0) return;
+      resubscribeInFlight = true;
+      try {
+        for (const [nodeIdString, opts] of subscribedTopics) {
+          if (monitorItems.has(nodeIdString)) continue;
+          try {
+            await handleSubscribe(
+              {
+                topic: nodeIdString,
+                interval: opts.interval,
+                queueSize: opts.queueSize,
+              },
+              clientManager,
+              (m) => node.send(m),
+              node,
+              subscription,
+              monitorItems,
+              (sub) => {
+                subscription = sub;
+              },
+              subscribedTopics,
+              false, // announce=false: replay data silently, no "Subscribed" msg
+            );
+          } catch (err) {
+            if (verboseLog) {
+              node.warn(
+                `Auto re-subscribe failed for ${nodeIdString}: ${err.message}`,
+              );
+            }
+          }
+        }
+      } finally {
+        resubscribeInFlight = false;
+      }
+    }
 
     // Expose clientManager for other nodes (Browser, Method, etc.)
     node.clientManager = clientManager;
@@ -59,7 +107,24 @@ module.exports = function (RED) {
           break;
         case "disconnected":
           node.status({ fill: "red", shape: "ring", text: "disconnected" });
+          // Drop references to the now-dead subscription/monitored items so a
+          // subscribe arriving during the outage doesn't reuse them and crash
+          // with "expecting a valid session". subscribedTopics is kept for
+          // replay once the session is re-established.
+          subscription = null;
           monitorItems.clear();
+          break;
+        case "session_recreated":
+          // The manager replaced the session after a reconnect. Rebuild every
+          // remembered subscription on the fresh session so data keeps flowing
+          // without the flow having to re-send a "subscribe" message.
+          subscription = null;
+          monitorItems.clear();
+          resubscribeAll().catch((err) => {
+            if (verboseLog) {
+              node.warn(`Re-subscribe after reconnect failed: ${err.message}`);
+            }
+          });
           break;
         case "reconnecting":
           node.status({ fill: "yellow", shape: "ring", text: "connecting..." });
@@ -124,11 +189,12 @@ module.exports = function (RED) {
             (sub) => {
               subscription = sub;
             },
+            subscribedTopics,
           );
           return undefined;
 
         case "unsubscribe":
-          result = await handleUnsubscribe(msg, monitorItems);
+          result = await handleUnsubscribe(msg, monitorItems, subscribedTopics);
           break;
 
         case "browse":
@@ -537,6 +603,8 @@ module.exports = function (RED) {
     subscription,
     monitorItems,
     setSubscription,
+    subscribedTopics,
+    announce = true,
   ) {
     const nodeIdString = msg.topic || msg.nodeId;
     if (!nodeIdString) throw new Error("NodeId missing");
@@ -547,6 +615,11 @@ module.exports = function (RED) {
     const interval = msg.interval || 1000;
     const queueSize = msg.queueSize || 10;
 
+    // Remember this subscription so it can be replayed after a reconnect.
+    if (subscribedTopics) {
+      subscribedTopics.set(nodeIdString, { interval, queueSize });
+    }
+
     if (!subscription) {
       subscription = await mgr.createSubscription({
         interval,
@@ -556,12 +629,13 @@ module.exports = function (RED) {
     }
 
     if (monitorItems.has(nodeIdString)) {
-      const resultMsg = {
-        ...msg,
-        payload: "Already subscribed",
-        nodeId: nodeIdString,
-      };
-      send(resultMsg);
+      if (announce) {
+        send({
+          ...msg,
+          payload: "Already subscribed",
+          nodeId: nodeIdString,
+        });
+      }
       return;
     }
 
@@ -586,14 +660,18 @@ module.exports = function (RED) {
     });
 
     monitorItems.set(nodeIdString, monitorItem);
-    send({ ...msg, payload: "Subscribed", nodeId: nodeIdString });
+    if (announce) send({ ...msg, payload: "Subscribed", nodeId: nodeIdString });
   }
 
   // ─── Unsubscribe ───
 
-  async function handleUnsubscribe(msg, monitorItems) {
+  async function handleUnsubscribe(msg, monitorItems, subscribedTopics) {
     const nodeIdString = msg.topic || msg.nodeId;
     if (!nodeIdString) throw new Error("NodeId missing");
+
+    // Stop replaying this topic on future reconnects, even if it is currently
+    // disconnected (no live monitored item to terminate).
+    if (subscribedTopics) subscribedTopics.delete(nodeIdString);
 
     const monitorItem = monitorItems.get(nodeIdString);
     if (!monitorItem) {

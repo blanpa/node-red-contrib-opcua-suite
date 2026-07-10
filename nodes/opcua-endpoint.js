@@ -107,6 +107,9 @@ module.exports = function(RED) {
                 node._sharedManager.on('reconnecting', () => {
                     node._statusCallbacks.forEach(cb => cb('reconnecting'));
                 });
+                node._sharedManager.on('session_recreated', () => {
+                    node._statusCallbacks.forEach(cb => cb('session_recreated'));
+                });
                 node._sharedManager.on('error', (error) => {
                     node._statusCallbacks.forEach(cb => cb('error', error));
                 });

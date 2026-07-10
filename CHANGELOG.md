@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.1.6 (2026-07-10)
+
+### Fixed
+
+- **`opcua-client`: subscriptions survive a server-side session timeout (issue #15)** – a subscribed variable used to stop delivering data after ~1 minute on servers with a short session timeout (e.g. Siemens S7-1200), and a later `subscribe` crashed with *"expecting a valid session"*. When the manager replaces the session on reconnect, the node-local `subscription` was left pointing at the dead session. The manager now emits a new **`session_recreated`** event whenever a fresh session replaces an old one (both the automatic `after_reconnection` path and a full `reconnect()`), and the client node transparently replays every active subscription on the new session — no re-`subscribe` message needed. `disconnected` now also clears the stale subscription handle so a subscribe arriving mid-outage cannot reuse it.
+
+### Tests
+
+- Added `test/opcua-client-resubscribe.test.js` covering the reconnect replay, that an unsubscribed topic is not replayed, and that a subscribe during an outage builds a fresh subscription; plus manager-level coverage for `session_recreated` / `_handleSessionReplaced()`.
+
 ## 0.1.5 (2026-06-28)
 
 ### Added

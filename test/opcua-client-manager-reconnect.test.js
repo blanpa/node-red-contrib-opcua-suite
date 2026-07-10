@@ -307,4 +307,27 @@ describe("OpcUaClientManager.reconnect / _isConnectionLostError (DEBT-01)", func
       expect(mgr._isConnectionLostError({})).to.be.false;
     });
   });
+
+  // ─── session_recreated (issue #15) ───
+
+  describe("_handleSessionReplaced()", function () {
+    it("drops stale subscriptions and emits 'session_recreated'", function () {
+      const mgr = makeManager();
+      mgr.subscriptions.set(1, { fake: "sub" });
+      mgr.subscriptions.set(2, { fake: "sub2" });
+
+      const spy = sinon.spy();
+      mgr.on("session_recreated", spy);
+
+      mgr._handleSessionReplaced();
+
+      expect(mgr.subscriptions.size).to.equal(0);
+      expect(spy.calledOnce).to.be.true;
+    });
+
+    it("starts a fresh manager with _everConnected=false (no replay on first connect)", function () {
+      const mgr = makeManager();
+      expect(mgr._everConnected).to.be.false;
+    });
+  });
 });
