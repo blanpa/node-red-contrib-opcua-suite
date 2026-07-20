@@ -192,7 +192,7 @@ Embedded OPC UA server. Starts automatically on deploy. Build the address space 
 | `addFolder` | `msg.folderName` | Create a folder in the address space |
 | `addVariable` | `msg.variableName`, `msg.datatype` | Add a variable (optional: `msg.initialValue`) |
 | `addObject` | `msg.objectName` | Add an object node |
-| `addMethod` | `msg.methodName` | Add a callable method |
+| `addMethod` | `msg.methodName`, `msg.parentNodeId` | Add a callable method under an object node (optional: `msg.inputArguments`, `msg.outputArguments`, `msg.func`) |
 | `setValue` | `msg.nodeId`, `msg.payload` | Update a variable's value |
 | `setWritable` | `msg.nodeId` | Make a variable writable by clients |
 | `deleteNode` | `msg.nodeId` | Remove a node |

@@ -358,16 +358,31 @@ describe('opcua-server node', function() {
     //   "Only Organizes References are used to relate Objects to the
     //    'Objects' standard Object."
     // For the standard ObjectsFolder we must use { organizedBy: ... }.
-    describe('addVariable parent reference (issue #12)', function() {
+    describe('addVariable/addMethod parent reference (issues #12, #16)', function() {
         let capturedAddVariable;
         let capturedAddMethod;
+        let boundMethodHandler;
+        let fakeParentObject;
         const opcuaPath = require.resolve('node-opcua');
         let originalOpcua;
 
         beforeEach(function() {
             capturedAddVariable = null;
             capturedAddMethod = null;
+            boundMethodHandler = null;
             originalOpcua = require.cache[opcuaPath];
+            fakeParentObject = {
+                nodeClass: 1, // NodeClass.Object
+                nodeId: { toString: () => 'ns=1;i=1000' }
+            };
+            const fakeVariableNode = {
+                nodeClass: 2, // NodeClass.Variable
+                nodeId: { toString: () => 'ns=1;i=2000' }
+            };
+            const fakeNodes = {
+                'ns=1;i=1000': fakeParentObject,
+                'ns=1;i=2000': fakeVariableNode
+            };
             const fakeNamespace = {
                 index: 1,
                 addFolder: () => ({ nodeId: { toString: () => 'ns=1;s=Folder' } }),
@@ -380,14 +395,17 @@ describe('opcua-server node', function() {
                     }
                     return { nodeId: { toString: () => 'ns=1;s=Var' } };
                 },
-                addMethod: (opts) => {
-                    capturedAddMethod = opts;
-                    if ('componentOf' in opts && isStandardObjects(opts.componentOf)) {
-                        throw new Error(
-                            "Only Organizes References are used to relate Objects to the 'Objects' standard Object."
-                        );
+                // Real node-opcua signature: addMethod(parentObject, options)
+                // where parentObject must be a resolved node instance.
+                addMethod: (parent, opts) => {
+                    capturedAddMethod = { parent, opts };
+                    if (parent === null || typeof parent !== 'object' || !parent.nodeClass) {
+                        throw new Error('expecting a valid parent object');
                     }
-                    return { nodeId: { toString: () => 'ns=1;s=Method' } };
+                    return {
+                        nodeId: { toString: () => 'ns=1;s=Method' },
+                        bindMethod: (fn) => { boundMethodHandler = fn; }
+                    };
                 },
                 addObject: () => ({ nodeId: { toString: () => 'ns=1;s=Obj' } })
             };
@@ -406,13 +424,18 @@ describe('opcua-server node', function() {
                         this.shutdown = () => Promise.resolve();
                         this.getEndpointUrl = () => 'opc.tcp://test:4840/UA/NodeRED';
                         this.engine = {
-                            addressSpace: { getOwnNamespace: () => fakeNamespace }
+                            addressSpace: {
+                                getOwnNamespace: () => fakeNamespace,
+                                findNode: (id) => fakeNodes[String(id)] || null
+                            }
                         };
                     },
                     Variant: function(o) { Object.assign(this, o); },
                     DataType: { Double: 11, String: 12 },
                     StatusCodes: { Good: { toString: () => 'Good' } },
                     coerceLocalizedText: (t) => t,
+                    resolveNodeId: (s) => s,
+                    NodeClass: { Object: 1, Variable: 2, ObjectType: 8 },
                     AccessLevelFlag: { CurrentRead: 1, CurrentWrite: 2 }
                 }
             };
@@ -480,7 +503,7 @@ describe('opcua-server node', function() {
             expect(capturedAddVariable).to.not.have.property('organizedBy');
         });
 
-        it('uses organizedBy when adding a method to the standard ObjectsFolder', async function() {
+        it('addMethod passes the resolved parent node instance to namespace.addMethod (issue #16)', async function() {
             const node = buildServerNode();
             await waitForServerReady(node);
 
@@ -488,14 +511,80 @@ describe('opcua-server node', function() {
             const msg = {
                 command: 'addMethod',
                 methodName: 'Reset',
+                parentNodeId: 'ns=1;i=1000',
                 inputArguments: [],
                 outputArguments: []
             };
             await handler(msg, () => {}, () => {});
 
+            expect(msg.error, msg.error).to.be.undefined;
             expect(capturedAddMethod).to.not.be.null;
-            expect(capturedAddMethod).to.have.property('organizedBy', 'ObjectsFolder');
-            expect(capturedAddMethod).to.not.have.property('componentOf');
+            expect(capturedAddMethod.parent).to.equal(fakeParentObject);
+            expect(capturedAddMethod.opts).to.have.property('browseName', 'Reset');
+            expect(capturedAddMethod.opts).to.not.have.property('organizedBy');
+            expect(capturedAddMethod.opts).to.not.have.property('componentOf');
+        });
+
+        it('addMethod binds the call handler via method.bindMethod', async function() {
+            const node = buildServerNode();
+            await waitForServerReady(node);
+
+            const handler = node._events.input[0];
+            await handler({
+                command: 'addMethod',
+                methodName: 'Reset',
+                parentNodeId: 'ns=1;i=1000'
+            }, () => {}, () => {});
+
+            expect(boundMethodHandler).to.be.a('function');
+            // bindMethod callbackifies 2-arg handlers — more args would throw
+            expect(boundMethodHandler.length).to.equal(2);
+        });
+
+        it('addMethod without parentNodeId fails with a clear error', async function() {
+            const node = buildServerNode();
+            await waitForServerReady(node);
+
+            const handler = node._events.input[0];
+            const msg = { command: 'addMethod', methodName: 'Reset' };
+            await handler(msg, () => {}, () => {});
+
+            expect(msg.error).to.include('parentNodeId');
+            expect(capturedAddMethod).to.be.null;
+        });
+
+        it('addMethod with the standard ObjectsFolder as parent fails with a clear error', async function() {
+            const node = buildServerNode();
+            await waitForServerReady(node);
+
+            const handler = node._events.input[0];
+            const msg = { command: 'addMethod', methodName: 'Reset', parentNodeId: 'ObjectsFolder' };
+            await handler(msg, () => {}, () => {});
+
+            expect(msg.error).to.include('Objects folder');
+            expect(capturedAddMethod).to.be.null;
+        });
+
+        it('addMethod with an unknown parent fails with "Parent node not found"', async function() {
+            const node = buildServerNode();
+            await waitForServerReady(node);
+
+            const handler = node._events.input[0];
+            const msg = { command: 'addMethod', methodName: 'Reset', parentNodeId: 'ns=1;i=9999' };
+            await handler(msg, () => {}, () => {});
+
+            expect(msg.error).to.include('Parent node not found');
+        });
+
+        it('addMethod with a variable as parent fails with a clear error', async function() {
+            const node = buildServerNode();
+            await waitForServerReady(node);
+
+            const handler = node._events.input[0];
+            const msg = { command: 'addMethod', methodName: 'Reset', parentNodeId: 'ns=1;i=2000' };
+            await handler(msg, () => {}, () => {});
+
+            expect(msg.error).to.include('not an Object');
         });
     });
 });

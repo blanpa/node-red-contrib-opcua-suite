@@ -104,7 +104,7 @@ default operation). All output assignments are merged onto `msg` via
 | `msg.count` | out | Number | — | Number of items in the result (set by `readmultiple`, `writemultiple`, `browse`, `getendpoints`, `history`). | nodes/opcua-client.js:372, 481, 581, 632, 641 |
 | `msg.browseResult` | out | Object | — | Raw browse-result object on `browse` (referenced by the in-tree browse helpers). | (browse path of `nodes/opcua-client.js`; see also nodes/opcua-browser.js:83) |
 | `msg.recursiveResult` | out | Array | — | Recursive `browse` traversal result (set when `msg.recursive === true`). | (recursive browse path of `nodes/opcua-client.js`; see also nodes/opcua-browser.js:89) |
-| `msg.outputArguments` | out | Array | — | Raw `Variant` array of method outputs (in addition to the simplified `msg.payload` value list). Set on the `method` operation. | nodes/opcua-client.js (method path; see also nodes/opcua-server.js:290 for the addMethod input-side parameter list) |
+| `msg.outputArguments` | out | Array | — | Raw `Variant` array of method outputs (in addition to the simplified `msg.payload` value list). Set on the `method` operation. | nodes/opcua-client.js (method path; see also nodes/opcua-server.js:315 for the addMethod input-side parameter list) |
 | `msg.methodResult` | out | Object | — | Full method-call result object from node-opcua: `{ statusCode, outputArguments, inputArgumentResults, … }`. | nodes/opcua-client.js:607 |
 | `msg.error` | out | Object | — | Error object from `lib/opcua-utils.js::createError(message, error)` of shape `{ message, error, stack }`, set on every error path. | nodes/opcua-client.js:251 |
 
@@ -128,22 +128,22 @@ by `msg.command` plus per-command parameter fields.
 |---|---|---|---|---|---|
 | `msg.command` | in | String | required | Address-space command. One of: `addFolder`, `addVariable`, `addObject`, `addMethod`, `setValue`, `setWritable`, `deleteNode`, `getServerInfo`, `raiseEvent`. Also accepted as `msg.payload.command`. | nodes/opcua-server.js:83 |
 | `msg.folderName` | in | String | conditional | Required for `addFolder`. | nodes/opcua-server.js:166 |
-| `msg.parentNodeId` | in | String | optional | Parent NodeId for `addFolder` / `addVariable` / `addObject` / `addMethod` (default `ObjectsFolder`). | nodes/opcua-server.js:167, 187, 278, 335 |
+| `msg.parentNodeId` | in | String | conditional | Parent NodeId for `addFolder` / `addVariable` / `addObject` (default `ObjectsFolder`). **Required** for `addMethod` and must reference an Object node (e.g. one created via `addObject`) — OPC UA does not allow methods directly under the standard Objects folder. | nodes/opcua-server.js:167, 187, 278, 363 |
 | `msg.variableName` | in | String | conditional | Required for `addVariable`. | nodes/opcua-server.js:186 |
 | `msg.datatype` | in | String | optional | Variable datatype for `addVariable` (default `Double`). | nodes/opcua-server.js:188 |
 | `msg.initialValue` | in | any | optional | Initial value for `addVariable`. | nodes/opcua-server.js:189 |
-| `msg.objectName` | in | String | conditional | Required for `addObject`. | nodes/opcua-server.js:334 |
+| `msg.objectName` | in | String | conditional | Required for `addObject`. | nodes/opcua-server.js:362 |
 | `msg.methodName` | in | String | conditional | Required for `addMethod`. | nodes/opcua-server.js:277 |
-| `msg.inputArguments` | in | Array | optional | Argument list for `addMethod` registration: `[{ name, dataType, valueRank, … }]`. | nodes/opcua-server.js:284 |
-| `msg.outputArguments` | in | Array | optional | Output-argument list for `addMethod` registration. | nodes/opcua-server.js:290 |
-| `msg.func` | in | String | conditional (`addMethod`) | **DANGER:** JavaScript function body string used by `addMethod`. Server evaluates it via `new Function(...)` — only accept this from trusted flow authors. Treat any inbound flow that supplies `msg.func` as a privileged path. | nodes/opcua-server.js:308 |
-| `msg.nodeId` | in | String | conditional | Target NodeId for `setValue`, `setWritable`, `deleteNode`, `raiseEvent`; or explicit NodeId override on `addFolder` / `addVariable` / `addObject`. Also accepted as `msg.topic` on commands that look up by `msg.nodeId \|\| msg.topic`. | nodes/opcua-server.js:175, 210, 224, 257, 303, 344, 370 |
-| `msg.topic` | in | String | optional | Alias for `msg.nodeId` on `setValue` and `deleteNode`. | nodes/opcua-server.js:224, 257, 370 |
+| `msg.inputArguments` | in | Array | optional | Argument list for `addMethod` registration: `[{ name, dataType, valueRank, … }]`. | nodes/opcua-server.js:309 |
+| `msg.outputArguments` | in | Array | optional | Output-argument list for `addMethod` registration. | nodes/opcua-server.js:315 |
+| `msg.func` | in | String | conditional (`addMethod`) | **DANGER:** JavaScript function body string used by `addMethod`. Server evaluates it via `new Function(...)` — only accept this from trusted flow authors. Treat any inbound flow that supplies `msg.func` as a privileged path. The body is called as `(inputArguments, context, Variant, DataType, StatusCodes)` and must return `{ statusCode, outputArguments }`. | nodes/opcua-server.js:328 |
+| `msg.nodeId` | in | String | conditional | Target NodeId for `setValue`, `setWritable`, `deleteNode`, `raiseEvent`; or explicit NodeId override on `addFolder` / `addVariable` / `addObject`. Also accepted as `msg.topic` on commands that look up by `msg.nodeId \|\| msg.topic`. | nodes/opcua-server.js:175, 210, 224, 257, 323, 372, 398 |
+| `msg.topic` | in | String | optional | Alias for `msg.nodeId` on `setValue` and `deleteNode`. | nodes/opcua-server.js:224, 257, 398 |
 | `msg.payload` | both | any | conditional | **In:** new value for `setValue`; also a fallback for parameter fields (`msg.payload.command`, `msg.payload.folderName`, `msg.payload.variableName`, etc.). **Out:** server-info object on `getServerInfo`; error envelope on the error path. | nodes/opcua-server.js:83, 138, 225 |
-| `msg.eventType` | in | String | optional (`raiseEvent`) | Event type NodeId or BrowseName (default `BaseEventType`). | nodes/opcua-server.js:392 |
-| `msg.sourceNodeId` | in | String | conditional (`raiseEvent`) | Source-node NodeId of the raised event. | nodes/opcua-server.js:393 |
-| `msg.message` | in | String | optional (`raiseEvent`) | Human-readable event message text. | nodes/opcua-server.js:394 |
-| `msg.severity` | in | Number | optional (`raiseEvent`) | Event severity (default `100`). | nodes/opcua-server.js:395 |
+| `msg.eventType` | in | String | optional (`raiseEvent`) | Event type NodeId or BrowseName (default `BaseEventType`). | nodes/opcua-server.js:420 |
+| `msg.sourceNodeId` | in | String | conditional (`raiseEvent`) | Source-node NodeId of the raised event. | nodes/opcua-server.js:421 |
+| `msg.message` | in | String | optional (`raiseEvent`) | Human-readable event message text. | nodes/opcua-server.js:422 |
+| `msg.severity` | in | Number | optional (`raiseEvent`) | Event severity (default `100`). | nodes/opcua-server.js:423 |
 | `msg.error` | out | String \| Object | — | Set with the error message on any failure path; `msg.payload` is also set to `{ error }` for downstream debug nodes. | nodes/opcua-server.js:137–138 |
 
 **Notes:**

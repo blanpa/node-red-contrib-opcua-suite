@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.1.7 (2026-07-20)
+
+### Fixed
+
+- **`opcua-server`: `addMethod` works now (issue #16)** – every `addMethod` command used to fail with *"expecting a valid parent object"*, because the handler called `namespace.addMethod(options)` with a single options object while the node-opcua signature is `addMethod(parentObject, options)` with a resolved parent **node instance** as first argument. The handler now resolves `msg.parentNodeId`, validates it (must exist and be an Object/ObjectType — OPC UA does not allow methods directly under the standard Objects folder, so there is no `ObjectsFolder` default for this command; all failure modes produce clear error messages) and passes the node instance to node-opcua.
+- **`opcua-server`: `addMethod` call handler is actually bound** – the previous code passed the handler as an `onCall` option, which node-opcua silently ignores, so a created method would have answered every call with `BadInternalError`. The handler (default or `msg.func`) is now bound via `method.bindMethod()`. A `msg.func` body additionally receives the `Variant`, `DataType` and `StatusCodes` constructors as parameters (`(inputArguments, context, Variant, DataType, StatusCodes)`) so it can construct its return value without module access.
+
+### Tests
+
+- Added `test/opcua-server-addmethod.test.js`: end-to-end coverage against a **real** node-opcua server and client — reproduces the exact issue #16 flow (`addObject` → `addMethod`), calls the created method over OPC UA (default handler and custom `msg.func` echo handler) and verifies all rejection paths (missing/standard-Objects-folder/unknown/non-object parent). Updated the mocked `opcua-server` unit tests to the real `addMethod(parentObject, options)` signature.
+
 ## 0.1.6 (2026-07-10)
 
 ### Fixed

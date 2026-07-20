@@ -3,7 +3,7 @@
  * Modern OPC UA server implementation
  */
 
-const { OPCUAServer, Variant, DataType, StatusCodes, coerceLocalizedText } = require('node-opcua');
+const { OPCUAServer, Variant, DataType, StatusCodes, coerceLocalizedText, resolveNodeId, NodeClass } = require('node-opcua');
 
 module.exports = function(RED) {
     function OpcUaServerNode(config) {
@@ -275,10 +275,35 @@ module.exports = function(RED) {
 
     async function handleAddMethod(msg, namespace, addressSpace) {
         const methodName = msg.methodName || msg.payload?.methodName;
-        const parentNodeId = msg.parentNodeId || msg.payload?.parentNodeId || 'ObjectsFolder';
+        const parentNodeId = msg.parentNodeId || msg.payload?.parentNodeId;
 
         if (!methodName) {
             throw new Error('methodName missing');
+        }
+
+        // Methods must be a HasComponent of an object, but the standard
+        // Objects folder (i=85) only accepts Organizes references — so unlike
+        // the other add* commands there is no ObjectsFolder fallback here.
+        if (!parentNodeId || isStandardObjectsFolder(parentNodeId)) {
+            throw new Error(
+                'addMethod requires msg.parentNodeId of an object node (e.g. created via addObject); ' +
+                'OPC UA does not allow methods directly under the standard Objects folder'
+            );
+        }
+
+        let parentNode;
+        try {
+            parentNode = addressSpace.findNode(resolveNodeId(parentNodeId));
+        } catch (error) {
+            throw new Error(`Invalid parentNodeId "${parentNodeId}": ${error.message}`);
+        }
+        if (!parentNode) {
+            throw new Error(`Parent node not found: ${parentNodeId}`);
+        }
+        if (parentNode.nodeClass !== NodeClass.Object && parentNode.nodeClass !== NodeClass.ObjectType) {
+            throw new Error(
+                `Parent node ${parentNodeId} is not an Object or ObjectType — methods must be attached to an object`
+            );
         }
 
         const inputArguments = (msg.inputArguments || msg.payload?.inputArguments || []).map(arg => ({
@@ -293,35 +318,38 @@ module.exports = function(RED) {
             description: coerceLocalizedText(arg.description || arg.name)
         }));
 
-        const parentRef = isStandardObjectsFolder(parentNodeId)
-            ? { organizedBy: parentNodeId }
-            : { componentOf: parentNodeId };
-
-        const methodOpts = {
-            ...parentRef,
+        const method = namespace.addMethod(parentNode, {
             browseName: methodName,
             nodeId: msg.nodeId || undefined,
             inputArguments: inputArguments,
             outputArguments: outputArguments
-        };
+        });
 
         const funcBody = msg.func || msg.payload?.func;
+        let handler;
         if (funcBody && typeof funcBody === 'string') {
-            methodOpts.onCall = new Function('inputArguments', 'context', funcBody);
-        } else {
-            // Default handler that returns StatusCodes.Good with empty outputs
-            methodOpts.onCall = function(inputArgs, context) {
-                return {
-                    statusCode: StatusCodes.Good,
-                    outputArguments: outputArguments.map(arg => new Variant({
-                        dataType: arg.dataType,
-                        value: getDefaultValue(arg.dataType)
-                    }))
-                };
+            // The function body runs outside module scope, so it gets the
+            // node-opcua constructors it needs for its return value as params.
+            const userFunc = new Function(
+                'inputArguments', 'context', 'Variant', 'DataType', 'StatusCodes', funcBody
+            );
+            handler = async (inputArgs, context) => {
+                const result = await userFunc(inputArgs, context, Variant, DataType, StatusCodes);
+                return result || { statusCode: StatusCodes.Good, outputArguments: [] };
             };
+        } else {
+            // Default handler that returns StatusCodes.Good with default-valued outputs
+            handler = async (inputArgs, context) => ({
+                statusCode: StatusCodes.Good,
+                outputArguments: outputArguments.map(arg => new Variant({
+                    dataType: arg.dataType,
+                    value: getDefaultValue(arg.dataType)
+                }))
+            });
         }
-
-        const method = namespace.addMethod(methodOpts);
+        // bindMethod callbackifies 2-arg async handlers; addMethod itself
+        // ignores an onCall option, so binding must happen explicitly.
+        method.bindMethod(handler);
 
         return {
             payload: method.nodeId.toString(),
