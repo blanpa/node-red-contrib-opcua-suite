@@ -1,7 +1,7 @@
 {
     "node-red": {
         "name": "node-red",
-        "version": "4.1.6",
+        "version": "4.1.8",
         "local": false,
         "user": false,
         "nodes": {
@@ -429,7 +429,7 @@
     },
     "node-red-contrib-opcua-suite": {
         "name": "node-red-contrib-opcua-suite",
-        "version": "0.0.6",
+        "version": "0.1.0",
         "local": true,
         "user": false,
         "nodes": {
@@ -476,6 +476,39 @@
                 "user": false,
                 "module": "node-red-contrib-opcua-suite",
                 "file": "/data/node_modules/node-red-contrib-opcua-suite/nodes/opcua-endpoint.js"
+            },
+            "opcua-pubsub-connection": {
+                "name": "opcua-pubsub-connection",
+                "types": [
+                    "opcua-pubsub-connection"
+                ],
+                "enabled": true,
+                "local": true,
+                "user": false,
+                "module": "node-red-contrib-opcua-suite",
+                "file": "/data/node_modules/node-red-contrib-opcua-suite/nodes/opcua-pubsub-connection.js"
+            },
+            "opcua-publisher": {
+                "name": "opcua-publisher",
+                "types": [
+                    "opcua-publisher"
+                ],
+                "enabled": true,
+                "local": true,
+                "user": false,
+                "module": "node-red-contrib-opcua-suite",
+                "file": "/data/node_modules/node-red-contrib-opcua-suite/nodes/opcua-publisher.js"
+            },
+            "opcua-subscriber": {
+                "name": "opcua-subscriber",
+                "types": [
+                    "opcua-subscriber"
+                ],
+                "enabled": true,
+                "local": true,
+                "user": false,
+                "module": "node-red-contrib-opcua-suite",
+                "file": "/data/node_modules/node-red-contrib-opcua-suite/nodes/opcua-subscriber.js"
             },
             "opcua-event": {
                 "name": "opcua-event",
