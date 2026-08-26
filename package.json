@@ -39,7 +39,7 @@
     "format": "prettier --write nodes/**/*.js lib/**/*.js"
   },
   "author": "blanpa",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "dependencies": {
     "mqtt": "^5.15.1",
     "node-opcua": "^2.115.0"
