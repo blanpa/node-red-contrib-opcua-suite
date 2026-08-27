@@ -79,7 +79,7 @@ node-red-contrib-opcua-suite/
 ├── docker-entrypoint-dev.sh
 ├── docker-start.sh
 ├── Makefile
-├── LICENSE                             # MIT
+├── LICENSE                             # Apache-2.0
 ├── .dockerignore
 ├── .gitignore
 ├── .npmignore

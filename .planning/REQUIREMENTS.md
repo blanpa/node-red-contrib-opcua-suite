@@ -118,7 +118,7 @@ Explicitly excluded. Documented to prevent scope creep.
 | PubSub configuration via UA address space (Part 14 §9) | Requires embedding the full PubSub Information Model in `opcua-server`. Static Node-RED config is the v1/v2 mechanism. |
 | Discovery announcements / reverse PubSub | Adds protocol state machine complexity disproportionate to v1/v2 benefit. Static PublisherId+topic config is sufficient. |
 | WebSocket / HTTP transport | Not standardised in current Part 14. No conformant interoperability target. Use MQTT with broker-level WebSocket bridging instead. |
-| Commercial node-opcua PubSub bindings (`@sterfive/...`) | Changes the suite's MIT licensing posture; vendor lock-in. UADP is implemented in-tree. |
+| Commercial node-opcua PubSub bindings (`@sterfive/...`) | Changes the suite's Apache-2.0 licensing posture; vendor lock-in. UADP is implemented in-tree. |
 | Per-field QoS or priority routing | Part 14 only defines Priority at WriterGroup level. Per-field QoS would be non-conformant. Use multiple WriterGroups. |
 | Replacing or refactoring existing eight Client/Server nodes | PROJECT.md constraint: zero breaking changes. Any shared-utility improvements must be backwards-compatible. |
 | `amqplib` for AMQP transport | Implements AMQP 0-9-1; Part 14 §B.3 normatively requires AMQP 1.0 (use `rhea` instead). |

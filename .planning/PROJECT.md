@@ -50,7 +50,7 @@ A Node-RED user can wire any OPC UA interaction — Client/Server (today) and Pu
 - **OPC UA PubSub Security Key Service (SKS) server implementation** — clients can use externally-managed keys; building an SKS server is a separate milestone
 - **PubSub configuration via OPC UA address space** (Part 14 §6.2.7) — initial release uses Node-RED-driven static config only; runtime reconfiguration via UA model is a future enhancement
 - **Reverse PubSub / discovery announcements** — explicitly deferred; static endpoint configuration is sufficient for v1
-- **Adopting the commercial node-opcua PubSub package** — would change the suite's licensing posture (currently MIT). All PubSub code is implemented in-tree.
+- **Adopting the commercial node-opcua PubSub package** — would change the suite's licensing posture (currently Apache-2.0). All PubSub code is implemented in-tree.
 - **Replacing or refactoring existing Client/Server nodes** — PubSub is purely additive; no breaking changes to the eight existing nodes
 - **WebSocket / HTTP transports for PubSub** — Part 14 lists them as "future"; not pursuing in this milestone
 
@@ -75,7 +75,7 @@ A Node-RED user can wire any OPC UA interaction — Client/Server (today) and Pu
 
 ## Constraints
 
-- **License**: MIT — all PubSub code must be MIT-compatible; no GPL/AGPL deps, no commercial node-opcua PubSub bindings
+- **License**: Apache-2.0 — all PubSub code must be Apache-2.0-compatible; no GPL/AGPL deps, no commercial node-opcua PubSub bindings
 - **Tech stack**: Node.js ≥18, Node-RED ≥3.0, CommonJS, no TypeScript, no transpiler — all PubSub code is plain JS
 - **Direct runtime deps**: minimize additions. New deps OK for transports (`mqtt`, `amqplib` or equivalent) but UADP encoding stays in-tree
 - **Compatibility**: zero breaking changes to existing eight nodes; PubSub adds new nodes/types only
@@ -88,7 +88,7 @@ A Node-RED user can wire any OPC UA interaction — Client/Server (today) and Pu
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Implement PubSub UADP encoding in-tree (not via commercial node-opcua) | Preserves MIT licensing; avoids vendor lock; full control over Part 14 conformance | — Pending (locked into Active scope) |
+| Implement PubSub UADP encoding in-tree (not via commercial node-opcua) | Preserves Apache-2.0 licensing; avoids vendor lock; full control over Part 14 conformance | — Pending (locked into Active scope) |
 | Both Publisher and Subscriber roles in v1 | Node-RED users routinely need both directions; symmetric design avoids second milestone | — Pending |
 | All three transports in v1 (UDP-UADP + MQTT + AMQP) | Per-user request; covers full Part 14 spec scope. May be split if SPEC ambiguity surfaces | — Pending — re-evaluate during /gsd-spec-phase |
 | New PubSub config node(s) — do not extend `opcua-endpoint` | PubSub is session-less; ref-counted TCP socket model doesn't apply; transports differ | — Pending |
