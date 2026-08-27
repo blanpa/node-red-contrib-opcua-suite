@@ -1,5 +1,8 @@
 # node-red-contrib-opcua-suite
 
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-EA4AAA?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/blanpa)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/blanpa)
+
 An OPC UA suite for Node-RED.
 
 ## Features
@@ -481,8 +484,20 @@ falls through to the primary so the retry/reconnect path above kicks in.
 
 ## License
 
-MIT
+Apache License 2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
-## Author
+Copyright 2026 blanpa
 
-blanpa
+## Contributing and forks
+
+Pull requests are welcome, including large ones. If you are planning a bigger
+change — a dependency migration, a restructure, new nodes — please open an issue
+first. We are happy to discuss it and to land substantial work here; that is
+usually less effort than maintaining a parallel package, and it keeps a single
+place for users to report bugs.
+
+If you do publish a fork under its own package name, please also rename the
+Node-RED node type IDs (for example `myprefix-opcua-suite-*`) and use your own palette
+category. Node-RED refuses to register a node type that is already claimed, so
+identical type IDs make it impossible to install both packages side by side.
+

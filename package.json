@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-opcua-suite",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "A modern OPC UA suite for Node-RED — Client/Server plus OPC UA PubSub (UDP-UADP / MQTT) with shared connections, batch operations, drag-and-drop certificates, and a clean msg-driven API",
   "keywords": [
     "node-red",
@@ -39,7 +39,7 @@
     "format": "prettier --write nodes/**/*.js lib/**/*.js"
   },
   "author": "blanpa",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "dependencies": {
     "mqtt": "^5.15.1",
     "node-opcua": "^2.115.0"
