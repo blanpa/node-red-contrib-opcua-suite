@@ -7,7 +7,8 @@
             port: { value: 4840, validate: RED.validators.number() },
             serverName: { value: 'Node-RED OPC UA Server' },
             maxAllowedSessionNumber: { value: 10, validate: RED.validators.number() },
-            maxConnectionsPerEndpoint: { value: 10, validate: RED.validators.number() }
+            maxConnectionsPerEndpoint: { value: 10, validate: RED.validators.number() },
+            allowMsgFunc: { value: false }
         },
         inputs: 1,
         outputs: 1,
@@ -22,6 +23,10 @@
         oneditprepare: function() {
             $('#opcua-server-toggle-limits').on('click', function() {
                 $('#opcua-server-limits').slideToggle(200);
+                $(this).find('.fa').toggleClass('fa-chevron-down fa-chevron-right');
+            });
+            $('#opcua-server-toggle-security').on('click', function() {
+                $('#opcua-server-security').slideToggle(200);
                 $(this).find('.fa').toggleClass('fa-chevron-down fa-chevron-right');
             });
         }
@@ -57,6 +62,26 @@
             <input type="number" id="node-input-maxConnectionsPerEndpoint" min="1" max="100" style="width:80px" placeholder="10">
         </div>
     </div>
+
+    <div class="opcua-toggle-row" id="opcua-server-toggle-security" style="display:flex;align-items:center;gap:8px;padding:6px 10px;margin:12px 0 8px;background:#f5f7fa;border-radius:6px;cursor:pointer;user-select:none;border:1px solid #e1e5ea">
+        <i class="fa fa-chevron-right" style="color:#999;font-size:11px"></i>
+        <span style="font-size:12px;font-weight:600;color:#555;flex:1">Security</span>
+    </div>
+    <div id="opcua-server-security" style="display:none">
+        <div class="form-row">
+            <label for="node-input-allowMsgFunc" style="width:auto">
+                <input type="checkbox" id="node-input-allowMsgFunc" style="width:auto;vertical-align:middle;margin-right:6px">
+                Allow method code from <code>msg.func</code>
+            </label>
+        </div>
+        <div class="form-tips" style="margin-top:4px">
+            <b>Off by default.</b> When enabled, the <code>addMethod</code> command evaluates the
+            JavaScript body in <code>msg.func</code> via <code>new&nbsp;Function()</code>. Unlike a
+            Function node that code arrives with the <i>message</i>, so any upstream node fed from
+            outside (<code>http in</code>, MQTT, …) can execute arbitrary code in the Node-RED
+            process. Only enable it when every path into this node is trusted.
+        </div>
+    </div>
 </div>
 </script>
 
@@ -69,7 +94,7 @@
         <li><code>addVariable</code> — Add variable</li>
         <li><code>setValue</code> — Set value</li>
         <li><code>deleteNode</code> — Delete node</li>
-        <li><code>addMethod</code> — Add method (requires <code>msg.parentNodeId</code> of an object, e.g. created via <code>addObject</code>)</li>
+        <li><code>addMethod</code> — Add method (requires <code>msg.parentNodeId</code> of an object, e.g. created via <code>addObject</code>). A custom handler via <code>msg.func</code> requires <i>Allow method code from msg.func</i> to be enabled under <b>Security</b>.</li>
         <li><code>addObject</code> — Add object</li>
         <li><code>getServerInfo</code> — Server diagnostics</li>
         <li><code>setWritable</code> — Make variable writable</li>

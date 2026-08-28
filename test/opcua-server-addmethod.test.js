@@ -65,7 +65,10 @@ describe('opcua-server addMethod end-to-end (issue #16)', function() {
         require(p)(RED);
         const Ctor = RED.nodes._types['opcua-server'].constructor;
         node = {};
-        Ctor.call(node, { port: PORT, serverName: 'AddMethodTest' });
+        // allowMsgFunc opts this server node into evaluating msg.func; it is
+        // off by default because that body arrives with the MESSAGE, not from
+        // the editor (see the "rejects msg.func" test below).
+        Ctor.call(node, { port: PORT, serverName: 'AddMethodTest', allowMsgFunc: true });
 
         for (let i = 0; i < 400 && !node.server; i++) {
             await new Promise(r => setTimeout(r, 50));

@@ -20,12 +20,25 @@ module.exports = function(RED) {
 
         const port = toPositiveInt(config.port, 4840);
         const serverName = config.serverName || 'Node-RED OPC UA Server';
+        // `addMethod` can bind a method handler from a JavaScript body carried
+        // in msg.func, which the server evaluates via new Function(). Unlike a
+        // Function node that body arrives with the MESSAGE, so any upstream
+        // node fed from outside (http in, MQTT, ...) becomes a remote code
+        // execution path. It is therefore opt-in per server node.
+        const allowMsgFunc = config.allowMsgFunc === true || config.allowMsgFunc === 'true';
         const maxAllowedSessionNumber = toPositiveInt(config.maxAllowedSessionNumber, 10);
         const maxConnectionsPerEndpoint = toPositiveInt(config.maxConnectionsPerEndpoint, 10);
 
         let server = null;
         let namespace = null;
         let addressSpace = null;
+        // Tracks the in-flight startServer() so close() can await it. Without
+        // this a redeploy landing between `new OPCUAServer()` and
+        // `await server.start()` made shutdown() fail (logged and swallowed)
+        // while start() went on to bind the port — with no reference left to
+        // ever release it, so the next deploy hit EADDRINUSE.
+        let startPromise = null;
+        let closing = false;
 
         // Initialize status
         node.status({ fill: 'red', shape: 'ring', text: 'stopped' });
@@ -33,6 +46,7 @@ module.exports = function(RED) {
         // Start server
         async function startServer() {
             try {
+                if (closing) return;
                 server = new OPCUAServer({
                     port: port,
                     resourcePath: '/UA/NodeRED',
@@ -55,6 +69,14 @@ module.exports = function(RED) {
                 namespace = addressSpace.getOwnNamespace();
 
                 await server.start();
+
+                // A close() may have been requested while we were starting up.
+                // Shut down immediately rather than leaving an orphan listener.
+                if (closing) {
+                    await server.shutdown();
+                    server = null;
+                    return;
+                }
 
                 const endpointUrl = server.getEndpointUrl();
                 node.status({ fill: 'green', shape: 'dot', text: `Port ${port}` });
@@ -93,7 +115,7 @@ module.exports = function(RED) {
                         break;
 
                     case 'setValue':
-                        result = await handleSetValue(msg, namespace);
+                        result = await handleSetValue(msg, namespace, addressSpace);
                         break;
 
                     case 'deleteNode':
@@ -101,7 +123,7 @@ module.exports = function(RED) {
                         break;
 
                     case 'addMethod':
-                        result = await handleAddMethod(msg, namespace, addressSpace);
+                        result = await handleAddMethod(msg, namespace, addressSpace, allowMsgFunc);
                         break;
 
                     case 'addObject':
@@ -142,12 +164,18 @@ module.exports = function(RED) {
         });
 
         // Start server
-        startServer().catch(error => {
+        startPromise = startServer().catch(error => {
             node.error(`Critical error: ${error.message}`, { error });
         });
 
         // Cleanup on close
         node.on('close', async function(removed, done) {
+            closing = true;
+            // Let a start that is still running finish (or fail) first so we
+            // always shut down a fully constructed server.
+            if (startPromise) {
+                try { await startPromise; } catch (e) { /* already reported */ }
+            }
             if (server) {
                 try {
                     await server.shutdown();
@@ -155,6 +183,10 @@ module.exports = function(RED) {
                     node.log('OPC UA Server stopped');
                 } catch (error) {
                     node.error(`Error stopping server: ${error.message}`);
+                } finally {
+                    server = null;
+                    namespace = null;
+                    addressSpace = null;
                 }
             }
             done();
@@ -220,7 +252,43 @@ module.exports = function(RED) {
         };
     }
 
-    async function handleSetValue(msg, namespace) {
+    /**
+     * Resolves the DataType enum value to write with.
+     *
+     * `msg.datatype` (a name like "Boolean") wins when given. Otherwise the
+     * variable's OWN declared DataType is used — note that UAVariable.dataType
+     * is a NodeId, not an enum member, so `DataType[node.dataType]` is always
+     * undefined. That silently made every datatype-less setValue a Double and
+     * therefore made setValue throw on any non-Double variable
+     * ("the provided variant must have the expected dataType").
+     */
+    function resolveSetValueDataType(msg, node, addressSpace) {
+        if (msg.datatype && DataType[msg.datatype] !== undefined) {
+            return DataType[msg.datatype];
+        }
+        if (node.dataType && addressSpace) {
+            try {
+                const basic = addressSpace.findCorrespondingBasicDataType(node.dataType);
+                if (basic !== undefined && basic !== null) return basic;
+            } catch (e) {
+                /* fall through to the inference below */
+            }
+        }
+        // Last resort: infer from the JS value rather than assuming Double.
+        return inferDataTypeFromValue(msg.payload);
+    }
+
+    function inferDataTypeFromValue(value) {
+        if (typeof value === 'boolean') return DataType.Boolean;
+        if (typeof value === 'string') return DataType.String;
+        if (value instanceof Date) return DataType.DateTime;
+        if (typeof value === 'number') {
+            return Number.isInteger(value) ? DataType.Int32 : DataType.Double;
+        }
+        return DataType.Double;
+    }
+
+    async function handleSetValue(msg, namespace, addressSpace) {
         const nodeId = msg.nodeId || msg.topic;
         const value = msg.payload;
 
@@ -237,8 +305,7 @@ module.exports = function(RED) {
             throw new Error(`Node not found: ${nodeId}`);
         }
 
-        const datatype = msg.datatype || node.dataType;
-        const dataType = DataType[datatype] || DataType.Double;
+        const dataType = resolveSetValueDataType(msg, node, addressSpace);
         const variant = new Variant({
             dataType: dataType,
             value: value
@@ -273,7 +340,7 @@ module.exports = function(RED) {
         };
     }
 
-    async function handleAddMethod(msg, namespace, addressSpace) {
+    async function handleAddMethod(msg, namespace, addressSpace, allowMsgFunc) {
         const methodName = msg.methodName || msg.payload?.methodName;
         const parentNodeId = msg.parentNodeId || msg.payload?.parentNodeId;
 
@@ -326,6 +393,13 @@ module.exports = function(RED) {
         });
 
         const funcBody = msg.func || msg.payload?.func;
+        if (funcBody && !allowMsgFunc) {
+            throw new Error(
+                'msg.func is disabled on this server node. It is evaluated as JavaScript ' +
+                '(new Function) and therefore only safe when every upstream node is trusted. ' +
+                'Enable "Allow method code from msg.func" in the node configuration to use it.'
+            );
+        }
         let handler;
         if (funcBody && typeof funcBody === 'string') {
             // The function body runs outside module scope, so it gets the
@@ -338,8 +412,11 @@ module.exports = function(RED) {
                 return result || { statusCode: StatusCodes.Good, outputArguments: [] };
             };
         } else {
-            // Default handler that returns StatusCodes.Good with default-valued outputs
-            handler = async (inputArgs, context) => ({
+            // Default handler that returns StatusCodes.Good with default-valued
+            // outputs. The two parameters are load-bearing: bindMethod
+            // callbackifies handlers by ARITY, so this must stay a 2-arg
+            // function even though it uses neither argument.
+            handler = async (_inputArgs, _context) => ({
                 statusCode: StatusCodes.Good,
                 outputArguments: outputArguments.map(arg => new Variant({
                     dataType: arg.dataType,
@@ -475,11 +552,14 @@ module.exports = function(RED) {
         switch (dataType) {
             case DataType.Boolean:
                 return false;
-            case DataType.Int8:
+            // node-opcua names the 8-bit integers SByte/Byte — the previous
+            // DataType.Int8 / DataType.UInt8 labels were `undefined`, so those
+            // two types fell through to `null` instead of 0.
+            case DataType.SByte:
+            case DataType.Byte:
             case DataType.Int16:
             case DataType.Int32:
             case DataType.Int64:
-            case DataType.UInt8:
             case DataType.UInt16:
             case DataType.UInt32:
             case DataType.UInt64:
