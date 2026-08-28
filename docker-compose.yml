@@ -15,7 +15,7 @@ services:
     restart: unless-stopped
     depends_on:
       opcua-server:
-        condition: service_started
+        condition: service_healthy
     networks:
       - opcua-network
 
@@ -29,6 +29,22 @@ services:
     environment:
       - TZ=Europe/Berlin
     entrypoint: ["node", "/opt/opcua-suite/test-server/server.js"]
+    # The node-red base image ships a HEALTHCHECK that probes Node-RED's HTTP
+    # port. This container reuses that image but runs the OPC UA test server
+    # instead, so the inherited check can never pass and the container would
+    # sit at "unhealthy" forever. Probe the OPC UA TCP port instead.
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('net').connect(4840,'127.0.0.1').on('connect',function(){process.exit(0)}).on('error',function(){process.exit(1)})",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     restart: unless-stopped
     networks:
       - opcua-network

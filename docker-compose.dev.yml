@@ -18,6 +18,11 @@ services:
       - ./package.json:/opt/opcua-suite/package.json:ro
       # Logs
       - ./logs:/var/log/node-red
+    depends_on:
+      opcua-server:
+        condition: service_healthy
+      val-mosquitto:
+        condition: service_started
     environment:
       - NODE_OPTIONS=--max-old-space-size=512 --inspect=0.0.0.0:9229
       - TZ=Europe/Berlin
@@ -36,6 +41,36 @@ services:
     environment:
       - TZ=Europe/Berlin
     entrypoint: ["node", "/opt/opcua-suite/test-server/server.js"]
+    # The node-red base image ships a HEALTHCHECK that probes Node-RED's HTTP
+    # port. This container reuses that image but runs the OPC UA test server
+    # instead, so the inherited check can never pass and the container would
+    # sit at "unhealthy" forever. Probe the OPC UA TCP port instead.
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('net').connect(4840,'127.0.0.1').on('connect',function(){process.exit(0)}).on('error',function(){process.exit(1)})",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - opcua-network
+
+  # Validation flows "13 - PubSub Full Validation" and "14 - Full Suite
+  # Validation" address their MQTT broker as mqtt://val-mosquitto:1883.
+  # The service name is what resolves inside the compose network, so it must
+  # stay val-mosquitto even though the container is named differently.
+  val-mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: opcua-suite-mosquitto
+    command: ["mosquitto", "-c", "/mosquitto-no-auth.conf"]
+    ports:
+      - "1883:1883"
     restart: unless-stopped
     networks:
       - opcua-network
