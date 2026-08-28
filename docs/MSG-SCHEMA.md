@@ -1,7 +1,7 @@
 # OPC UA Suite — Message Schema Reference
 
 **Version:** v1.1 (2026-08-28)
-**Scope:** All eleven shipped nodes (v0.2.0 and later)
+**Scope:** All eleven shipped nodes (v0.1.0 and later)
 
 This document is the authoritative reference for every `msg.*` field that the
 eleven nodes in this package read from input messages or write to output
@@ -24,7 +24,7 @@ See `## Coverage cross-check` at the end for the limits of that grep.
 The fields listed below are the **v1.0 message contract** for the eight
 original nodes (`opcua-endpoint`, `opcua-client`, `opcua-server`, `opcua-item`,
 `opcua-event`, `opcua-method`, `opcua-browser`, `opcua-browse-client`) and the
-**v0.2.0 contract** for the three PubSub nodes (`opcua-pubsub-connection`,
+**v0.1.0 contract** for the three PubSub nodes (`opcua-pubsub-connection`,
 `opcua-publisher`, `opcua-subscriber`).
 Once v1.0.0 is released:
 

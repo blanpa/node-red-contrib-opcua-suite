@@ -29,11 +29,12 @@ documentation.
 ### Documentation
 
 - **`docs/MSG-SCHEMA.md` covered eight of the eleven shipped nodes.**
-  `opcua-pubsub-connection`, `opcua-publisher` and `opcua-subscriber` shipped in
-  0.2.0 but the reference still listed their fields under *"Reserved for
-  v0.1.0 (PubSub)"* — and reserved names that never materialised (`msg.dataSet`,
-  an `amqp` transport) while omitting the ones that did. All three nodes now
-  have real sections matching the implementation.
+  `opcua-pubsub-connection`, `opcua-publisher` and `opcua-subscriber` shipped
+  in 0.1.0, but the reference was never updated and still listed their fields
+  under *"Reserved for v0.1.0 (PubSub)"* — reserving names that never
+  materialised (`msg.dataSet`, an `amqp` transport) while omitting the ones
+  that did. All three nodes now have real sections matching the
+  implementation.
 - **Every source citation in `docs/MSG-SCHEMA.md` pointed at the wrong line.**
   The repository-wide Prettier pass in 0.2.0 shifted all 82 of them at once
   (`opcua-client.js:244` for an `Object.assign` that now sits at 343, and so
