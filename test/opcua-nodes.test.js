@@ -201,7 +201,7 @@ describe('opcua-method node', function() {
 // ─── opcua-event ───
 
 describe('opcua-event node', function() {
-    let RED, eventCtor;
+    let RED;
 
     it('should register as opcua-event', function() {
         RED = createRED({});

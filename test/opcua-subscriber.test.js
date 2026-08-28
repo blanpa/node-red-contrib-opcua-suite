@@ -68,6 +68,7 @@ function loadSubscriber(RED) {
 }
 
 // Construct a subscriber node with the createRED mock + a send stub.
+// eslint-disable-next-line no-unused-vars -- kept as a documented helper
 function buildNode(ctor, config) {
     const node = {};
     ctor.call(node, config);

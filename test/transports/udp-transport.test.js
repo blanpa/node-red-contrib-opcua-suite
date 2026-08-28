@@ -3,7 +3,6 @@
 const { expect } = require("chai");
 const sinon = require("sinon");
 const dgram = require("dgram");
-const EventEmitter = require("events");
 
 const { BaseTransport } = require("../../lib/transports/base-transport");
 const { UdpTransport } = require("../../lib/transports/udp-transport");
@@ -250,7 +249,6 @@ describe("UdpTransport — _reassemble (UADP chunking)", function () {
   });
 
   it("multi-chunk reassembly: chunks delivered in order produce one 'message' with full payload", function () {
-    const original = encodeNetworkMessage(bigNm());
     const chunks = encodeNetworkMessage(bigNm(), { mtu: 200 });
     expect(Array.isArray(chunks)).to.equal(true);
     expect(chunks.length).to.be.greaterThanOrEqual(2);

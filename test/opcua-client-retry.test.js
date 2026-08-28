@@ -48,6 +48,7 @@ function loadClientNode(RED) {
   return RED.nodes._types["opcua-client"].constructor;
 }
 
+// eslint-disable-next-line no-unused-vars -- kept as a documented helper
 function readResult(value) {
   return {
     payload: value,

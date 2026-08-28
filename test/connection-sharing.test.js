@@ -20,7 +20,7 @@ class MockClientManager {
 // Intercept require for opcua-client-manager
 const Module = require('module');
 const originalResolve = Module._resolveFilename;
-let mockManagerClass = MockClientManager;
+const mockManagerClass = MockClientManager;
 
 function createRED() {
     const nodes = {};

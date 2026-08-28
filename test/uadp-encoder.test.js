@@ -10,6 +10,7 @@ function roundTripDsm(dsm) {
   return decodeDataSetMessage(buf);
 }
 
+// eslint-disable-next-line no-unused-vars -- kept as a documented helper
 function roundTripNm(nm) {
   const buf = encodeNetworkMessage(nm);
   if (Array.isArray(buf)) throw new Error("expected single Buffer, got Array — use roundTripNmChunked");
