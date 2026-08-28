@@ -37,7 +37,8 @@ const minimalNoExtFlags = {
   model: { payload: [] },
   hex: "01",
   flags: { uadpFlags: 0x01, extFlags1: null, extFlags2: null },
-  provenance: "hand-derived from Part 14 §7.2.4 Table 75; verified against encoder output 2026-05-13",
+  provenance:
+    "hand-derived from Part 14 §7.2.4 Table 75; verified against encoder output 2026-05-13",
   specRef: "Part 14 §7.2.4",
 };
 
@@ -51,7 +52,8 @@ const uint64PublisherId = {
   model: { publisherId: 0x1234567890abcdefn, payload: [] },
   hex: "91 03 EF CD AB 90 78 56 34 12",
   flags: { uadpFlags: 0x91, extFlags1: 0x03, extFlags2: null },
-  provenance: "encoder self-output captured 2026-05-13; flag layout validated against Part 14 §7.2.4 Table 75",
+  provenance:
+    "encoder self-output captured 2026-05-13; flag layout validated against Part 14 §7.2.4 Table 75",
   specRef: "Part 14 §7.2.4 (PublisherId type encoding)",
 };
 
@@ -67,10 +69,15 @@ const uint64PublisherId = {
 // Timestamp = (1778976000000 + 11644473600000) * 10000 = 134234496000000000 ticks
 // Little-endian 8 bytes of 134234496000000000 = 00 00 08 71 6B E2 DC 01
 const withTimestamp = {
-  model: { publisherId: 5, timestamp: new Date("2026-05-13T00:00:00.000Z"), payload: [] },
+  model: {
+    publisherId: 5,
+    timestamp: new Date("2026-05-13T00:00:00.000Z"),
+    payload: [],
+  },
   hex: "91 20 05 00 00 08 71 6B E2 DC 01",
   flags: { uadpFlags: 0x91, extFlags1: 0x20, extFlags2: null },
-  provenance: "encoder self-output captured 2026-05-13; DateTime FILETIME conversion per Pitfall 4 verified",
+  provenance:
+    "encoder self-output captured 2026-05-13; DateTime FILETIME conversion per Pitfall 4 verified",
   specRef: "Part 14 §7.2.4.2.3 ExtendedNetworkMessageHeader",
 };
 
@@ -94,7 +101,8 @@ const withDataSetClassId = {
   },
   hex: "91 09 34 12 10 B8 A7 6B AD 9D D1 11 80 B4 00 C0 4F D4 30 C8",
   flags: { uadpFlags: 0x91, extFlags1: 0x09, extFlags2: null },
-  provenance: "encoder self-output captured 2026-05-13; GUID layout per Part 6 §5.2.2.7 (mixed endian) verified",
+  provenance:
+    "encoder self-output captured 2026-05-13; GUID layout per Part 6 §5.2.2.7 (mixed endian) verified",
   specRef: "Part 14 §7.2.4 + Part 6 §5.2.2.7",
 };
 
@@ -109,14 +117,25 @@ const withDataSetClassId = {
 const chunkMessage = {
   model: {
     publisherId: 1,
-    groupHeader: { writerGroupId: 1, groupVersion: 1, networkMessageNumber: 1, sequenceNumber: 7 },
+    groupHeader: {
+      writerGroupId: 1,
+      groupVersion: 1,
+      networkMessageNumber: 1,
+      sequenceNumber: 7,
+    },
     payloadHeader: { dataSetWriterIds: [1] },
-    chunk: { messageSequenceNumber: 7, chunkOffset: 0, totalSize: 64, chunkData: Buffer.alloc(32) },
+    chunk: {
+      messageSequenceNumber: 7,
+      chunkOffset: 0,
+      totalSize: 64,
+      chunkData: Buffer.alloc(32),
+    },
     payload: [],
   },
   hex: null, // static-chunk: encoder handles chunking automatically; manual chunk descriptor not yet wired
-  flags: { uadpFlags: 0xB1, extFlags1: 0x80, extFlags2: 0x01 },
-  provenance: "static chunk fixture documenting wire layout per Part 14 §7.2.4.4.4",
+  flags: { uadpFlags: 0xb1, extFlags1: 0x80, extFlags2: 0x01 },
+  provenance:
+    "static chunk fixture documenting wire layout per Part 14 §7.2.4.4.4",
   specRef: "Part 14 §7.2.4.4.4 (UADP chunking)",
   isStaticChunk: true, // signals to test runner: skip encoder round-trip, only assert flag bytes
 };
@@ -126,10 +145,15 @@ const chunkMessage = {
 // Documents the expected flag layout for when promotedFields is implemented.
 // ExtFlags1 bit 7 set, ExtFlags2 bit 1 set.
 const withPromotedFields = {
-  model: { publisherId: 1, promotedFields: [{ dataType: "Int32", value: 42 }], payload: [] },
+  model: {
+    publisherId: 1,
+    promotedFields: [{ dataType: "Int32", value: 42 }],
+    payload: [],
+  },
   hex: null, // pending: encoder throws UADP_ENCODE_NOT_YET_IMPLEMENTED for promotedFields
   flags: { uadpFlags: 0x91, extFlags1: 0x80, extFlags2: 0x02 },
-  provenance: "reserved for promotedFields support (encoder currently throws UADP_ENCODE_NOT_YET_IMPLEMENTED)",
+  provenance:
+    "reserved for promotedFields support (encoder currently throws UADP_ENCODE_NOT_YET_IMPLEMENTED)",
   specRef: "Part 14 §7.2.4.2.3 PromotedFields",
   pending: true, // signals to test runner: skip this fixture entirely
 };
@@ -142,14 +166,25 @@ const withPromotedFields = {
 const chunkWithPublisherId = {
   model: {
     publisherId: 0xfedcba9876543210n,
-    groupHeader: { writerGroupId: 2, groupVersion: 1, networkMessageNumber: 1, sequenceNumber: 8 },
+    groupHeader: {
+      writerGroupId: 2,
+      groupVersion: 1,
+      networkMessageNumber: 1,
+      sequenceNumber: 8,
+    },
     payloadHeader: { dataSetWriterIds: [2] },
-    chunk: { messageSequenceNumber: 8, chunkOffset: 0, totalSize: 16, chunkData: Buffer.alloc(8) },
+    chunk: {
+      messageSequenceNumber: 8,
+      chunkOffset: 0,
+      totalSize: 16,
+      chunkData: Buffer.alloc(8),
+    },
     payload: [],
   },
   hex: null, // static-chunk: manual chunk descriptor not yet wired into encodeNetworkMessage(model)
-  flags: { uadpFlags: 0xB1, extFlags1: 0x83, extFlags2: 0x01 },
-  provenance: "static chunk + UInt64 PublisherId; validates 3-byte cascade header layout",
+  flags: { uadpFlags: 0xb1, extFlags1: 0x83, extFlags2: 0x01 },
+  provenance:
+    "static chunk + UInt64 PublisherId; validates 3-byte cascade header layout",
   specRef: "Part 14 §7.2.4 + §7.2.4.4.4",
   isStaticChunk: true,
 };
@@ -164,7 +199,8 @@ const stringPublisherId = {
   model: { publisherId: "publisher-A", payload: [] },
   hex: "91 04 0B 00 00 00 70 75 62 6C 69 73 68 65 72 2D 41",
   flags: { uadpFlags: 0x91, extFlags1: 0x04, extFlags2: null },
-  provenance: "encoder self-output captured 2026-05-13; String PublisherId is UInt32 length prefix + UTF-8 bytes per Part 6 §5.2.2.10",
+  provenance:
+    "encoder self-output captured 2026-05-13; String PublisherId is UInt32 length prefix + UTF-8 bytes per Part 6 §5.2.2.10",
   specRef: "Part 14 §7.2.4 + Part 6 §5.2.2.10 (String encoding)",
 };
 

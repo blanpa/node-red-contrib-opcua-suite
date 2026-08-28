@@ -36,8 +36,9 @@
     "bench": "node test-server/benchmark.js",
     "bench:quick": "node test-server/benchmark.js --quick",
     "lint": "eslint \"nodes/**/*.js\" \"lib/**/*.js\" \"test/**/*.js\"",
-    "format": "prettier --write \"nodes/**/*.js\" \"lib/**/*.js\"",
-    "lint:fix": "eslint --fix \"nodes/**/*.js\" \"lib/**/*.js\" \"test/**/*.js\""
+    "format": "prettier --write \"nodes/**/*.js\" \"lib/**/*.js\" \"test/**/*.js\"",
+    "lint:fix": "eslint --fix \"nodes/**/*.js\" \"lib/**/*.js\" \"test/**/*.js\"",
+    "format:check": "prettier --check \"nodes/**/*.js\" \"lib/**/*.js\" \"test/**/*.js\""
   },
   "author": "blanpa",
   "license": "Apache-2.0",

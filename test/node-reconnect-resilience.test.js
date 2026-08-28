@@ -41,8 +41,12 @@ function createRED(endpointNodes) {
       _types: types,
     },
     httpAdmin: {
-      post(routePath, ...fns) { routes[routePath] = fns[fns.length - 1]; },
-      get(routePath, ...fns) { routes[routePath] = fns[fns.length - 1]; },
+      post(routePath, ...fns) {
+        routes[routePath] = fns[fns.length - 1];
+      },
+      get(routePath, ...fns) {
+        routes[routePath] = fns[fns.length - 1];
+      },
     },
     events: { on() {} },
     _routes: routes,
@@ -197,7 +201,11 @@ describe("opcua-event — session_recreated replay", function () {
   it("replays the remembered subscription after the session is replaced", async function () {
     const handler = node._events.input[0];
     await new Promise((resolve) =>
-      handler({ action: "subscribe" }, () => {}, () => resolve()),
+      handler(
+        { action: "subscribe" },
+        () => {},
+        () => resolve(),
+      ),
     );
     expect(createSubscription.callCount).to.equal(1);
 
@@ -210,10 +218,18 @@ describe("opcua-event — session_recreated replay", function () {
   it("stops replaying after an explicit unsubscribe", async function () {
     const handler = node._events.input[0];
     await new Promise((resolve) =>
-      handler({ action: "subscribe" }, () => {}, () => resolve()),
+      handler(
+        { action: "subscribe" },
+        () => {},
+        () => resolve(),
+      ),
     );
     await new Promise((resolve) =>
-      handler({ action: "unsubscribe" }, () => {}, () => resolve()),
+      handler(
+        { action: "unsubscribe" },
+        () => {},
+        () => resolve(),
+      ),
     );
 
     const before = createSubscription.callCount;
@@ -229,14 +245,22 @@ describe("opcua-event — session_recreated replay", function () {
     const handler = node._events.input[0];
 
     await new Promise((resolve) =>
-      handler({ action: "subscribe" }, () => {}, () => resolve()),
+      handler(
+        { action: "subscribe" },
+        () => {},
+        () => resolve(),
+      ),
     );
     const baseFilter = createStub.lastCall.args[2].filter;
     // BaseEventType is the root of the hierarchy — filtering on it is a no-op.
     expect(baseFilter.whereClause?.elements ?? []).to.have.length(0);
 
     await new Promise((resolve) =>
-      handler({ action: "subscribe", eventType: "SystemEventType" }, () => {}, () => resolve()),
+      handler(
+        { action: "subscribe", eventType: "SystemEventType" },
+        () => {},
+        () => resolve(),
+      ),
     );
     // The configured event type used to be read and then discarded entirely,
     // so every event type was delivered regardless of the setting.
@@ -248,10 +272,14 @@ describe("opcua-event — session_recreated replay", function () {
     const handler = node._events.input[0];
     let doneErr = null;
     await new Promise((resolve) =>
-      handler({ action: "subscribe", eventType: "NoSuchEventType" }, () => {}, (err) => {
-        doneErr = err;
-        resolve();
-      }),
+      handler(
+        { action: "subscribe", eventType: "NoSuchEventType" },
+        () => {},
+        (err) => {
+          doneErr = err;
+          resolve();
+        },
+      ),
     );
     expect(doneErr).to.be.an("error");
     expect(doneErr.message).to.include("NoSuchEventType");
@@ -305,8 +333,14 @@ describe("opcua-browse-client editor connection — single-flight (issue #17)", 
 
   function makeRes() {
     const res = { statusCode: 200, body: null };
-    res.status = (c) => { res.statusCode = c; return res; };
-    res.json = (o) => { res.body = o; return res; };
+    res.status = (c) => {
+      res.statusCode = c;
+      return res;
+    };
+    res.json = (o) => {
+      res.body = o;
+      return res;
+    };
     return res;
   }
 
@@ -326,12 +360,16 @@ describe("opcua-browse-client editor connection — single-flight (issue #17)", 
   it("a failed connect is not cached and does not leak a manager", async function () {
     connectStub.restore();
     let disconnects = 0;
-    sandbox.stub(OpcUaClientManager.prototype, "connect").rejects(new Error("ECONNREFUSED"));
+    sandbox
+      .stub(OpcUaClientManager.prototype, "connect")
+      .rejects(new Error("ECONNREFUSED"));
     disconnectStub.restore();
-    sandbox.stub(OpcUaClientManager.prototype, "disconnect").callsFake(async function () {
-      disconnects++;
-      this.isConnected = false;
-    });
+    sandbox
+      .stub(OpcUaClientManager.prototype, "disconnect")
+      .callsFake(async function () {
+        disconnects++;
+        this.isConnected = false;
+      });
 
     const res = makeRes();
     await browseRoute({ body: { endpointId: "ep1", nodeId: "i=85" } }, res);

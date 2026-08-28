@@ -4,192 +4,200 @@
  * All client nodes with the same endpoint share a connection (connection sharing).
  */
 
-const fs = require('fs');
-const OpcUaClientManager = require('../lib/opcua-client-manager');
-const PooledClientManager = require('../lib/opcua-pool');
-const { registerCertRoutes, getCertsDir } = require('../lib/cert-store');
-const { isValidEndpointUrl } = require('../lib/opcua-utils');
+const fs = require("fs");
+const OpcUaClientManager = require("../lib/opcua-client-manager");
+const PooledClientManager = require("../lib/opcua-pool");
+const { registerCertRoutes, getCertsDir } = require("../lib/cert-store");
+const { isValidEndpointUrl } = require("../lib/opcua-utils");
 
-module.exports = function(RED) {
+module.exports = function (RED) {
+  // ─── Certificate Upload HTTP Endpoint ───
+  // Cert directory creation + POST/GET/DELETE route registration are
+  // delegated to lib/cert-store so future config nodes (e.g. PubSub) can
+  // reuse the same routes under a different prefix.
+  registerCertRoutes(RED, "/opcua-endpoint", getCertsDir(RED));
 
-    // ─── Certificate Upload HTTP Endpoint ───
-    // Cert directory creation + POST/GET/DELETE route registration are
-    // delegated to lib/cert-store so future config nodes (e.g. PubSub) can
-    // reuse the same routes under a different prefix.
-    registerCertRoutes(RED, '/opcua-endpoint', getCertsDir(RED));
+  function OpcUaEndpointNode(config) {
+    RED.nodes.createNode(this, config);
+    const node = this;
 
-    function OpcUaEndpointNode(config) {
-        RED.nodes.createNode(this, config);
-        const node = this;
-
-        // Endpoint URL
-        node.endpointUrl = config.endpointUrl || 'opc.tcp://localhost:4840';
-        // Surface a malformed URL at deploy time instead of as an opaque
-        // node-opcua connect failure minutes later.
-        if (!isValidEndpointUrl(node.endpointUrl)) {
-            node.error(
-                `Invalid OPC UA endpoint URL "${node.endpointUrl}" — expected the form ` +
-                'opc.tcp://host[:port][/path]'
-            );
-        }
-
-        // Security Settings
-        node.securityMode = config.securityMode || 'None';
-        node.securityPolicy = config.securityPolicy || 'None';
-
-        // Transport Certificate Settings
-        node.certificateFile = config.certificateFile || '';
-        node.privateKeyFile = config.privateKeyFile || '';
-        node.caCertificateFile = config.caCertificateFile || '';
-
-        // User Certificate (X509 Token) Settings
-        node.userCertificateFile = config.userCertificateFile || '';
-        node.userPrivateKeyFile = config.userPrivateKeyFile || '';
-
-        // Optional session pool (opt-in). 1 = single shared session (default,
-        // unchanged behaviour); >1 round-robins stateless ops across N sessions.
-        node.poolSize = Math.max(1, parseInt(config.poolSize, 10) || 1);
-
-        // Per-operation timeout (ms). The manager has always honoured
-        // config.operationTimeout, but nothing passed it in — so the 10s
-        // default was unreachable from the editor. A slow batch read on a PLC
-        // could exceed it, which marks the connection dead and tears down an
-        // otherwise healthy session on the next message.
-        node.operationTimeout = Math.max(
-            1000,
-            parseInt(config.operationTimeout, 10) || 10000
-        );
-
-        // ─── Shared Connection ───
-        node._sharedManager = null;
-        node._refCount = 0;
-        node._statusCallbacks = new Set();
-
-        node.getCertificateData = function() {
-            const data = {};
-            if (node.certificateFile && fs.existsSync(node.certificateFile)) {
-                data.certificateFile = node.certificateFile;
-            }
-            if (node.privateKeyFile && fs.existsSync(node.privateKeyFile)) {
-                data.privateKeyFile = node.privateKeyFile;
-            }
-            if (node.caCertificateFile && fs.existsSync(node.caCertificateFile)) {
-                data.caCertificateFile = node.caCertificateFile;
-            }
-            if (node.userCertificateFile && fs.existsSync(node.userCertificateFile)) {
-                data.userCertificateFile = node.userCertificateFile;
-            }
-            if (node.userPrivateKeyFile && fs.existsSync(node.userPrivateKeyFile)) {
-                data.userPrivateKeyFile = node.userPrivateKeyFile;
-            }
-            return data;
-        };
-
-        /**
-         * Returns the shared ClientManager (creates it on first call).
-         * Each client node must call getSharedManager() on start and
-         * releaseSharedManager() on close.
-         */
-        node.getSharedManager = function(clientConfig) {
-            node._refCount++;
-            node.log(`Connection ref +1 (now ${node._refCount})`);
-
-            if (!node._sharedManager) {
-                const certData = node.getCertificateData();
-                const managerConfig = {
-                    endpointUrl: node.endpointUrl,
-                    userName: node.credentials?.userName || '',
-                    password: node.credentials?.password || '',
-                    securityMode: node.securityMode || 'None',
-                    securityPolicy: node.securityPolicy || 'None',
-                    applicationName: (clientConfig && clientConfig.applicationName) || 'Node-RED OPC UA Client',
-                    maxReconnectAttempts: (clientConfig && clientConfig.maxReconnectAttempts) || 10,
-                    reconnectDelay: (clientConfig && clientConfig.reconnectDelay) || 5000,
-                    operationTimeout: node.operationTimeout,
-                    certificateFile: certData.certificateFile || '',
-                    privateKeyFile: certData.privateKeyFile || '',
-                    caCertificateFile: certData.caCertificateFile || '',
-                    userCertificateFile: certData.userCertificateFile || '',
-                    userPrivateKeyFile: certData.userPrivateKeyFile || ''
-                };
-                node._sharedManager =
-                    node.poolSize > 1
-                        ? new PooledClientManager(managerConfig, node.poolSize)
-                        : new OpcUaClientManager(managerConfig);
-
-                // Propagate status events to all registered client nodes
-                node._sharedManager.on('connected', () => {
-                    node._statusCallbacks.forEach(cb => cb('connected'));
-                });
-                node._sharedManager.on('disconnected', () => {
-                    node._statusCallbacks.forEach(cb => cb('disconnected'));
-                });
-                node._sharedManager.on('reconnecting', () => {
-                    node._statusCallbacks.forEach(cb => cb('reconnecting'));
-                });
-                node._sharedManager.on('session_recreated', () => {
-                    node._statusCallbacks.forEach(cb => cb('session_recreated'));
-                });
-                node._sharedManager.on('reconnected', (info) => {
-                    node._statusCallbacks.forEach(cb => cb('reconnected', info));
-                });
-                node._sharedManager.on('error', (error) => {
-                    node._statusCallbacks.forEach(cb => cb('error', error));
-                });
-
-                node.log(
-                    `Shared connection created for ${node.endpointUrl}` +
-                        (node.poolSize > 1 ? ` (pool size ${node.poolSize})` : ''),
-                );
-            }
-
-            return node._sharedManager;
-        };
-
-        /**
-         * Registers a status callback for a client node.
-         */
-        node.registerStatusCallback = function(callback) {
-            node._statusCallbacks.add(callback);
-        };
-
-        node.unregisterStatusCallback = function(callback) {
-            node._statusCallbacks.delete(callback);
-        };
-
-        /**
-         * Releases the shared connection. Disconnects only when the last client closes.
-         */
-        node.releaseSharedManager = async function() {
-            node._refCount = Math.max(0, node._refCount - 1);
-            node.log(`Connection ref -1 (now ${node._refCount})`);
-
-            if (node._refCount === 0 && node._sharedManager) {
-                node.log(`Last client closed — disconnecting from ${node.endpointUrl}`);
-                try {
-                    await node._sharedManager.disconnect();
-                } catch (e) { /* ignore */ }
-                node._sharedManager = null;
-                node._statusCallbacks.clear();
-            }
-        };
-
-        node.on('close', async function(done) {
-            // Force cleanup if endpoint config itself is removed
-            if (node._sharedManager) {
-                try { await node._sharedManager.disconnect(); } catch (e) { /* ignore */ }
-                node._sharedManager = null;
-            }
-            node._refCount = 0;
-            node._statusCallbacks.clear();
-            done();
-        });
+    // Endpoint URL
+    node.endpointUrl = config.endpointUrl || "opc.tcp://localhost:4840";
+    // Surface a malformed URL at deploy time instead of as an opaque
+    // node-opcua connect failure minutes later.
+    if (!isValidEndpointUrl(node.endpointUrl)) {
+      node.error(
+        `Invalid OPC UA endpoint URL "${node.endpointUrl}" — expected the form ` +
+          "opc.tcp://host[:port][/path]",
+      );
     }
 
-    RED.nodes.registerType('opcua-endpoint', OpcUaEndpointNode, {
-        credentials: {
-            userName: { type: 'text' },
-            password: { type: 'password' }
+    // Security Settings
+    node.securityMode = config.securityMode || "None";
+    node.securityPolicy = config.securityPolicy || "None";
+
+    // Transport Certificate Settings
+    node.certificateFile = config.certificateFile || "";
+    node.privateKeyFile = config.privateKeyFile || "";
+    node.caCertificateFile = config.caCertificateFile || "";
+
+    // User Certificate (X509 Token) Settings
+    node.userCertificateFile = config.userCertificateFile || "";
+    node.userPrivateKeyFile = config.userPrivateKeyFile || "";
+
+    // Optional session pool (opt-in). 1 = single shared session (default,
+    // unchanged behaviour); >1 round-robins stateless ops across N sessions.
+    node.poolSize = Math.max(1, parseInt(config.poolSize, 10) || 1);
+
+    // Per-operation timeout (ms). The manager has always honoured
+    // config.operationTimeout, but nothing passed it in — so the 10s
+    // default was unreachable from the editor. A slow batch read on a PLC
+    // could exceed it, which marks the connection dead and tears down an
+    // otherwise healthy session on the next message.
+    node.operationTimeout = Math.max(
+      1000,
+      parseInt(config.operationTimeout, 10) || 10000,
+    );
+
+    // ─── Shared Connection ───
+    node._sharedManager = null;
+    node._refCount = 0;
+    node._statusCallbacks = new Set();
+
+    node.getCertificateData = function () {
+      const data = {};
+      if (node.certificateFile && fs.existsSync(node.certificateFile)) {
+        data.certificateFile = node.certificateFile;
+      }
+      if (node.privateKeyFile && fs.existsSync(node.privateKeyFile)) {
+        data.privateKeyFile = node.privateKeyFile;
+      }
+      if (node.caCertificateFile && fs.existsSync(node.caCertificateFile)) {
+        data.caCertificateFile = node.caCertificateFile;
+      }
+      if (node.userCertificateFile && fs.existsSync(node.userCertificateFile)) {
+        data.userCertificateFile = node.userCertificateFile;
+      }
+      if (node.userPrivateKeyFile && fs.existsSync(node.userPrivateKeyFile)) {
+        data.userPrivateKeyFile = node.userPrivateKeyFile;
+      }
+      return data;
+    };
+
+    /**
+     * Returns the shared ClientManager (creates it on first call).
+     * Each client node must call getSharedManager() on start and
+     * releaseSharedManager() on close.
+     */
+    node.getSharedManager = function (clientConfig) {
+      node._refCount++;
+      node.log(`Connection ref +1 (now ${node._refCount})`);
+
+      if (!node._sharedManager) {
+        const certData = node.getCertificateData();
+        const managerConfig = {
+          endpointUrl: node.endpointUrl,
+          userName: node.credentials?.userName || "",
+          password: node.credentials?.password || "",
+          securityMode: node.securityMode || "None",
+          securityPolicy: node.securityPolicy || "None",
+          applicationName:
+            (clientConfig && clientConfig.applicationName) ||
+            "Node-RED OPC UA Client",
+          maxReconnectAttempts:
+            (clientConfig && clientConfig.maxReconnectAttempts) || 10,
+          reconnectDelay: (clientConfig && clientConfig.reconnectDelay) || 5000,
+          operationTimeout: node.operationTimeout,
+          certificateFile: certData.certificateFile || "",
+          privateKeyFile: certData.privateKeyFile || "",
+          caCertificateFile: certData.caCertificateFile || "",
+          userCertificateFile: certData.userCertificateFile || "",
+          userPrivateKeyFile: certData.userPrivateKeyFile || "",
+        };
+        node._sharedManager =
+          node.poolSize > 1
+            ? new PooledClientManager(managerConfig, node.poolSize)
+            : new OpcUaClientManager(managerConfig);
+
+        // Propagate status events to all registered client nodes
+        node._sharedManager.on("connected", () => {
+          node._statusCallbacks.forEach((cb) => cb("connected"));
+        });
+        node._sharedManager.on("disconnected", () => {
+          node._statusCallbacks.forEach((cb) => cb("disconnected"));
+        });
+        node._sharedManager.on("reconnecting", () => {
+          node._statusCallbacks.forEach((cb) => cb("reconnecting"));
+        });
+        node._sharedManager.on("session_recreated", () => {
+          node._statusCallbacks.forEach((cb) => cb("session_recreated"));
+        });
+        node._sharedManager.on("reconnected", (info) => {
+          node._statusCallbacks.forEach((cb) => cb("reconnected", info));
+        });
+        node._sharedManager.on("error", (error) => {
+          node._statusCallbacks.forEach((cb) => cb("error", error));
+        });
+
+        node.log(
+          `Shared connection created for ${node.endpointUrl}` +
+            (node.poolSize > 1 ? ` (pool size ${node.poolSize})` : ""),
+        );
+      }
+
+      return node._sharedManager;
+    };
+
+    /**
+     * Registers a status callback for a client node.
+     */
+    node.registerStatusCallback = function (callback) {
+      node._statusCallbacks.add(callback);
+    };
+
+    node.unregisterStatusCallback = function (callback) {
+      node._statusCallbacks.delete(callback);
+    };
+
+    /**
+     * Releases the shared connection. Disconnects only when the last client closes.
+     */
+    node.releaseSharedManager = async function () {
+      node._refCount = Math.max(0, node._refCount - 1);
+      node.log(`Connection ref -1 (now ${node._refCount})`);
+
+      if (node._refCount === 0 && node._sharedManager) {
+        node.log(`Last client closed — disconnecting from ${node.endpointUrl}`);
+        try {
+          await node._sharedManager.disconnect();
+        } catch (e) {
+          /* ignore */
         }
+        node._sharedManager = null;
+        node._statusCallbacks.clear();
+      }
+    };
+
+    node.on("close", async function (done) {
+      // Force cleanup if endpoint config itself is removed
+      if (node._sharedManager) {
+        try {
+          await node._sharedManager.disconnect();
+        } catch (e) {
+          /* ignore */
+        }
+        node._sharedManager = null;
+      }
+      node._refCount = 0;
+      node._statusCallbacks.clear();
+      done();
     });
+  }
+
+  RED.nodes.registerType("opcua-endpoint", OpcUaEndpointNode, {
+    credentials: {
+      userName: { type: "text" },
+      password: { type: "password" },
+    },
+  });
 };

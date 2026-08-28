@@ -5,7 +5,6 @@ const EventEmitter = require("events");
 const { BaseTransport } = require("../../lib/transports/base-transport");
 
 describe("BaseTransport — abstract class contract", function () {
-
   it("constructor stores config object on this.config", function () {
     const t = new BaseTransport({ foo: 1 });
     expect(t.config).to.be.an("object");
@@ -62,5 +61,4 @@ describe("BaseTransport — abstract class contract", function () {
     t.emit("foo", 42);
     expect(received).to.equal(42);
   });
-
 });

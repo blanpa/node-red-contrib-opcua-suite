@@ -1,414 +1,431 @@
-'use strict';
+"use strict";
 
-const { expect } = require('chai');
-const sinon = require('sinon');
+const { expect } = require("chai");
+const sinon = require("sinon");
 
 function createRED() {
-    const types = {};
-    return {
-        nodes: {
-            createNode: function (node, config) { Object.assign(node, config); },
-            registerType: function (name, constructor, opts) { types[name] = { constructor, opts }; },
-            getNode: function () { return null; },
-            _types: types
-        }
-    };
+  const types = {};
+  return {
+    nodes: {
+      createNode: function (node, config) {
+        Object.assign(node, config);
+      },
+      registerType: function (name, constructor, opts) {
+        types[name] = { constructor, opts };
+      },
+      getNode: function () {
+        return null;
+      },
+      _types: types,
+    },
+  };
 }
 
-describe('opcua-item node', function () {
-    let RED;
-    let OpcUaItemConstructor;
+describe("opcua-item node", function () {
+  let RED;
+  let OpcUaItemConstructor;
 
-    before(function () {
-        RED = createRED();
-        require('../nodes/opcua-item')(RED);
-        OpcUaItemConstructor = RED.nodes._types['opcua-item'].constructor;
+  before(function () {
+    RED = createRED();
+    require("../nodes/opcua-item")(RED);
+    OpcUaItemConstructor = RED.nodes._types["opcua-item"].constructor;
+  });
+
+  function createItemNode(config) {
+    const node = {};
+    const handlers = {};
+    node.on = function (event, handler) {
+      handlers[event] = handler;
+    };
+    node.status = sinon.stub();
+    OpcUaItemConstructor.call(node, config);
+    return { node, handlers };
+  }
+
+  function triggerInput(handlers, msg) {
+    const send = sinon.stub();
+    const done = sinon.stub();
+    handlers["input"](msg, send, done);
+    return { send, done };
+  }
+
+  // ─── Collector mode ───
+
+  describe("collector mode", function () {
+    it("should add item to msg.items array", function () {
+      const { handlers } = createItemNode({
+        items: [{ nodeId: "ns=2;s=Temp", datatype: "Double", itemName: "" }],
+        collector: true,
+      });
+      const msg = {};
+      const { send, done } = triggerInput(handlers, msg);
+
+      expect(send.calledOnce).to.be.true;
+      const sentMsg = send.firstCall.args[0];
+      expect(sentMsg.items).to.be.an("array").with.length(1);
+      expect(sentMsg.items[0].nodeId).to.equal("ns=2;s=Temp");
+      expect(sentMsg.items[0].datatype).to.equal("Double");
+      expect(done.calledOnce).to.be.true;
     });
 
-    function createItemNode(config) {
-        const node = {};
-        const handlers = {};
-        node.on = function (event, handler) {
-            handlers[event] = handler;
-        };
-        node.status = sinon.stub();
-        OpcUaItemConstructor.call(node, config);
-        return { node, handlers };
-    }
+    it("should append to existing msg.items array", function () {
+      const { handlers } = createItemNode({
+        items: [{ nodeId: "ns=2;s=Pressure", datatype: "", itemName: "" }],
+        collector: true,
+      });
+      const msg = { items: [{ nodeId: "ns=2;s=Temp" }] };
+      const { send } = triggerInput(handlers, msg);
 
-    function triggerInput(handlers, msg) {
-        const send = sinon.stub();
-        const done = sinon.stub();
-        handlers['input'](msg, send, done);
-        return { send, done };
-    }
-
-    // ─── Collector mode ───
-
-    describe('collector mode', function () {
-        it('should add item to msg.items array', function () {
-            const { handlers } = createItemNode({
-                items: [{ nodeId: 'ns=2;s=Temp', datatype: 'Double', itemName: '' }],
-                collector: true
-            });
-            const msg = {};
-            const { send, done } = triggerInput(handlers, msg);
-
-            expect(send.calledOnce).to.be.true;
-            const sentMsg = send.firstCall.args[0];
-            expect(sentMsg.items).to.be.an('array').with.length(1);
-            expect(sentMsg.items[0].nodeId).to.equal('ns=2;s=Temp');
-            expect(sentMsg.items[0].datatype).to.equal('Double');
-            expect(done.calledOnce).to.be.true;
-        });
-
-        it('should append to existing msg.items array', function () {
-            const { handlers } = createItemNode({
-                items: [{ nodeId: 'ns=2;s=Pressure', datatype: '', itemName: '' }],
-                collector: true
-            });
-            const msg = { items: [{ nodeId: 'ns=2;s=Temp' }] };
-            const { send } = triggerInput(handlers, msg);
-
-            const sentMsg = send.firstCall.args[0];
-            expect(sentMsg.items).to.have.length(2);
-            expect(sentMsg.items[1].nodeId).to.equal('ns=2;s=Pressure');
-        });
-
-        it('should activate collector mode when msg.items is already an array even if collector is false', function () {
-            const { handlers } = createItemNode({
-                items: [{ nodeId: 'ns=2;s=Val', datatype: '', itemName: '' }],
-                collector: false
-            });
-            const msg = { items: [{ nodeId: 'ns=2;s=Existing' }] };
-            const { send } = triggerInput(handlers, msg);
-
-            const sentMsg = send.firstCall.args[0];
-            expect(sentMsg.items).to.have.length(2);
-        });
-
-        it('should include value from msg.payload for write operations', function () {
-            const { handlers } = createItemNode({
-                items: [{ nodeId: 'ns=2;s=Setpoint', datatype: '', itemName: '' }],
-                collector: true
-            });
-            const msg = { payload: 42, operation: 'write' };
-            const { send } = triggerInput(handlers, msg);
-
-            const sentMsg = send.firstCall.args[0];
-            expect(sentMsg.items[0].value).to.equal(42);
-        });
-
-        it('should include value for writemultiple operations', function () {
-            const { handlers } = createItemNode({
-                items: [{ nodeId: 'ns=2;s=Setpoint', datatype: '', itemName: '' }],
-                collector: true
-            });
-            const msg = { payload: 100, operation: 'writemultiple' };
-            const { send } = triggerInput(handlers, msg);
-
-            const sentMsg = send.firstCall.args[0];
-            expect(sentMsg.items[0].value).to.equal(100);
-        });
-
-        it('should not include value for read operations', function () {
-            const { handlers } = createItemNode({
-                items: [{ nodeId: 'ns=2;s=Temp', datatype: '', itemName: '' }],
-                collector: true
-            });
-            const msg = { payload: 'ignored', operation: 'read' };
-            const { send } = triggerInput(handlers, msg);
-
-            const sentMsg = send.firstCall.args[0];
-            expect(sentMsg.items[0]).to.not.have.property('value');
-        });
+      const sentMsg = send.firstCall.args[0];
+      expect(sentMsg.items).to.have.length(2);
+      expect(sentMsg.items[1].nodeId).to.equal("ns=2;s=Pressure");
     });
 
-    // ─── Legacy mode ───
+    it("should activate collector mode when msg.items is already an array even if collector is false", function () {
+      const { handlers } = createItemNode({
+        items: [{ nodeId: "ns=2;s=Val", datatype: "", itemName: "" }],
+        collector: false,
+      });
+      const msg = { items: [{ nodeId: "ns=2;s=Existing" }] };
+      const { send } = triggerInput(handlers, msg);
 
-    describe('legacy mode', function () {
-        it('should set msg.topic to nodeId', function () {
-            const { handlers } = createItemNode({
-                items: [{ nodeId: 'ns=2;s=Temp', datatype: 'Double', itemName: '' }],
-                collector: false
-            });
-            const msg = {};
-            const { send } = triggerInput(handlers, msg);
-
-            const sentMsg = send.firstCall.args[0];
-            expect(sentMsg.topic).to.equal('ns=2;s=Temp');
-            expect(sentMsg.nodeId).to.equal('ns=2;s=Temp');
-            expect(sentMsg.datatype).to.equal('Double');
-        });
-
-        it('should set itemName when configured', function () {
-            const { handlers } = createItemNode({
-                items: [{ nodeId: 'ns=2;s=Temp', datatype: '', itemName: 'Temperature' }],
-                collector: false
-            });
-            const msg = {};
-            const { send } = triggerInput(handlers, msg);
-
-            const sentMsg = send.firstCall.args[0];
-            expect(sentMsg.itemName).to.equal('Temperature');
-        });
-
-        it('should not set datatype on msg if not configured', function () {
-            const { handlers } = createItemNode({
-                items: [{ nodeId: 'ns=2;s=Val', datatype: '', itemName: '' }],
-                collector: false
-            });
-            const msg = {};
-            const { send } = triggerInput(handlers, msg);
-
-            const sentMsg = send.firstCall.args[0];
-            expect(sentMsg).to.not.have.property('datatype');
-        });
+      const sentMsg = send.firstCall.args[0];
+      expect(sentMsg.items).to.have.length(2);
     });
 
-    // ─── Pass-through ───
+    it("should include value from msg.payload for write operations", function () {
+      const { handlers } = createItemNode({
+        items: [{ nodeId: "ns=2;s=Setpoint", datatype: "", itemName: "" }],
+        collector: true,
+      });
+      const msg = { payload: 42, operation: "write" };
+      const { send } = triggerInput(handlers, msg);
 
-    describe('pass-through when no items', function () {
-        it('should pass message through unchanged when items is empty', function () {
-            const { handlers } = createItemNode({ items: [] });
-            const msg = { payload: 'test', existing: true };
-            const { send, done } = triggerInput(handlers, msg);
-
-            expect(send.calledOnce).to.be.true;
-            const sentMsg = send.firstCall.args[0];
-            expect(sentMsg.payload).to.equal('test');
-            expect(sentMsg.existing).to.be.true;
-            expect(sentMsg).to.not.have.property('items');
-            expect(done.calledOnce).to.be.true;
-        });
-
-        it('should pass through when items is not configured at all', function () {
-            const { handlers } = createItemNode({});
-            const msg = { payload: 'data' };
-            const { send } = triggerInput(handlers, msg);
-
-            const sentMsg = send.firstCall.args[0];
-            expect(sentMsg).to.not.have.property('items');
-            expect(sentMsg).to.not.have.property('topic');
-        });
+      const sentMsg = send.firstCall.args[0];
+      expect(sentMsg.items[0].value).to.equal(42);
     });
 
-    // ─── Migration from old format ───
+    it("should include value for writemultiple operations", function () {
+      const { handlers } = createItemNode({
+        items: [{ nodeId: "ns=2;s=Setpoint", datatype: "", itemName: "" }],
+        collector: true,
+      });
+      const msg = { payload: 100, operation: "writemultiple" };
+      const { send } = triggerInput(handlers, msg);
 
-    describe('migration from old single-item format', function () {
-        it('should migrate old nodeId/datatype/itemName to items array', function () {
-            const { handlers } = createItemNode({
-                nodeId: 'ns=2;s=OldVar',
-                datatype: 'Int32',
-                itemName: 'OldName',
-                collector: true
-            });
-            const msg = {};
-            const { send } = triggerInput(handlers, msg);
-
-            const sentMsg = send.firstCall.args[0];
-            expect(sentMsg.items).to.be.an('array').with.length(1);
-            expect(sentMsg.items[0].nodeId).to.equal('ns=2;s=OldVar');
-            expect(sentMsg.items[0].datatype).to.equal('Int32');
-        });
-
-        it('should not migrate if items already has entries', function () {
-            const { handlers } = createItemNode({
-                nodeId: 'ns=2;s=ShouldBeIgnored',
-                items: [{ nodeId: 'ns=2;s=NewVar', datatype: '', itemName: '' }],
-                collector: true
-            });
-            const msg = {};
-            const { send } = triggerInput(handlers, msg);
-
-            const sentMsg = send.firstCall.args[0];
-            expect(sentMsg.items).to.have.length(1);
-            expect(sentMsg.items[0].nodeId).to.equal('ns=2;s=NewVar');
-        });
+      const sentMsg = send.firstCall.args[0];
+      expect(sentMsg.items[0].value).to.equal(100);
     });
 
-    // ─── Multiple items in one node ───
+    it("should not include value for read operations", function () {
+      const { handlers } = createItemNode({
+        items: [{ nodeId: "ns=2;s=Temp", datatype: "", itemName: "" }],
+        collector: true,
+      });
+      const msg = { payload: "ignored", operation: "read" };
+      const { send } = triggerInput(handlers, msg);
 
-    describe('multiple items in one node', function () {
-        it('should add all items to msg.items', function () {
-            const { handlers } = createItemNode({
-                items: [
-                    { nodeId: 'ns=2;s=Temp', datatype: 'Double', itemName: 'Temperature' },
-                    { nodeId: 'ns=2;s=Press', datatype: 'Float', itemName: 'Pressure' }
-                ],
-                collector: true
-            });
-            const msg = {};
-            const { send } = triggerInput(handlers, msg);
+      const sentMsg = send.firstCall.args[0];
+      expect(sentMsg.items[0]).to.not.have.property("value");
+    });
+  });
 
-            const sentMsg = send.firstCall.args[0];
-            expect(sentMsg.items).to.be.an('array').with.length(2);
-            expect(sentMsg.items[0].nodeId).to.equal('ns=2;s=Temp');
-            expect(sentMsg.items[1].nodeId).to.equal('ns=2;s=Press');
-        });
+  // ─── Legacy mode ───
 
-        it('should skip items with empty nodeId', function () {
-            const { handlers } = createItemNode({
-                items: [
-                    { nodeId: 'ns=2;s=Temp', datatype: '', itemName: '' },
-                    { nodeId: '', datatype: '', itemName: '' }
-                ],
-                collector: true
-            });
-            const msg = {};
-            const { send } = triggerInput(handlers, msg);
+  describe("legacy mode", function () {
+    it("should set msg.topic to nodeId", function () {
+      const { handlers } = createItemNode({
+        items: [{ nodeId: "ns=2;s=Temp", datatype: "Double", itemName: "" }],
+        collector: false,
+      });
+      const msg = {};
+      const { send } = triggerInput(handlers, msg);
 
-            const sentMsg = send.firstCall.args[0];
-            expect(sentMsg.items).to.be.an('array').with.length(1);
-        });
-
-        it('should attach write value to all items', function () {
-            const { handlers } = createItemNode({
-                items: [
-                    { nodeId: 'ns=2;s=Var1', datatype: 'Int32', itemName: '' },
-                    { nodeId: 'ns=2;s=Var2', datatype: 'Int32', itemName: '' }
-                ],
-                collector: true
-            });
-            const msg = { payload: 99, operation: 'writemultiple' };
-            const { send } = triggerInput(handlers, msg);
-
-            const sentMsg = send.firstCall.args[0];
-            expect(sentMsg.items[0].value).to.equal(99);
-            expect(sentMsg.items[1].value).to.equal(99);
-        });
-
-        it('should use legacy mode with first item only', function () {
-            const { handlers } = createItemNode({
-                items: [
-                    { nodeId: 'ns=2;s=First', datatype: 'Double', itemName: 'FirstItem' },
-                    { nodeId: 'ns=2;s=Second', datatype: '', itemName: '' }
-                ],
-                collector: false
-            });
-            const msg = {};
-            const { send } = triggerInput(handlers, msg);
-
-            const sentMsg = send.firstCall.args[0];
-            expect(sentMsg.topic).to.equal('ns=2;s=First');
-            expect(sentMsg.datatype).to.equal('Double');
-            expect(sentMsg.itemName).to.equal('FirstItem');
-            expect(sentMsg).to.not.have.property('items');
-        });
+      const sentMsg = send.firstCall.args[0];
+      expect(sentMsg.topic).to.equal("ns=2;s=Temp");
+      expect(sentMsg.nodeId).to.equal("ns=2;s=Temp");
+      expect(sentMsg.datatype).to.equal("Double");
     });
 
-    // ─── Node status ───
+    it("should set itemName when configured", function () {
+      const { handlers } = createItemNode({
+        items: [
+          { nodeId: "ns=2;s=Temp", datatype: "", itemName: "Temperature" },
+        ],
+        collector: false,
+      });
+      const msg = {};
+      const { send } = triggerInput(handlers, msg);
 
-    describe('node status', function () {
-        it('should show nodeId for single item', function () {
-            const { node } = createItemNode({
-                items: [{ nodeId: 'ns=2;s=Temp', datatype: '', itemName: '' }]
-            });
-            expect(node.status.calledOnce).to.be.true;
-            expect(node.status.firstCall.args[0].text).to.equal('ns=2;s=Temp');
-        });
-
-        it('should prefer itemName for status text', function () {
-            const { node } = createItemNode({
-                items: [{ nodeId: 'ns=2;s=Temp', datatype: '', itemName: 'Temperature' }]
-            });
-            expect(node.status.firstCall.args[0].text).to.equal('Temperature');
-        });
-
-        it('should show count for multiple items', function () {
-            const { node } = createItemNode({
-                items: [
-                    { nodeId: 'ns=2;s=Temp', datatype: '', itemName: '' },
-                    { nodeId: 'ns=2;s=Press', datatype: '', itemName: '' },
-                    { nodeId: 'ns=2;s=Flow', datatype: '', itemName: '' }
-                ]
-            });
-            expect(node.status.firstCall.args[0].text).to.equal('3 items');
-        });
-
-        it('should not set status when no items', function () {
-            const { node } = createItemNode({ items: [] });
-            expect(node.status.called).to.be.false;
-        });
+      const sentMsg = send.firstCall.args[0];
+      expect(sentMsg.itemName).to.equal("Temperature");
     });
 
-    // ─── Registration ───
+    it("should not set datatype on msg if not configured", function () {
+      const { handlers } = createItemNode({
+        items: [{ nodeId: "ns=2;s=Val", datatype: "", itemName: "" }],
+        collector: false,
+      });
+      const msg = {};
+      const { send } = triggerInput(handlers, msg);
 
-    describe('operation and unwrapSingle', function () {
-        it('should set msg.operation when configured', function () {
-            const { handlers } = createItemNode({
-                items: [{ nodeId: 'ns=2;s=Temp' }],
-                operation: 'read'
-            });
-            const { send } = triggerInput(handlers, {});
-            expect(send.firstCall.args[0].operation).to.equal('read');
-        });
+      const sentMsg = send.firstCall.args[0];
+      expect(sentMsg).to.not.have.property("datatype");
+    });
+  });
 
-        it('should not touch msg.operation when not configured', function () {
-            const { handlers } = createItemNode({
-                items: [{ nodeId: 'ns=2;s=Temp' }]
-            });
-            const { send } = triggerInput(handlers, { operation: 'write' });
-            expect(send.firstCall.args[0].operation).to.equal('write');
-        });
+  // ─── Pass-through ───
 
-        it('should set msg.unwrapSingle when enabled', function () {
-            const { handlers } = createItemNode({
-                items: [{ nodeId: 'ns=2;s=Temp' }],
-                unwrapSingle: true
-            });
-            const { send } = triggerInput(handlers, {});
-            expect(send.firstCall.args[0].unwrapSingle).to.equal(true);
-        });
+  describe("pass-through when no items", function () {
+    it("should pass message through unchanged when items is empty", function () {
+      const { handlers } = createItemNode({ items: [] });
+      const msg = { payload: "test", existing: true };
+      const { send, done } = triggerInput(handlers, msg);
 
-        it('should make configured operation drive write value attachment', function () {
-            // operation:'write' set by the item node must be visible to the
-            // write-detection logic, so msg.payload is attached to the item.
-            const { handlers } = createItemNode({
-                items: [{ nodeId: 'ns=2;s=Temp' }],
-                operation: 'write'
-            });
-            const { send } = triggerInput(handlers, { payload: 42 });
-            expect(send.firstCall.args[0].items[0].value).to.equal(42);
-        });
+      expect(send.calledOnce).to.be.true;
+      const sentMsg = send.firstCall.args[0];
+      expect(sentMsg.payload).to.equal("test");
+      expect(sentMsg.existing).to.be.true;
+      expect(sentMsg).to.not.have.property("items");
+      expect(done.calledOnce).to.be.true;
     });
 
-    describe('extension object and array fields', function () {
-        it('should pass dataTypeNodeId and arrayType into msg.items', function () {
-            const { handlers } = createItemNode({
-                items: [{
-                    nodeId: 'ns=2;s=MyStruct',
-                    datatype: 'ExtensionObject',
-                    dataTypeNodeId: 'ns=2;i=3003'
-                }, {
-                    nodeId: 'ns=2;s=Arr',
-                    datatype: 'Int32',
-                    arrayType: 'Array'
-                }],
-                collector: true
-            });
-            const { send } = triggerInput(handlers, {});
-            const items = send.firstCall.args[0].items;
-            expect(items[0].dataTypeNodeId).to.equal('ns=2;i=3003');
-            expect(items[0].datatype).to.equal('ExtensionObject');
-            expect(items[1].arrayType).to.equal('Array');
-        });
+    it("should pass through when items is not configured at all", function () {
+      const { handlers } = createItemNode({});
+      const msg = { payload: "data" };
+      const { send } = triggerInput(handlers, msg);
 
-        it('should omit dataTypeNodeId/arrayType when not configured', function () {
-            const { handlers } = createItemNode({
-                items: [{ nodeId: 'ns=2;s=Plain', datatype: 'Double' }],
-                collector: true
-            });
-            const { send } = triggerInput(handlers, {});
-            const item = send.firstCall.args[0].items[0];
-            expect(item.dataTypeNodeId).to.be.undefined;
-            expect(item.arrayType).to.be.undefined;
-        });
+      const sentMsg = send.firstCall.args[0];
+      expect(sentMsg).to.not.have.property("items");
+      expect(sentMsg).to.not.have.property("topic");
+    });
+  });
+
+  // ─── Migration from old format ───
+
+  describe("migration from old single-item format", function () {
+    it("should migrate old nodeId/datatype/itemName to items array", function () {
+      const { handlers } = createItemNode({
+        nodeId: "ns=2;s=OldVar",
+        datatype: "Int32",
+        itemName: "OldName",
+        collector: true,
+      });
+      const msg = {};
+      const { send } = triggerInput(handlers, msg);
+
+      const sentMsg = send.firstCall.args[0];
+      expect(sentMsg.items).to.be.an("array").with.length(1);
+      expect(sentMsg.items[0].nodeId).to.equal("ns=2;s=OldVar");
+      expect(sentMsg.items[0].datatype).to.equal("Int32");
     });
 
-    describe('registration', function () {
-        it('should register as "opcua-item" type', function () {
-            expect(RED.nodes._types).to.have.property('opcua-item');
-        });
+    it("should not migrate if items already has entries", function () {
+      const { handlers } = createItemNode({
+        nodeId: "ns=2;s=ShouldBeIgnored",
+        items: [{ nodeId: "ns=2;s=NewVar", datatype: "", itemName: "" }],
+        collector: true,
+      });
+      const msg = {};
+      const { send } = triggerInput(handlers, msg);
+
+      const sentMsg = send.firstCall.args[0];
+      expect(sentMsg.items).to.have.length(1);
+      expect(sentMsg.items[0].nodeId).to.equal("ns=2;s=NewVar");
     });
+  });
+
+  // ─── Multiple items in one node ───
+
+  describe("multiple items in one node", function () {
+    it("should add all items to msg.items", function () {
+      const { handlers } = createItemNode({
+        items: [
+          {
+            nodeId: "ns=2;s=Temp",
+            datatype: "Double",
+            itemName: "Temperature",
+          },
+          { nodeId: "ns=2;s=Press", datatype: "Float", itemName: "Pressure" },
+        ],
+        collector: true,
+      });
+      const msg = {};
+      const { send } = triggerInput(handlers, msg);
+
+      const sentMsg = send.firstCall.args[0];
+      expect(sentMsg.items).to.be.an("array").with.length(2);
+      expect(sentMsg.items[0].nodeId).to.equal("ns=2;s=Temp");
+      expect(sentMsg.items[1].nodeId).to.equal("ns=2;s=Press");
+    });
+
+    it("should skip items with empty nodeId", function () {
+      const { handlers } = createItemNode({
+        items: [
+          { nodeId: "ns=2;s=Temp", datatype: "", itemName: "" },
+          { nodeId: "", datatype: "", itemName: "" },
+        ],
+        collector: true,
+      });
+      const msg = {};
+      const { send } = triggerInput(handlers, msg);
+
+      const sentMsg = send.firstCall.args[0];
+      expect(sentMsg.items).to.be.an("array").with.length(1);
+    });
+
+    it("should attach write value to all items", function () {
+      const { handlers } = createItemNode({
+        items: [
+          { nodeId: "ns=2;s=Var1", datatype: "Int32", itemName: "" },
+          { nodeId: "ns=2;s=Var2", datatype: "Int32", itemName: "" },
+        ],
+        collector: true,
+      });
+      const msg = { payload: 99, operation: "writemultiple" };
+      const { send } = triggerInput(handlers, msg);
+
+      const sentMsg = send.firstCall.args[0];
+      expect(sentMsg.items[0].value).to.equal(99);
+      expect(sentMsg.items[1].value).to.equal(99);
+    });
+
+    it("should use legacy mode with first item only", function () {
+      const { handlers } = createItemNode({
+        items: [
+          { nodeId: "ns=2;s=First", datatype: "Double", itemName: "FirstItem" },
+          { nodeId: "ns=2;s=Second", datatype: "", itemName: "" },
+        ],
+        collector: false,
+      });
+      const msg = {};
+      const { send } = triggerInput(handlers, msg);
+
+      const sentMsg = send.firstCall.args[0];
+      expect(sentMsg.topic).to.equal("ns=2;s=First");
+      expect(sentMsg.datatype).to.equal("Double");
+      expect(sentMsg.itemName).to.equal("FirstItem");
+      expect(sentMsg).to.not.have.property("items");
+    });
+  });
+
+  // ─── Node status ───
+
+  describe("node status", function () {
+    it("should show nodeId for single item", function () {
+      const { node } = createItemNode({
+        items: [{ nodeId: "ns=2;s=Temp", datatype: "", itemName: "" }],
+      });
+      expect(node.status.calledOnce).to.be.true;
+      expect(node.status.firstCall.args[0].text).to.equal("ns=2;s=Temp");
+    });
+
+    it("should prefer itemName for status text", function () {
+      const { node } = createItemNode({
+        items: [
+          { nodeId: "ns=2;s=Temp", datatype: "", itemName: "Temperature" },
+        ],
+      });
+      expect(node.status.firstCall.args[0].text).to.equal("Temperature");
+    });
+
+    it("should show count for multiple items", function () {
+      const { node } = createItemNode({
+        items: [
+          { nodeId: "ns=2;s=Temp", datatype: "", itemName: "" },
+          { nodeId: "ns=2;s=Press", datatype: "", itemName: "" },
+          { nodeId: "ns=2;s=Flow", datatype: "", itemName: "" },
+        ],
+      });
+      expect(node.status.firstCall.args[0].text).to.equal("3 items");
+    });
+
+    it("should not set status when no items", function () {
+      const { node } = createItemNode({ items: [] });
+      expect(node.status.called).to.be.false;
+    });
+  });
+
+  // ─── Registration ───
+
+  describe("operation and unwrapSingle", function () {
+    it("should set msg.operation when configured", function () {
+      const { handlers } = createItemNode({
+        items: [{ nodeId: "ns=2;s=Temp" }],
+        operation: "read",
+      });
+      const { send } = triggerInput(handlers, {});
+      expect(send.firstCall.args[0].operation).to.equal("read");
+    });
+
+    it("should not touch msg.operation when not configured", function () {
+      const { handlers } = createItemNode({
+        items: [{ nodeId: "ns=2;s=Temp" }],
+      });
+      const { send } = triggerInput(handlers, { operation: "write" });
+      expect(send.firstCall.args[0].operation).to.equal("write");
+    });
+
+    it("should set msg.unwrapSingle when enabled", function () {
+      const { handlers } = createItemNode({
+        items: [{ nodeId: "ns=2;s=Temp" }],
+        unwrapSingle: true,
+      });
+      const { send } = triggerInput(handlers, {});
+      expect(send.firstCall.args[0].unwrapSingle).to.equal(true);
+    });
+
+    it("should make configured operation drive write value attachment", function () {
+      // operation:'write' set by the item node must be visible to the
+      // write-detection logic, so msg.payload is attached to the item.
+      const { handlers } = createItemNode({
+        items: [{ nodeId: "ns=2;s=Temp" }],
+        operation: "write",
+      });
+      const { send } = triggerInput(handlers, { payload: 42 });
+      expect(send.firstCall.args[0].items[0].value).to.equal(42);
+    });
+  });
+
+  describe("extension object and array fields", function () {
+    it("should pass dataTypeNodeId and arrayType into msg.items", function () {
+      const { handlers } = createItemNode({
+        items: [
+          {
+            nodeId: "ns=2;s=MyStruct",
+            datatype: "ExtensionObject",
+            dataTypeNodeId: "ns=2;i=3003",
+          },
+          {
+            nodeId: "ns=2;s=Arr",
+            datatype: "Int32",
+            arrayType: "Array",
+          },
+        ],
+        collector: true,
+      });
+      const { send } = triggerInput(handlers, {});
+      const items = send.firstCall.args[0].items;
+      expect(items[0].dataTypeNodeId).to.equal("ns=2;i=3003");
+      expect(items[0].datatype).to.equal("ExtensionObject");
+      expect(items[1].arrayType).to.equal("Array");
+    });
+
+    it("should omit dataTypeNodeId/arrayType when not configured", function () {
+      const { handlers } = createItemNode({
+        items: [{ nodeId: "ns=2;s=Plain", datatype: "Double" }],
+        collector: true,
+      });
+      const { send } = triggerInput(handlers, {});
+      const item = send.firstCall.args[0].items[0];
+      expect(item.dataTypeNodeId).to.be.undefined;
+      expect(item.arrayType).to.be.undefined;
+    });
+  });
+
+  describe("registration", function () {
+    it('should register as "opcua-item" type', function () {
+      expect(RED.nodes._types).to.have.property("opcua-item");
+    });
+  });
 });

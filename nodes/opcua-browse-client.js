@@ -10,11 +10,7 @@ const {
   serializeExtensionObject,
 } = require("../lib/opcua-utils");
 const OpcUaClientManager = require("../lib/opcua-client-manager");
-const {
-  resolveNodeId,
-  NodeClass,
-  AttributeIds,
-} = require("node-opcua");
+const { resolveNodeId, NodeClass, AttributeIds } = require("node-opcua");
 
 module.exports = function (RED) {
   // ─── Cached browse connections (per endpoint, shared across editor tabs) ───
@@ -49,7 +45,10 @@ module.exports = function (RED) {
     if (existing) {
       // Reset idle timer
       clearTimeout(existing.timer);
-      existing.timer = setTimeout(() => closeBrowseConnection(id), IDLE_TIMEOUT_MS);
+      existing.timer = setTimeout(
+        () => closeBrowseConnection(id),
+        IDLE_TIMEOUT_MS,
+      );
       if (existing.mgr.isConnected) {
         return Promise.resolve(existing.mgr);
       }
@@ -803,8 +802,15 @@ module.exports = function (RED) {
         }
       } catch (error) {
         // DEBT-01: delegate recovery to the manager on session loss.
-        if (clientManager._isConnectionLostError && clientManager._isConnectionLostError(error)) {
-          try { await clientManager.reconnect({ reason: "session-lost" }); } catch (e) { /* handled by reconnect */ }
+        if (
+          clientManager._isConnectionLostError &&
+          clientManager._isConnectionLostError(error)
+        ) {
+          try {
+            await clientManager.reconnect({ reason: "session-lost" });
+          } catch (e) {
+            /* handled by reconnect */
+          }
         }
         node.error(`Operation error: ${error.message}`);
         node.status({ fill: "red", shape: "ring", text: "error" });

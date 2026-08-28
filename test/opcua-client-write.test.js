@@ -77,7 +77,12 @@ describe("opcua-client write passthrough (arrayType / dataTypeNodeId)", function
     await fire({
       operation: "writemultiple",
       items: [
-        { nodeId: "ns=2;s=Arr", value: [1, 2, 3], datatype: "Int32", arrayType: "Array" },
+        {
+          nodeId: "ns=2;s=Arr",
+          value: [1, 2, 3],
+          datatype: "Int32",
+          arrayType: "Array",
+        },
       ],
     });
     const forwarded = mgr.writeMultiple.firstCall.args[0];

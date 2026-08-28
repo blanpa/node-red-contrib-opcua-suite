@@ -55,7 +55,9 @@ function makeFakeManagerClass() {
       (this._handlers[evt] = this._handlers[evt] || []).push(cb);
     }
     _isConnectionLostError(err) {
-      return !!err && /Not connected|Session is no longer valid/.test(err.message);
+      return (
+        !!err && /Not connected|Session is no longer valid/.test(err.message)
+      );
     }
     _toOpcUaNodeId(nodeId) {
       return { toString: () => String(nodeId) };
@@ -184,6 +186,7 @@ describe("PooledClientManager (opt-in session pool)", function () {
     const { PooledClientManager } = loadPool();
     const pool = new PooledClientManager({}, 2);
     expect(pool._isConnectionLostError(new Error("Not connected"))).to.be.true;
-    expect(pool._isConnectionLostError(new Error("Invalid NodeId"))).to.be.false;
+    expect(pool._isConnectionLostError(new Error("Invalid NodeId"))).to.be
+      .false;
   });
 });

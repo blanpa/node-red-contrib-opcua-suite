@@ -87,7 +87,7 @@ function baseConfig(overrides) {
       publisherId: "my-pub",
       reconnectPeriod: 0,
     },
-    overrides || {}
+    overrides || {},
   );
 }
 
@@ -107,8 +107,8 @@ describe("MqttTransport — connect/close + event mapping + 5→4 fallback (TRP-
     expect(
       mockMqtt.connect.calledWith(
         "mqtt://localhost:1883",
-        sinon.match({ protocolVersion: 5 })
-      )
+        sinon.match({ protocolVersion: 5 }),
+      ),
     ).to.equal(true);
     expect(t._client).to.equal(client);
   });
@@ -273,7 +273,7 @@ describe("MqttTransport — connect/close + event mapping + 5→4 fallback (TRP-
       await p;
       expect(
         mockMqtt.connect.callCount,
-        `variant "${msg}" should trigger fallback`
+        `variant "${msg}" should trigger fallback`,
       ).to.equal(2);
       expect(mockMqtt.connect.secondCall.args[1].protocolVersion).to.equal(4);
     }
@@ -335,7 +335,7 @@ describe("MqttTransport — connect/close + event mapping + 5→4 fallback (TRP-
     await p;
     await t.close();
     expect(
-      client.end.calledWith(false, sinon.match.object, sinon.match.func)
+      client.end.calledWith(false, sinon.match.object, sinon.match.func),
     ).to.equal(true);
   });
 
@@ -394,7 +394,11 @@ describe("send() — TRP-02 + topic-injection guard", function () {
   it("18. send() qos: opts.qos > config.qos > default 1", async function () {
     // opts.qos wins
     let ctx = await connected({ qos: 1 });
-    ctx.t.send(Buffer.from([1]), { writerGroupId: 1, dataSetWriterId: 2, qos: 2 });
+    ctx.t.send(Buffer.from([1]), {
+      writerGroupId: 1,
+      dataSetWriterId: 2,
+      qos: 2,
+    });
     expect(ctx.client.publish.firstCall.args[2].qos).to.equal(2);
 
     // config.qos when no opts.qos
@@ -430,59 +434,65 @@ describe("send() — TRP-02 + topic-injection guard", function () {
   it("20. send() with publisherId containing '/' THROWS and does NOT publish (T-03-04)", async function () {
     const { t, client } = await connected();
     t.config.publisherId = "evil/path";
-    expect(() => t.send(Buffer.from([1]), { writerGroupId: 1, dataSetWriterId: 2 })).to.throw(
-      /TOPIC_INVALID_CHARACTER/
-    );
+    expect(() =>
+      t.send(Buffer.from([1]), { writerGroupId: 1, dataSetWriterId: 2 }),
+    ).to.throw(/TOPIC_INVALID_CHARACTER/);
     expect(client.publish.notCalled).to.equal(true);
   });
 
   it("21. send() with publisherId containing '+' or '#' THROWS (wildcard injection)", async function () {
     let ctx = await connected();
     ctx.t.config.publisherId = "a+b";
-    expect(() => ctx.t.send(Buffer.from([1]), { writerGroupId: 1, dataSetWriterId: 2 })).to.throw(
-      /TOPIC_INVALID_CHARACTER/
-    );
+    expect(() =>
+      ctx.t.send(Buffer.from([1]), { writerGroupId: 1, dataSetWriterId: 2 }),
+    ).to.throw(/TOPIC_INVALID_CHARACTER/);
 
     ctx = await connected();
     ctx.t.config.publisherId = "a#b";
-    expect(() => ctx.t.send(Buffer.from([1]), { writerGroupId: 1, dataSetWriterId: 2 })).to.throw(
-      /TOPIC_INVALID_CHARACTER/
-    );
+    expect(() =>
+      ctx.t.send(Buffer.from([1]), { writerGroupId: 1, dataSetWriterId: 2 }),
+    ).to.throw(/TOPIC_INVALID_CHARACTER/);
   });
 
   it("22. send() with publisherId containing control char (\\x00) THROWS", async function () {
     const { t } = await connected();
     t.config.publisherId = "abc" + String.fromCharCode(0) + "def";
-    expect(() => t.send(Buffer.from([1]), { writerGroupId: 1, dataSetWriterId: 2 })).to.throw(
-      /TOPIC_INVALID_CHARACTER/
-    );
+    expect(() =>
+      t.send(Buffer.from([1]), { writerGroupId: 1, dataSetWriterId: 2 }),
+    ).to.throw(/TOPIC_INVALID_CHARACTER/);
   });
 
   it("23. send() with empty/undefined writerGroupId THROWS", async function () {
     const { t } = await connected();
-    expect(() => t.send(Buffer.from([1]), {})).to.throw(/TOPIC_INVALID_CHARACTER/);
+    expect(() => t.send(Buffer.from([1]), {})).to.throw(
+      /TOPIC_INVALID_CHARACTER/,
+    );
   });
 
   it("24. send() with topicPrefix containing '/' THROWS", async function () {
     const { t } = await connected();
     t.config.topicPrefix = "a/b";
-    expect(() => t.send(Buffer.from([1]), { writerGroupId: 1, dataSetWriterId: 2 })).to.throw(
-      /TOPIC_INVALID_CHARACTER/
-    );
+    expect(() =>
+      t.send(Buffer.from([1]), { writerGroupId: 1, dataSetWriterId: 2 }),
+    ).to.throw(/TOPIC_INVALID_CHARACTER/);
   });
 
   it("25. send() before connect: emits MQTT_SEND_NOT_CONNECTED and does NOT throw", function () {
     const t = new MqttTransport(baseConfig());
     let captured = null;
     t.on("error", (e) => (captured = e));
-    expect(() => t.send(Buffer.from([1]), { writerGroupId: 1, dataSetWriterId: 2 })).to.not.throw();
+    expect(() =>
+      t.send(Buffer.from([1]), { writerGroupId: 1, dataSetWriterId: 2 }),
+    ).to.not.throw();
     expect(captured).to.not.equal(null);
     expect(captured.message).to.match(/MQTT_SEND_NOT_CONNECTED/);
   });
 
   it("26. publish broker error is emitted as 'error' with MQTT_PUBLISH_ERROR", async function () {
     const { t, client } = await connected();
-    client.publish.callsFake((topic, chunk, opts, cb) => cb(new Error("disconnected")));
+    client.publish.callsFake((topic, chunk, opts, cb) =>
+      cb(new Error("disconnected")),
+    );
     let captured = null;
     t.on("error", (e) => (captured = e));
     t.send(Buffer.from([1]), { writerGroupId: 1, dataSetWriterId: 2 });

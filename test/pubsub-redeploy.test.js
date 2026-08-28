@@ -58,7 +58,9 @@ function createRED(nodeOverrides) {
         types[name] = { constructor: ctor, opts };
       },
       getNode(id) {
-        return registeredNodes[id] || (nodeOverrides && nodeOverrides[id]) || null;
+        return (
+          registeredNodes[id] || (nodeOverrides && nodeOverrides[id]) || null
+        );
       },
       _types: types,
       _registered: registeredNodes,
@@ -74,14 +76,12 @@ function makeConnStub(transport, props) {
   // fan-out delivers 'connected'.
   const statusCallbacks = new Set();
   transport.on("connected", () =>
-    statusCallbacks.forEach((cb) => cb("connected"))
+    statusCallbacks.forEach((cb) => cb("connected")),
   );
   transport.on("disconnected", () =>
-    statusCallbacks.forEach((cb) => cb("disconnected"))
+    statusCallbacks.forEach((cb) => cb("disconnected")),
   );
-  transport.on("error", (e) =>
-    statusCallbacks.forEach((cb) => cb("error", e))
-  );
+  transport.on("error", (e) => statusCallbacks.forEach((cb) => cb("error", e)));
   return Object.assign(
     {
       acquireTransport() {
@@ -104,7 +104,7 @@ function makeConnStub(transport, props) {
       },
       _refs: () => refs,
     },
-    props
+    props,
   );
 }
 
@@ -139,22 +139,30 @@ function pubCfg(extra) {
         },
       ]),
     },
-    extra || {}
+    extra || {},
   );
 }
 
 function subCfg() {
-  return { id: "sub1", connection: "conn1", messageEncoding: "uadp", writerGroupId: 1 };
+  return {
+    id: "sub1",
+    connection: "conn1",
+    messageEncoding: "uadp",
+    writerGroupId: 1,
+  };
 }
 
 // A worker node that acquires a transport MUST register a close handler (D4-02);
 // its absence is the leak this test exists to catch — so FAIL if missing.
 async function fireClose(node) {
-  expect(node._events && node._events.close, "node must register a close handler (D4-02)").to.be
-    .an("array")
+  expect(
+    node._events && node._events.close,
+    "node must register a close handler (D4-02)",
+  )
+    .to.be.an("array")
     .with.length.greaterThan(0);
   await new Promise((res, rej) =>
-    node._events.close[0](false, (err) => (err ? rej(err) : res()))
+    node._events.close[0](false, (err) => (err ? rej(err) : res())),
   );
 }
 
@@ -197,7 +205,10 @@ describe("PubSub redeploy acceptance — TEST-02", function () {
       transport.on("error", (e) => errors.push(e));
       const baseMsgListeners = transport.listenerCount("message");
 
-      const conn = makeConnStub(transport, { publisherId: "pub1", transportType: "udp" });
+      const conn = makeConnStub(transport, {
+        publisherId: "pub1",
+        transportType: "udp",
+      });
       const RED = createRED({ conn1: conn });
       const { Pub, Sub } = loadNodes(RED);
 
@@ -214,9 +225,10 @@ describe("PubSub redeploy acceptance — TEST-02", function () {
       });
 
       // Subscriber attached its own 'message' listener.
-      expect(transport.listenerCount("message"), `cycle ${i} subscribed`).to.be.greaterThan(
-        baseMsgListeners
-      );
+      expect(
+        transport.listenerCount("message"),
+        `cycle ${i} subscribed`,
+      ).to.be.greaterThan(baseMsgListeners);
 
       // Fire each node's close handler in order, awaiting each callback, then
       // release the shared transport and close it.
@@ -228,15 +240,18 @@ describe("PubSub redeploy acceptance — TEST-02", function () {
       // Per-cycle leak/EADDRINUSE assertions.
       expect(
         errors.filter((e) => /EADDRINUSE/.test((e && e.message) || "")),
-        `cycle ${i} EADDRINUSE`
+        `cycle ${i} EADDRINUSE`,
       ).to.have.length(0);
       expect(transport._socket, `cycle ${i} socket leak`).to.equal(null);
       expect(
         transport.listenerCount("message"),
-        `cycle ${i} listener leak`
+        `cycle ${i} listener leak`,
       ).to.equal(baseMsgListeners);
     }
-    expect(unhandled, "no unhandled rejections across 20 cycles").to.have.length(0);
+    expect(
+      unhandled,
+      "no unhandled rejections across 20 cycles",
+    ).to.have.length(0);
   });
 
   it("5 MQTT cycles against an in-process aedes broker — _client null + listeners at baseline after close", async function () {
@@ -254,7 +269,10 @@ describe("PubSub redeploy acceptance — TEST-02", function () {
         transport.on("error", (e) => errors.push(e));
         const baseMsgListeners = transport.listenerCount("message");
 
-        const conn = makeConnStub(transport, { publisherId: "pub1", transportType: "mqtt" });
+        const conn = makeConnStub(transport, {
+          publisherId: "pub1",
+          transportType: "mqtt",
+        });
         const RED = createRED({ conn1: conn });
         const { Pub, Sub } = loadNodes(RED);
 
@@ -269,7 +287,7 @@ describe("PubSub redeploy acceptance — TEST-02", function () {
         });
         expect(
           transport.listenerCount("message"),
-          `mqtt cycle ${i} subscribed`
+          `mqtt cycle ${i} subscribed`,
         ).to.be.greaterThan(baseMsgListeners);
 
         await fireClose(pub);
@@ -281,10 +299,13 @@ describe("PubSub redeploy acceptance — TEST-02", function () {
         expect(transport._client, `mqtt cycle ${i} client leak`).to.equal(null);
         expect(
           transport.listenerCount("message"),
-          `mqtt cycle ${i} listener leak`
+          `mqtt cycle ${i} listener leak`,
         ).to.equal(baseMsgListeners);
       }
-      expect(unhandled, "no unhandled rejections across MQTT cycles").to.have.length(0);
+      expect(
+        unhandled,
+        "no unhandled rejections across MQTT cycles",
+      ).to.have.length(0);
     } finally {
       await stopAedes(mq);
     }
@@ -293,7 +314,10 @@ describe("PubSub redeploy acceptance — TEST-02", function () {
   it("cyclic-mode publisher clears its interval on close — no send after close (D4-06)", async function () {
     const port = 45678 + Math.floor(Math.random() * 5000);
     const transport = new UdpTransport({ port, multicastGroup: "239.0.0.1" });
-    const conn = makeConnStub(transport, { publisherId: "pub1", transportType: "udp" });
+    const conn = makeConnStub(transport, {
+      publisherId: "pub1",
+      transportType: "udp",
+    });
     const RED = createRED({ conn1: conn });
     const { Pub } = loadNodes(RED);
 
@@ -305,12 +329,18 @@ describe("PubSub redeploy acceptance — TEST-02", function () {
       if (transport._socket) return r();
       transport.once("connected", r);
     });
-    expect(pub._interval, "cyclic publisher must hold an interval handle").to.not.equal(null);
+    expect(
+      pub._interval,
+      "cyclic publisher must hold an interval handle",
+    ).to.not.equal(null);
 
     const sendSpy = sinon.spy(transport, "send");
     // Let a couple of ticks fire so we know the interval is alive.
     await new Promise((r) => setTimeout(r, 60));
-    expect(sendSpy.called, "interval should have emitted at least once").to.equal(true);
+    expect(
+      sendSpy.called,
+      "interval should have emitted at least once",
+    ).to.equal(true);
 
     await fireClose(pub);
     expect(pub._interval, "interval handle cleared on close").to.equal(null);
@@ -318,7 +348,9 @@ describe("PubSub redeploy acceptance — TEST-02", function () {
     const afterCloseCount = sendSpy.callCount;
     // Wait several interval periods; no further send must occur after close.
     await new Promise((r) => setTimeout(r, 80));
-    expect(sendSpy.callCount, "no send after close (timer cleared)").to.equal(afterCloseCount);
+    expect(sendSpy.callCount, "no send after close (timer cleared)").to.equal(
+      afterCloseCount,
+    );
 
     conn.releaseTransport();
     await transport.close();
@@ -343,7 +375,12 @@ describe("UADP reference matrix + capture provenance — TEST-03", function () {
   });
 
   it("capture-open62541-vectors.js exists and documents the Docker procedure (part b)", function () {
-    const p = path.resolve(__dirname, "..", "test-server", "capture-open62541-vectors.js");
+    const p = path.resolve(
+      __dirname,
+      "..",
+      "test-server",
+      "capture-open62541-vectors.js",
+    );
     expect(fs.existsSync(p)).to.equal(true);
     const src = fs.readFileSync(p, "utf8");
     expect(src).to.match(/open62541/i);
@@ -356,10 +393,11 @@ describe("UADP reference matrix + capture provenance — TEST-03", function () {
     // capture provenance to close TEST-03 without doing the real Docker capture.
     const src = fs.readFileSync(
       path.resolve(__dirname, "fixtures", "uadp-vectors.js"),
-      "utf8"
+      "utf8",
     );
-    expect(src, "do not fabricate open62541 capture provenance (D4-13)").to.not.match(
-      /captured from open62541|open62541 v[0-9].*captured/i
-    );
+    expect(
+      src,
+      "do not fabricate open62541 capture provenance (D4-13)",
+    ).to.not.match(/captured from open62541|open62541 v[0-9].*captured/i);
   });
 });

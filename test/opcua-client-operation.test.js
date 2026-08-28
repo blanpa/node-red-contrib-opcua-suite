@@ -81,7 +81,10 @@ describe("opcua-client output operation", function () {
   }
 
   it("sets operation 'read' on a single read output", async function () {
-    const { send } = await fire({}, { topic: "ns=3;s=Bool", operation: "read" });
+    const { send } = await fire(
+      {},
+      { topic: "ns=3;s=Bool", operation: "read" },
+    );
     expect(send.firstCall.args[0].operation).to.equal("read");
   });
 
@@ -110,7 +113,10 @@ describe("opcua-client output operation", function () {
   });
 
   it("normalizes operation casing to lower case", async function () {
-    const { send } = await fire({}, { topic: "ns=3;s=Bool", operation: "Read" });
+    const { send } = await fire(
+      {},
+      { topic: "ns=3;s=Bool", operation: "Read" },
+    );
     expect(send.firstCall.args[0].operation).to.equal("read");
   });
 
@@ -124,7 +130,10 @@ describe("opcua-client output operation", function () {
 
   it("keeps operation set on the error output", async function () {
     mgr.read.rejects(new Error("boom"));
-    const { send } = await fire({}, { topic: "ns=3;s=Bool", operation: "read" });
+    const { send } = await fire(
+      {},
+      { topic: "ns=3;s=Bool", operation: "read" },
+    );
     const out = send.firstCall.args[0];
     expect(out.operation).to.equal("read");
     expect(out.error).to.exist;

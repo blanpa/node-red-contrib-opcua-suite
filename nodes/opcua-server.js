@@ -3,576 +3,637 @@
  * Modern OPC UA server implementation
  */
 
-const { OPCUAServer, Variant, DataType, StatusCodes, coerceLocalizedText, resolveNodeId, NodeClass } = require('node-opcua');
+const {
+  OPCUAServer,
+  Variant,
+  DataType,
+  StatusCodes,
+  coerceLocalizedText,
+  resolveNodeId,
+  NodeClass,
+} = require("node-opcua");
 
-module.exports = function(RED) {
-    function OpcUaServerNode(config) {
-        RED.nodes.createNode(this, config);
-        const node = this;
+module.exports = function (RED) {
+  function OpcUaServerNode(config) {
+    RED.nodes.createNode(this, config);
+    const node = this;
 
-        // Configuration
-        // Node-RED stores values from <input type="number"> as strings,
-        // but node-opcua requires real numbers (otherwise: "expecting a valid port (number)")
-        const toPositiveInt = (value, fallback) => {
-            const n = parseInt(value, 10);
-            return Number.isFinite(n) && n > 0 ? n : fallback;
-        };
+    // Configuration
+    // Node-RED stores values from <input type="number"> as strings,
+    // but node-opcua requires real numbers (otherwise: "expecting a valid port (number)")
+    const toPositiveInt = (value, fallback) => {
+      const n = parseInt(value, 10);
+      return Number.isFinite(n) && n > 0 ? n : fallback;
+    };
 
-        const port = toPositiveInt(config.port, 4840);
-        const serverName = config.serverName || 'Node-RED OPC UA Server';
-        // `addMethod` can bind a method handler from a JavaScript body carried
-        // in msg.func, which the server evaluates via new Function(). Unlike a
-        // Function node that body arrives with the MESSAGE, so any upstream
-        // node fed from outside (http in, MQTT, ...) becomes a remote code
-        // execution path. It is therefore opt-in per server node.
-        const allowMsgFunc = config.allowMsgFunc === true || config.allowMsgFunc === 'true';
-        const maxAllowedSessionNumber = toPositiveInt(config.maxAllowedSessionNumber, 10);
-        const maxConnectionsPerEndpoint = toPositiveInt(config.maxConnectionsPerEndpoint, 10);
+    const port = toPositiveInt(config.port, 4840);
+    const serverName = config.serverName || "Node-RED OPC UA Server";
+    // `addMethod` can bind a method handler from a JavaScript body carried
+    // in msg.func, which the server evaluates via new Function(). Unlike a
+    // Function node that body arrives with the MESSAGE, so any upstream
+    // node fed from outside (http in, MQTT, ...) becomes a remote code
+    // execution path. It is therefore opt-in per server node.
+    const allowMsgFunc =
+      config.allowMsgFunc === true || config.allowMsgFunc === "true";
+    const maxAllowedSessionNumber = toPositiveInt(
+      config.maxAllowedSessionNumber,
+      10,
+    );
+    const maxConnectionsPerEndpoint = toPositiveInt(
+      config.maxConnectionsPerEndpoint,
+      10,
+    );
 
-        let server = null;
-        let namespace = null;
-        let addressSpace = null;
-        // Tracks the in-flight startServer() so close() can await it. Without
-        // this a redeploy landing between `new OPCUAServer()` and
-        // `await server.start()` made shutdown() fail (logged and swallowed)
-        // while start() went on to bind the port — with no reference left to
-        // ever release it, so the next deploy hit EADDRINUSE.
-        let startPromise = null;
-        let closing = false;
+    let server = null;
+    let namespace = null;
+    let addressSpace = null;
+    // Tracks the in-flight startServer() so close() can await it. Without
+    // this a redeploy landing between `new OPCUAServer()` and
+    // `await server.start()` made shutdown() fail (logged and swallowed)
+    // while start() went on to bind the port — with no reference left to
+    // ever release it, so the next deploy hit EADDRINUSE.
+    let startPromise = null;
+    let closing = false;
 
-        // Initialize status
-        node.status({ fill: 'red', shape: 'ring', text: 'stopped' });
+    // Initialize status
+    node.status({ fill: "red", shape: "ring", text: "stopped" });
 
-        // Start server
-        async function startServer() {
-            try {
-                if (closing) return;
-                server = new OPCUAServer({
-                    port: port,
-                    resourcePath: '/UA/NodeRED',
-                    buildInfo: {
-                        productName: serverName,
-                        buildNumber: '1.0.0'
-                    },
-                    serverInfo: {
-                        applicationUri: `urn:Node-RED:${serverName}`,
-                        productUri: 'urn:Node-RED:OPCUA-Suite'
-                    },
-                    maxAllowedSessionNumber: maxAllowedSessionNumber,
-                    maxConnectionsPerEndpoint: maxConnectionsPerEndpoint
-                });
-
-                await server.initialize();
-
-                // Get namespace
-                addressSpace = server.engine.addressSpace;
-                namespace = addressSpace.getOwnNamespace();
-
-                await server.start();
-
-                // A close() may have been requested while we were starting up.
-                // Shut down immediately rather than leaving an orphan listener.
-                if (closing) {
-                    await server.shutdown();
-                    server = null;
-                    return;
-                }
-
-                const endpointUrl = server.getEndpointUrl();
-                node.status({ fill: 'green', shape: 'dot', text: `Port ${port}` });
-                node.log(`OPC UA Server started on ${endpointUrl}`);
-
-                // Attach server info to node
-                node.server = server;
-                node.namespace = namespace;
-                node.addressSpace = addressSpace;
-                node.endpointUrl = endpointUrl;
-
-            } catch (error) {
-                node.error(`Error starting server: ${error.message}`, { error });
-                node.status({ fill: 'red', shape: 'ring', text: 'error' });
-                throw error;
-            }
-        }
-
-        // Input handler for server commands
-        node.on('input', async function(msg, send, done) {
-            try {
-                if (!server || !namespace) {
-                    throw new Error('Server not started');
-                }
-
-                const command = msg.command || msg.payload?.command;
-                let result;
-
-                switch (command) {
-                    case 'addFolder':
-                        result = await handleAddFolder(msg, namespace);
-                        break;
-
-                    case 'addVariable':
-                        result = await handleAddVariable(msg, namespace);
-                        break;
-
-                    case 'setValue':
-                        result = await handleSetValue(msg, namespace, addressSpace);
-                        break;
-
-                    case 'deleteNode':
-                        result = await handleDeleteNode(msg, namespace);
-                        break;
-
-                    case 'addMethod':
-                        result = await handleAddMethod(msg, namespace, addressSpace, allowMsgFunc);
-                        break;
-
-                    case 'addObject':
-                        result = await handleAddObject(msg, namespace);
-                        break;
-
-                    case 'getServerInfo':
-                        result = await handleGetServerInfo(server);
-                        break;
-
-                    case 'setWritable':
-                        result = await handleSetWritable(msg, namespace, addressSpace);
-                        break;
-
-                    case 'raiseEvent':
-                        result = await handleRaiseEvent(msg, namespace, addressSpace);
-                        break;
-
-                    case 'getNamespaceIndex':
-                        result = { namespaceIndex: namespace.index };
-                        break;
-
-                    default:
-                        throw new Error(`Unknown command: ${command}`);
-                }
-
-                Object.assign(msg, result);
-                send(msg);
-                done();
-
-            } catch (error) {
-                node.error(`Server command error: ${error.message}`, msg);
-                msg.error = error.message;
-                msg.payload = { error: error.message };
-                send(msg);
-                done(error);
-            }
+    // Start server
+    async function startServer() {
+      try {
+        if (closing) return;
+        server = new OPCUAServer({
+          port: port,
+          resourcePath: "/UA/NodeRED",
+          buildInfo: {
+            productName: serverName,
+            buildNumber: "1.0.0",
+          },
+          serverInfo: {
+            applicationUri: `urn:Node-RED:${serverName}`,
+            productUri: "urn:Node-RED:OPCUA-Suite",
+          },
+          maxAllowedSessionNumber: maxAllowedSessionNumber,
+          maxConnectionsPerEndpoint: maxConnectionsPerEndpoint,
         });
 
-        // Start server
-        startPromise = startServer().catch(error => {
-            node.error(`Critical error: ${error.message}`, { error });
-        });
+        await server.initialize();
 
-        // Cleanup on close
-        node.on('close', async function(removed, done) {
-            closing = true;
-            // Let a start that is still running finish (or fail) first so we
-            // always shut down a fully constructed server.
-            if (startPromise) {
-                try { await startPromise; } catch (e) { /* already reported */ }
-            }
-            if (server) {
-                try {
-                    await server.shutdown();
-                    node.status({ fill: 'red', shape: 'ring', text: 'stopped' });
-                    node.log('OPC UA Server stopped');
-                } catch (error) {
-                    node.error(`Error stopping server: ${error.message}`);
-                } finally {
-                    server = null;
-                    namespace = null;
-                    addressSpace = null;
-                }
-            }
-            done();
-        });
+        // Get namespace
+        addressSpace = server.engine.addressSpace;
+        namespace = addressSpace.getOwnNamespace();
+
+        await server.start();
+
+        // A close() may have been requested while we were starting up.
+        // Shut down immediately rather than leaving an orphan listener.
+        if (closing) {
+          await server.shutdown();
+          server = null;
+          return;
+        }
+
+        const endpointUrl = server.getEndpointUrl();
+        node.status({ fill: "green", shape: "dot", text: `Port ${port}` });
+        node.log(`OPC UA Server started on ${endpointUrl}`);
+
+        // Attach server info to node
+        node.server = server;
+        node.namespace = namespace;
+        node.addressSpace = addressSpace;
+        node.endpointUrl = endpointUrl;
+      } catch (error) {
+        node.error(`Error starting server: ${error.message}`, { error });
+        node.status({ fill: "red", shape: "ring", text: "error" });
+        throw error;
+      }
     }
 
-    // Handler functions
-    async function handleAddFolder(msg, namespace) {
-        const folderName = msg.folderName || msg.payload?.folderName;
-        const parentNodeId = msg.parentNodeId || msg.payload?.parentNodeId || 'ObjectsFolder';
-
-        if (!folderName) {
-            throw new Error('folderName missing');
+    // Input handler for server commands
+    node.on("input", async function (msg, send, done) {
+      try {
+        if (!server || !namespace) {
+          throw new Error("Server not started");
         }
 
-        const folder = namespace.addFolder(parentNodeId, {
-            browseName: folderName,
-            nodeId: msg.nodeId || undefined
-        });
+        const command = msg.command || msg.payload?.command;
+        let result;
 
-        return {
-            payload: folder.nodeId.toString(),
-            nodeId: folder.nodeId.toString(),
-            folderName: folderName
-        };
-    }
+        switch (command) {
+          case "addFolder":
+            result = await handleAddFolder(msg, namespace);
+            break;
 
-    async function handleAddVariable(msg, namespace) {
-        const variableName = msg.variableName || msg.payload?.variableName;
-        const parentNodeId = msg.parentNodeId || msg.payload?.parentNodeId || 'ObjectsFolder';
-        const datatype = msg.datatype || msg.payload?.datatype || 'Double';
-        const initialValue = msg.initialValue !== undefined ? msg.initialValue : msg.payload?.initialValue;
+          case "addVariable":
+            result = await handleAddVariable(msg, namespace);
+            break;
 
-        if (!variableName) {
-            throw new Error('variableName missing');
-        }
+          case "setValue":
+            result = await handleSetValue(msg, namespace, addressSpace);
+            break;
 
-        const dataType = DataType[datatype] || DataType.Double;
-        const variant = new Variant({
-            dataType: dataType,
-            value: initialValue !== undefined ? initialValue : getDefaultValue(dataType)
-        });
+          case "deleteNode":
+            result = await handleDeleteNode(msg, namespace);
+            break;
 
-        // The standard "Objects" folder only accepts Organizes references
-        // (per OPC UA spec). For user-created folders/objects we use HasComponent.
-        const parentRef = isStandardObjectsFolder(parentNodeId)
-            ? { organizedBy: parentNodeId }
-            : { componentOf: parentNodeId };
-
-        const variable = namespace.addVariable({
-            ...parentRef,
-            browseName: variableName,
-            nodeId: msg.nodeId || undefined,
-            dataType: dataType,
-            value: variant
-        });
-
-        return {
-            payload: variable.nodeId.toString(),
-            nodeId: variable.nodeId.toString(),
-            variableName: variableName,
-            value: initialValue
-        };
-    }
-
-    /**
-     * Resolves the DataType enum value to write with.
-     *
-     * `msg.datatype` (a name like "Boolean") wins when given. Otherwise the
-     * variable's OWN declared DataType is used — note that UAVariable.dataType
-     * is a NodeId, not an enum member, so `DataType[node.dataType]` is always
-     * undefined. That silently made every datatype-less setValue a Double and
-     * therefore made setValue throw on any non-Double variable
-     * ("the provided variant must have the expected dataType").
-     */
-    function resolveSetValueDataType(msg, node, addressSpace) {
-        if (msg.datatype && DataType[msg.datatype] !== undefined) {
-            return DataType[msg.datatype];
-        }
-        if (node.dataType && addressSpace) {
-            try {
-                const basic = addressSpace.findCorrespondingBasicDataType(node.dataType);
-                if (basic !== undefined && basic !== null) return basic;
-            } catch (e) {
-                /* fall through to the inference below */
-            }
-        }
-        // Last resort: infer from the JS value rather than assuming Double.
-        return inferDataTypeFromValue(msg.payload);
-    }
-
-    function inferDataTypeFromValue(value) {
-        if (typeof value === 'boolean') return DataType.Boolean;
-        if (typeof value === 'string') return DataType.String;
-        if (value instanceof Date) return DataType.DateTime;
-        if (typeof value === 'number') {
-            return Number.isInteger(value) ? DataType.Int32 : DataType.Double;
-        }
-        return DataType.Double;
-    }
-
-    async function handleSetValue(msg, namespace, addressSpace) {
-        const nodeId = msg.nodeId || msg.topic;
-        const value = msg.payload;
-
-        if (!nodeId) {
-            throw new Error('nodeId missing');
-        }
-
-        if (value === undefined || value === null) {
-            throw new Error('Value missing');
-        }
-
-        const node = namespace.findNode(nodeId);
-        if (!node) {
-            throw new Error(`Node not found: ${nodeId}`);
-        }
-
-        const dataType = resolveSetValueDataType(msg, node, addressSpace);
-        const variant = new Variant({
-            dataType: dataType,
-            value: value
-        });
-
-        node.setValueFromSource(variant);
-
-        return {
-            payload: value,
-            nodeId: nodeId,
-            statusCode: StatusCodes.Good.toString()
-        };
-    }
-
-    async function handleDeleteNode(msg, namespace) {
-        const nodeId = msg.nodeId || msg.topic;
-
-        if (!nodeId) {
-            throw new Error('nodeId missing');
-        }
-
-        const node = namespace.findNode(nodeId);
-        if (!node) {
-            throw new Error(`Node not found: ${nodeId}`);
-        }
-
-        node.delete();
-
-        return {
-            payload: true,
-            nodeId: nodeId
-        };
-    }
-
-    async function handleAddMethod(msg, namespace, addressSpace, allowMsgFunc) {
-        const methodName = msg.methodName || msg.payload?.methodName;
-        const parentNodeId = msg.parentNodeId || msg.payload?.parentNodeId;
-
-        if (!methodName) {
-            throw new Error('methodName missing');
-        }
-
-        // Methods must be a HasComponent of an object, but the standard
-        // Objects folder (i=85) only accepts Organizes references — so unlike
-        // the other add* commands there is no ObjectsFolder fallback here.
-        if (!parentNodeId || isStandardObjectsFolder(parentNodeId)) {
-            throw new Error(
-                'addMethod requires msg.parentNodeId of an object node (e.g. created via addObject); ' +
-                'OPC UA does not allow methods directly under the standard Objects folder'
+          case "addMethod":
+            result = await handleAddMethod(
+              msg,
+              namespace,
+              addressSpace,
+              allowMsgFunc,
             );
+            break;
+
+          case "addObject":
+            result = await handleAddObject(msg, namespace);
+            break;
+
+          case "getServerInfo":
+            result = await handleGetServerInfo(server);
+            break;
+
+          case "setWritable":
+            result = await handleSetWritable(msg, namespace, addressSpace);
+            break;
+
+          case "raiseEvent":
+            result = await handleRaiseEvent(msg, namespace, addressSpace);
+            break;
+
+          case "getNamespaceIndex":
+            result = { namespaceIndex: namespace.index };
+            break;
+
+          default:
+            throw new Error(`Unknown command: ${command}`);
         }
 
-        let parentNode;
+        Object.assign(msg, result);
+        send(msg);
+        done();
+      } catch (error) {
+        node.error(`Server command error: ${error.message}`, msg);
+        msg.error = error.message;
+        msg.payload = { error: error.message };
+        send(msg);
+        done(error);
+      }
+    });
+
+    // Start server
+    startPromise = startServer().catch((error) => {
+      node.error(`Critical error: ${error.message}`, { error });
+    });
+
+    // Cleanup on close
+    node.on("close", async function (removed, done) {
+      closing = true;
+      // Let a start that is still running finish (or fail) first so we
+      // always shut down a fully constructed server.
+      if (startPromise) {
         try {
-            parentNode = addressSpace.findNode(resolveNodeId(parentNodeId));
+          await startPromise;
+        } catch (e) {
+          /* already reported */
+        }
+      }
+      if (server) {
+        try {
+          await server.shutdown();
+          node.status({ fill: "red", shape: "ring", text: "stopped" });
+          node.log("OPC UA Server stopped");
         } catch (error) {
-            throw new Error(`Invalid parentNodeId "${parentNodeId}": ${error.message}`);
+          node.error(`Error stopping server: ${error.message}`);
+        } finally {
+          server = null;
+          namespace = null;
+          addressSpace = null;
         }
-        if (!parentNode) {
-            throw new Error(`Parent node not found: ${parentNodeId}`);
-        }
-        if (parentNode.nodeClass !== NodeClass.Object && parentNode.nodeClass !== NodeClass.ObjectType) {
-            throw new Error(
-                `Parent node ${parentNodeId} is not an Object or ObjectType — methods must be attached to an object`
-            );
-        }
+      }
+      done();
+    });
+  }
 
-        const inputArguments = (msg.inputArguments || msg.payload?.inputArguments || []).map(arg => ({
-            name: arg.name,
-            dataType: DataType[arg.dataType] || DataType.String,
-            description: coerceLocalizedText(arg.description || arg.name)
-        }));
+  // Handler functions
+  async function handleAddFolder(msg, namespace) {
+    const folderName = msg.folderName || msg.payload?.folderName;
+    const parentNodeId =
+      msg.parentNodeId || msg.payload?.parentNodeId || "ObjectsFolder";
 
-        const outputArguments = (msg.outputArguments || msg.payload?.outputArguments || []).map(arg => ({
-            name: arg.name,
-            dataType: DataType[arg.dataType] || DataType.String,
-            description: coerceLocalizedText(arg.description || arg.name)
-        }));
-
-        const method = namespace.addMethod(parentNode, {
-            browseName: methodName,
-            nodeId: msg.nodeId || undefined,
-            inputArguments: inputArguments,
-            outputArguments: outputArguments
-        });
-
-        const funcBody = msg.func || msg.payload?.func;
-        if (funcBody && !allowMsgFunc) {
-            throw new Error(
-                'msg.func is disabled on this server node. It is evaluated as JavaScript ' +
-                '(new Function) and therefore only safe when every upstream node is trusted. ' +
-                'Enable "Allow method code from msg.func" in the node configuration to use it.'
-            );
-        }
-        let handler;
-        if (funcBody && typeof funcBody === 'string') {
-            // The function body runs outside module scope, so it gets the
-            // node-opcua constructors it needs for its return value as params.
-            const userFunc = new Function(
-                'inputArguments', 'context', 'Variant', 'DataType', 'StatusCodes', funcBody
-            );
-            handler = async (inputArgs, context) => {
-                const result = await userFunc(inputArgs, context, Variant, DataType, StatusCodes);
-                return result || { statusCode: StatusCodes.Good, outputArguments: [] };
-            };
-        } else {
-            // Default handler that returns StatusCodes.Good with default-valued
-            // outputs. The two parameters are load-bearing: bindMethod
-            // callbackifies handlers by ARITY, so this must stay a 2-arg
-            // function even though it uses neither argument.
-            handler = async (_inputArgs, _context) => ({
-                statusCode: StatusCodes.Good,
-                outputArguments: outputArguments.map(arg => new Variant({
-                    dataType: arg.dataType,
-                    value: getDefaultValue(arg.dataType)
-                }))
-            });
-        }
-        // bindMethod callbackifies 2-arg async handlers; addMethod itself
-        // ignores an onCall option, so binding must happen explicitly.
-        method.bindMethod(handler);
-
-        return {
-            payload: method.nodeId.toString(),
-            nodeId: method.nodeId.toString(),
-            methodName: methodName
-        };
+    if (!folderName) {
+      throw new Error("folderName missing");
     }
 
-    async function handleAddObject(msg, namespace) {
-        const objectName = msg.objectName || msg.payload?.objectName;
-        const parentNodeId = msg.parentNodeId || msg.payload?.parentNodeId || 'ObjectsFolder';
+    const folder = namespace.addFolder(parentNodeId, {
+      browseName: folderName,
+      nodeId: msg.nodeId || undefined,
+    });
 
-        if (!objectName) {
-            throw new Error('objectName missing');
-        }
+    return {
+      payload: folder.nodeId.toString(),
+      nodeId: folder.nodeId.toString(),
+      folderName: folderName,
+    };
+  }
 
-        const obj = namespace.addObject({
-            organizedBy: parentNodeId,
-            browseName: objectName,
-            nodeId: msg.nodeId || undefined
-        });
+  async function handleAddVariable(msg, namespace) {
+    const variableName = msg.variableName || msg.payload?.variableName;
+    const parentNodeId =
+      msg.parentNodeId || msg.payload?.parentNodeId || "ObjectsFolder";
+    const datatype = msg.datatype || msg.payload?.datatype || "Double";
+    const initialValue =
+      msg.initialValue !== undefined
+        ? msg.initialValue
+        : msg.payload?.initialValue;
 
-        return {
-            payload: obj.nodeId.toString(),
-            nodeId: obj.nodeId.toString(),
-            objectName: objectName
-        };
+    if (!variableName) {
+      throw new Error("variableName missing");
     }
 
-    async function handleGetServerInfo(server) {
-        const serverDiag = server.engine && server.engine.serverDiagnosticsSummary;
-        const info = {
-            currentSessionCount: serverDiag ? serverDiag.currentSessionCount : 0,
-            currentSubscriptionCount: serverDiag ? serverDiag.currentSubscriptionCount : 0,
-            endpointUrl: server.getEndpointUrl(),
-            serverState: server.engine.serverStatus.state.toString(),
-            buildInfo: server.engine.serverStatus.buildInfo
-        };
+    const dataType = DataType[datatype] || DataType.Double;
+    const variant = new Variant({
+      dataType: dataType,
+      value:
+        initialValue !== undefined ? initialValue : getDefaultValue(dataType),
+    });
 
-        return {
-            payload: info
-        };
+    // The standard "Objects" folder only accepts Organizes references
+    // (per OPC UA spec). For user-created folders/objects we use HasComponent.
+    const parentRef = isStandardObjectsFolder(parentNodeId)
+      ? { organizedBy: parentNodeId }
+      : { componentOf: parentNodeId };
+
+    const variable = namespace.addVariable({
+      ...parentRef,
+      browseName: variableName,
+      nodeId: msg.nodeId || undefined,
+      dataType: dataType,
+      value: variant,
+    });
+
+    return {
+      payload: variable.nodeId.toString(),
+      nodeId: variable.nodeId.toString(),
+      variableName: variableName,
+      value: initialValue,
+    };
+  }
+
+  /**
+   * Resolves the DataType enum value to write with.
+   *
+   * `msg.datatype` (a name like "Boolean") wins when given. Otherwise the
+   * variable's OWN declared DataType is used — note that UAVariable.dataType
+   * is a NodeId, not an enum member, so `DataType[node.dataType]` is always
+   * undefined. That silently made every datatype-less setValue a Double and
+   * therefore made setValue throw on any non-Double variable
+   * ("the provided variant must have the expected dataType").
+   */
+  function resolveSetValueDataType(msg, node, addressSpace) {
+    if (msg.datatype && DataType[msg.datatype] !== undefined) {
+      return DataType[msg.datatype];
     }
-
-    async function handleSetWritable(msg, namespace, addressSpace) {
-        const nodeId = msg.nodeId || msg.topic;
-
-        if (!nodeId) {
-            throw new Error('nodeId missing');
-        }
-
-        const variable = addressSpace.findNode(nodeId) || namespace.findNode(nodeId);
-        if (!variable) {
-            throw new Error(`Node not found: ${nodeId}`);
-        }
-
-        const AccessLevelFlag = require('node-opcua').AccessLevelFlag;
-        variable.accessLevel = AccessLevelFlag.CurrentRead | AccessLevelFlag.CurrentWrite;
-        variable.userAccessLevel = AccessLevelFlag.CurrentRead | AccessLevelFlag.CurrentWrite;
-
-        return {
-            payload: true,
-            nodeId: nodeId
-        };
-    }
-
-    async function handleRaiseEvent(msg, namespace, addressSpace) {
-        const eventType = msg.eventType || msg.payload?.eventType || 'BaseEventType';
-        const sourceNodeId = msg.sourceNodeId || msg.payload?.sourceNodeId;
-        const message = msg.message || msg.payload?.message || '';
-        const severity = msg.severity || msg.payload?.severity || 100;
-
-        if (!sourceNodeId) {
-            throw new Error('sourceNodeId missing');
-        }
-
-        const sourceNode = addressSpace.findNode(sourceNodeId) || namespace.findNode(sourceNodeId);
-        if (!sourceNode) {
-            throw new Error(`Source node not found: ${sourceNodeId}`);
-        }
-
-        const eventTypeNode = addressSpace.findEventType(eventType);
-        if (!eventTypeNode) {
-            throw new Error(`Event type not found: ${eventType}`);
-        }
-
-        sourceNode.raiseEvent(eventTypeNode, {
-            message: {
-                dataType: DataType.LocalizedText,
-                value: coerceLocalizedText(message)
-            },
-            severity: {
-                dataType: DataType.UInt16,
-                value: severity
-            }
-        });
-
-        return {
-            payload: true,
-            eventType: eventType,
-            sourceNodeId: sourceNodeId,
-            message: message,
-            severity: severity
-        };
-    }
-
-    // The standard "Objects" folder (i=85) only allows Organizes references
-    // to objects/variables. This helper detects that node by its various
-    // possible identifiers so we can pick the correct reference type.
-    function isStandardObjectsFolder(parentNodeId) {
-        if (!parentNodeId) {
-            return false;
-        }
-        const id = String(parentNodeId);
-        return (
-            id === 'ObjectsFolder' ||
-            id === 'i=85' ||
-            id === 'ns=0;i=85'
+    if (node.dataType && addressSpace) {
+      try {
+        const basic = addressSpace.findCorrespondingBasicDataType(
+          node.dataType,
         );
+        if (basic !== undefined && basic !== null) return basic;
+      } catch (e) {
+        /* fall through to the inference below */
+      }
+    }
+    // Last resort: infer from the JS value rather than assuming Double.
+    return inferDataTypeFromValue(msg.payload);
+  }
+
+  function inferDataTypeFromValue(value) {
+    if (typeof value === "boolean") return DataType.Boolean;
+    if (typeof value === "string") return DataType.String;
+    if (value instanceof Date) return DataType.DateTime;
+    if (typeof value === "number") {
+      return Number.isInteger(value) ? DataType.Int32 : DataType.Double;
+    }
+    return DataType.Double;
+  }
+
+  async function handleSetValue(msg, namespace, addressSpace) {
+    const nodeId = msg.nodeId || msg.topic;
+    const value = msg.payload;
+
+    if (!nodeId) {
+      throw new Error("nodeId missing");
     }
 
-    function getDefaultValue(dataType) {
-        switch (dataType) {
-            case DataType.Boolean:
-                return false;
-            // node-opcua names the 8-bit integers SByte/Byte — the previous
-            // DataType.Int8 / DataType.UInt8 labels were `undefined`, so those
-            // two types fell through to `null` instead of 0.
-            case DataType.SByte:
-            case DataType.Byte:
-            case DataType.Int16:
-            case DataType.Int32:
-            case DataType.Int64:
-            case DataType.UInt16:
-            case DataType.UInt32:
-            case DataType.UInt64:
-                return 0;
-            case DataType.Float:
-            case DataType.Double:
-                return 0.0;
-            case DataType.String:
-                return '';
-            default:
-                return null;
-        }
+    if (value === undefined || value === null) {
+      throw new Error("Value missing");
     }
 
-    RED.nodes.registerType('opcua-server', OpcUaServerNode);
+    const node = namespace.findNode(nodeId);
+    if (!node) {
+      throw new Error(`Node not found: ${nodeId}`);
+    }
+
+    const dataType = resolveSetValueDataType(msg, node, addressSpace);
+    const variant = new Variant({
+      dataType: dataType,
+      value: value,
+    });
+
+    node.setValueFromSource(variant);
+
+    return {
+      payload: value,
+      nodeId: nodeId,
+      statusCode: StatusCodes.Good.toString(),
+    };
+  }
+
+  async function handleDeleteNode(msg, namespace) {
+    const nodeId = msg.nodeId || msg.topic;
+
+    if (!nodeId) {
+      throw new Error("nodeId missing");
+    }
+
+    const node = namespace.findNode(nodeId);
+    if (!node) {
+      throw new Error(`Node not found: ${nodeId}`);
+    }
+
+    node.delete();
+
+    return {
+      payload: true,
+      nodeId: nodeId,
+    };
+  }
+
+  async function handleAddMethod(msg, namespace, addressSpace, allowMsgFunc) {
+    const methodName = msg.methodName || msg.payload?.methodName;
+    const parentNodeId = msg.parentNodeId || msg.payload?.parentNodeId;
+
+    if (!methodName) {
+      throw new Error("methodName missing");
+    }
+
+    // Methods must be a HasComponent of an object, but the standard
+    // Objects folder (i=85) only accepts Organizes references — so unlike
+    // the other add* commands there is no ObjectsFolder fallback here.
+    if (!parentNodeId || isStandardObjectsFolder(parentNodeId)) {
+      throw new Error(
+        "addMethod requires msg.parentNodeId of an object node (e.g. created via addObject); " +
+          "OPC UA does not allow methods directly under the standard Objects folder",
+      );
+    }
+
+    let parentNode;
+    try {
+      parentNode = addressSpace.findNode(resolveNodeId(parentNodeId));
+    } catch (error) {
+      throw new Error(
+        `Invalid parentNodeId "${parentNodeId}": ${error.message}`,
+      );
+    }
+    if (!parentNode) {
+      throw new Error(`Parent node not found: ${parentNodeId}`);
+    }
+    if (
+      parentNode.nodeClass !== NodeClass.Object &&
+      parentNode.nodeClass !== NodeClass.ObjectType
+    ) {
+      throw new Error(
+        `Parent node ${parentNodeId} is not an Object or ObjectType — methods must be attached to an object`,
+      );
+    }
+
+    const inputArguments = (
+      msg.inputArguments ||
+      msg.payload?.inputArguments ||
+      []
+    ).map((arg) => ({
+      name: arg.name,
+      dataType: DataType[arg.dataType] || DataType.String,
+      description: coerceLocalizedText(arg.description || arg.name),
+    }));
+
+    const outputArguments = (
+      msg.outputArguments ||
+      msg.payload?.outputArguments ||
+      []
+    ).map((arg) => ({
+      name: arg.name,
+      dataType: DataType[arg.dataType] || DataType.String,
+      description: coerceLocalizedText(arg.description || arg.name),
+    }));
+
+    const method = namespace.addMethod(parentNode, {
+      browseName: methodName,
+      nodeId: msg.nodeId || undefined,
+      inputArguments: inputArguments,
+      outputArguments: outputArguments,
+    });
+
+    const funcBody = msg.func || msg.payload?.func;
+    if (funcBody && !allowMsgFunc) {
+      throw new Error(
+        "msg.func is disabled on this server node. It is evaluated as JavaScript " +
+          "(new Function) and therefore only safe when every upstream node is trusted. " +
+          'Enable "Allow method code from msg.func" in the node configuration to use it.',
+      );
+    }
+    let handler;
+    if (funcBody && typeof funcBody === "string") {
+      // The function body runs outside module scope, so it gets the
+      // node-opcua constructors it needs for its return value as params.
+      const userFunc = new Function(
+        "inputArguments",
+        "context",
+        "Variant",
+        "DataType",
+        "StatusCodes",
+        funcBody,
+      );
+      handler = async (inputArgs, context) => {
+        const result = await userFunc(
+          inputArgs,
+          context,
+          Variant,
+          DataType,
+          StatusCodes,
+        );
+        return result || { statusCode: StatusCodes.Good, outputArguments: [] };
+      };
+    } else {
+      // Default handler that returns StatusCodes.Good with default-valued
+      // outputs. The two parameters are load-bearing: bindMethod
+      // callbackifies handlers by ARITY, so this must stay a 2-arg
+      // function even though it uses neither argument.
+      handler = async (_inputArgs, _context) => ({
+        statusCode: StatusCodes.Good,
+        outputArguments: outputArguments.map(
+          (arg) =>
+            new Variant({
+              dataType: arg.dataType,
+              value: getDefaultValue(arg.dataType),
+            }),
+        ),
+      });
+    }
+    // bindMethod callbackifies 2-arg async handlers; addMethod itself
+    // ignores an onCall option, so binding must happen explicitly.
+    method.bindMethod(handler);
+
+    return {
+      payload: method.nodeId.toString(),
+      nodeId: method.nodeId.toString(),
+      methodName: methodName,
+    };
+  }
+
+  async function handleAddObject(msg, namespace) {
+    const objectName = msg.objectName || msg.payload?.objectName;
+    const parentNodeId =
+      msg.parentNodeId || msg.payload?.parentNodeId || "ObjectsFolder";
+
+    if (!objectName) {
+      throw new Error("objectName missing");
+    }
+
+    const obj = namespace.addObject({
+      organizedBy: parentNodeId,
+      browseName: objectName,
+      nodeId: msg.nodeId || undefined,
+    });
+
+    return {
+      payload: obj.nodeId.toString(),
+      nodeId: obj.nodeId.toString(),
+      objectName: objectName,
+    };
+  }
+
+  async function handleGetServerInfo(server) {
+    const serverDiag = server.engine && server.engine.serverDiagnosticsSummary;
+    const info = {
+      currentSessionCount: serverDiag ? serverDiag.currentSessionCount : 0,
+      currentSubscriptionCount: serverDiag
+        ? serverDiag.currentSubscriptionCount
+        : 0,
+      endpointUrl: server.getEndpointUrl(),
+      serverState: server.engine.serverStatus.state.toString(),
+      buildInfo: server.engine.serverStatus.buildInfo,
+    };
+
+    return {
+      payload: info,
+    };
+  }
+
+  async function handleSetWritable(msg, namespace, addressSpace) {
+    const nodeId = msg.nodeId || msg.topic;
+
+    if (!nodeId) {
+      throw new Error("nodeId missing");
+    }
+
+    const variable =
+      addressSpace.findNode(nodeId) || namespace.findNode(nodeId);
+    if (!variable) {
+      throw new Error(`Node not found: ${nodeId}`);
+    }
+
+    const AccessLevelFlag = require("node-opcua").AccessLevelFlag;
+    variable.accessLevel =
+      AccessLevelFlag.CurrentRead | AccessLevelFlag.CurrentWrite;
+    variable.userAccessLevel =
+      AccessLevelFlag.CurrentRead | AccessLevelFlag.CurrentWrite;
+
+    return {
+      payload: true,
+      nodeId: nodeId,
+    };
+  }
+
+  async function handleRaiseEvent(msg, namespace, addressSpace) {
+    const eventType =
+      msg.eventType || msg.payload?.eventType || "BaseEventType";
+    const sourceNodeId = msg.sourceNodeId || msg.payload?.sourceNodeId;
+    const message = msg.message || msg.payload?.message || "";
+    const severity = msg.severity || msg.payload?.severity || 100;
+
+    if (!sourceNodeId) {
+      throw new Error("sourceNodeId missing");
+    }
+
+    const sourceNode =
+      addressSpace.findNode(sourceNodeId) || namespace.findNode(sourceNodeId);
+    if (!sourceNode) {
+      throw new Error(`Source node not found: ${sourceNodeId}`);
+    }
+
+    const eventTypeNode = addressSpace.findEventType(eventType);
+    if (!eventTypeNode) {
+      throw new Error(`Event type not found: ${eventType}`);
+    }
+
+    sourceNode.raiseEvent(eventTypeNode, {
+      message: {
+        dataType: DataType.LocalizedText,
+        value: coerceLocalizedText(message),
+      },
+      severity: {
+        dataType: DataType.UInt16,
+        value: severity,
+      },
+    });
+
+    return {
+      payload: true,
+      eventType: eventType,
+      sourceNodeId: sourceNodeId,
+      message: message,
+      severity: severity,
+    };
+  }
+
+  // The standard "Objects" folder (i=85) only allows Organizes references
+  // to objects/variables. This helper detects that node by its various
+  // possible identifiers so we can pick the correct reference type.
+  function isStandardObjectsFolder(parentNodeId) {
+    if (!parentNodeId) {
+      return false;
+    }
+    const id = String(parentNodeId);
+    return id === "ObjectsFolder" || id === "i=85" || id === "ns=0;i=85";
+  }
+
+  function getDefaultValue(dataType) {
+    switch (dataType) {
+      case DataType.Boolean:
+        return false;
+      // node-opcua names the 8-bit integers SByte/Byte — the previous
+      // DataType.Int8 / DataType.UInt8 labels were `undefined`, so those
+      // two types fell through to `null` instead of 0.
+      case DataType.SByte:
+      case DataType.Byte:
+      case DataType.Int16:
+      case DataType.Int32:
+      case DataType.Int64:
+      case DataType.UInt16:
+      case DataType.UInt32:
+      case DataType.UInt64:
+        return 0;
+      case DataType.Float:
+      case DataType.Double:
+        return 0.0;
+      case DataType.String:
+        return "";
+      default:
+        return null;
+    }
+  }
+
+  RED.nodes.registerType("opcua-server", OpcUaServerNode);
 };

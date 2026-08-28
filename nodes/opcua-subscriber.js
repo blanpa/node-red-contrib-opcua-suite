@@ -41,7 +41,7 @@ module.exports = function (RED) {
     // D4-03 hard rule: UDP transport requires UADP encoding (UDP-JSON unsupported).
     if (transportType === "udp" && encoding === "json") {
       node.error(
-        "UDP transport requires UADP encoding (UDP-JSON is not supported)"
+        "UDP transport requires UADP encoding (UDP-JSON is not supported)",
       );
       node.status({ fill: "red", shape: "ring", text: "udp requires uadp" });
       return;
@@ -95,7 +95,7 @@ module.exports = function (RED) {
           node.status(
             isSubscribed
               ? { fill: "green", shape: "ring", text: "subscribed" }
-              : { fill: "green", shape: "dot", text: "connected" }
+              : { fill: "green", shape: "dot", text: "connected" },
           );
           break;
         case "disconnected":
@@ -146,7 +146,9 @@ module.exports = function (RED) {
         // decoder carries it on the DataSetMessage. Prefer the dsm value, fall back
         // to the positional payloadHeader id.
         const dataSetWriterId =
-          dsm.dataSetWriterId !== undefined ? dsm.dataSetWriterId : writerIds[i];
+          dsm.dataSetWriterId !== undefined
+            ? dsm.dataSetWriterId
+            : writerIds[i];
 
         // a. Filter (D4-08 — silent skip, NOT an error).
         if (
@@ -183,7 +185,7 @@ module.exports = function (RED) {
               ", got " +
               got.major +
               "." +
-              got.minor
+              got.minor,
           );
           continue; // dropped from output, but logged — NEVER silently swallowed
         }
@@ -205,7 +207,7 @@ module.exports = function (RED) {
           timestamp: dsm.timestamp || nm.timestamp || new Date(),
           statusCode: dsm.status !== undefined ? dsm.status : 0,
           encoding: encoding,
-          transport: transportType
+          transport: transportType,
         };
         // topic: MQTT only — OMITTED entirely for UDP.
         if (transportType === "mqtt" && metadata && metadata.topic) {

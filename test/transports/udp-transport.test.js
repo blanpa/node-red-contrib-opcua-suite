@@ -17,7 +17,6 @@ function freshPort() {
 const GROUP = "239.0.0.1";
 
 describe("UdpTransport — TRP-01", function () {
-
   let transport;
 
   afterEach(async function () {
@@ -42,7 +41,10 @@ describe("UdpTransport — TRP-01", function () {
     const spy = sinon.spy();
     transport.on("connected", spy);
     await transport.connect();
-    expect(spy.calledOnce).to.equal(true, "'connected' should fire exactly once");
+    expect(spy.calledOnce).to.equal(
+      true,
+      "'connected' should fire exactly once",
+    );
     expect(transport._socket).to.not.equal(null);
   });
 
@@ -52,7 +54,10 @@ describe("UdpTransport — TRP-01", function () {
     transport.on("disconnected", spy);
     await transport.connect();
     await transport.close();
-    expect(spy.calledOnce).to.equal(true, "'disconnected' should fire exactly once");
+    expect(spy.calledOnce).to.equal(
+      true,
+      "'disconnected' should fire exactly once",
+    );
     expect(transport._socket).to.equal(null);
   });
 
@@ -69,9 +74,11 @@ describe("UdpTransport — TRP-01", function () {
     const port = freshPort();
     transport = new UdpTransport({ port, multicastGroup: GROUP });
     await transport.connect();
-    const sendSpy = sinon.stub(transport._socket, "send").callsFake((buf, p, g, cb) => {
-      if (cb) cb(null);
-    });
+    const sendSpy = sinon
+      .stub(transport._socket, "send")
+      .callsFake((buf, p, g, cb) => {
+        if (cb) cb(null);
+      });
     const payload = Buffer.from([1, 2, 3]);
     transport.send(payload);
     expect(sendSpy.calledOnce).to.equal(true);
@@ -85,9 +92,11 @@ describe("UdpTransport — TRP-01", function () {
   it("send(Buffer[]) sends one packet per chunk in array order", async function () {
     transport = new UdpTransport({ port: freshPort(), multicastGroup: GROUP });
     await transport.connect();
-    const sendSpy = sinon.stub(transport._socket, "send").callsFake((buf, p, g, cb) => {
-      if (cb) cb(null);
-    });
+    const sendSpy = sinon
+      .stub(transport._socket, "send")
+      .callsFake((buf, p, g, cb) => {
+        if (cb) cb(null);
+      });
     const a = Buffer.from([1]);
     const b = Buffer.from([2, 3]);
     transport.send([a, b]);
@@ -130,15 +139,18 @@ describe("UdpTransport — TRP-01", function () {
           return done(new Error(`EADDRINUSE on cycle ${cycles}: ${msg}`));
         }
       });
-      t.connect().then(() => t.close()).then(() => {
-        cycle();
-      }).catch((err) => {
-        const msg = (err && err.message) || String(err);
-        if (/EADDRINUSE/.test(msg)) {
-          return done(new Error(`EADDRINUSE on cycle ${cycles}: ${msg}`));
-        }
-        return done(err instanceof Error ? err : new Error(msg));
-      });
+      t.connect()
+        .then(() => t.close())
+        .then(() => {
+          cycle();
+        })
+        .catch((err) => {
+          const msg = (err && err.message) || String(err);
+          if (/EADDRINUSE/.test(msg)) {
+            return done(new Error(`EADDRINUSE on cycle ${cycles}: ${msg}`));
+          }
+          return done(err instanceof Error ? err : new Error(msg));
+        });
     }
 
     cycle();
@@ -170,8 +182,14 @@ describe("UdpTransport — TRP-01", function () {
 
     transport = new UdpTransport({ port: freshPort(), multicastGroup: GROUP });
     await transport.connect();
-    expect(addMembershipBeforeBind).to.equal(false, "addMembership must NOT run before bind callback");
-    expect(addMembershipAfterBind).to.equal(true, "addMembership must run inside/after bind callback");
+    expect(addMembershipBeforeBind).to.equal(
+      false,
+      "addMembership must NOT run before bind callback",
+    );
+    expect(addMembershipAfterBind).to.equal(
+      true,
+      "addMembership must run inside/after bind callback",
+    );
   });
 
   it("binds to '0.0.0.0' (NEVER to NIC IP)", async function () {
@@ -191,23 +209,28 @@ describe("UdpTransport — TRP-01", function () {
     await transport.connect();
     expect(bindAddress).to.equal("0.0.0.0");
   });
-
 });
 
 describe("UdpTransport — _reassemble (UADP chunking)", function () {
-
   // A NetworkMessage large enough to force multiple chunks at a tiny MTU.
   function bigNm(publisherId) {
     return {
       publisherId: publisherId === undefined ? 7 : publisherId,
-      groupHeader: { writerGroupId: 1, groupVersion: 1, networkMessageNumber: 1, sequenceNumber: 1 },
-      payloadHeader: { dataSetWriterIds: [1] },
-      payload: [{
-        fieldEncoding: "variant",
-        messageType: "keyframe",
+      groupHeader: {
+        writerGroupId: 1,
+        groupVersion: 1,
+        networkMessageNumber: 1,
         sequenceNumber: 1,
-        fields: { blob: { dataType: "String", value: "x".repeat(2000) } },
-      }],
+      },
+      payloadHeader: { dataSetWriterIds: [1] },
+      payload: [
+        {
+          fieldEncoding: "variant",
+          messageType: "keyframe",
+          sequenceNumber: 1,
+          fields: { blob: { dataType: "String", value: "x".repeat(2000) } },
+        },
+      ],
     };
   }
 
@@ -215,14 +238,21 @@ describe("UdpTransport — _reassemble (UADP chunking)", function () {
   function smallNm() {
     return {
       publisherId: 7,
-      groupHeader: { writerGroupId: 1, groupVersion: 1, networkMessageNumber: 1, sequenceNumber: 1 },
-      payloadHeader: { dataSetWriterIds: [1] },
-      payload: [{
-        fieldEncoding: "variant",
-        messageType: "keyframe",
+      groupHeader: {
+        writerGroupId: 1,
+        groupVersion: 1,
+        networkMessageNumber: 1,
         sequenceNumber: 1,
-        fields: { v: { dataType: "Int32", value: 42 } },
-      }],
+      },
+      payloadHeader: { dataSetWriterIds: [1] },
+      payload: [
+        {
+          fieldEncoding: "variant",
+          messageType: "keyframe",
+          sequenceNumber: 1,
+          fields: { v: { dataType: "Int32", value: 42 } },
+        },
+      ],
     };
   }
 
@@ -240,7 +270,10 @@ describe("UdpTransport — _reassemble (UADP chunking)", function () {
 
   it("single-buffer NetworkMessage emits 'message' immediately and does NOT add to _chunks", function () {
     const buf = encodeNetworkMessage(smallNm());
-    expect(Buffer.isBuffer(buf)).to.equal(true, "small payload must be a single Buffer");
+    expect(Buffer.isBuffer(buf)).to.equal(
+      true,
+      "small payload must be a single Buffer",
+    );
     const spy = sinon.spy();
     transport.on("message", spy);
     transport._onDatagram(buf, {});
@@ -260,17 +293,26 @@ describe("UdpTransport — _reassemble (UADP chunking)", function () {
     transport.on("message", spy);
     chunks.forEach((c) => transport._onDatagram(c, {}));
 
-    expect(spy.calledOnce).to.equal(true, "exactly one 'message' after last chunk");
+    expect(spy.calledOnce).to.equal(
+      true,
+      "exactly one 'message' after last chunk",
+    );
     const assembled = spy.firstCall.args[0];
     expect(Buffer.isBuffer(assembled)).to.equal(true);
     expect(assembled.length).to.equal(totalSize);
-    expect(transport._chunks.size).to.equal(0, "entry removed after completion");
+    expect(transport._chunks.size).to.equal(
+      0,
+      "entry removed after completion",
+    );
   });
 
   it("CR-01: reassembled buffer decodes back into the ORIGINAL NetworkMessage (round-trip)", function () {
     // Reference: encode the SAME NetworkMessage without chunking (large MTU) and decode it.
     const original = encodeNetworkMessage(bigNm(), { mtu: 100000 });
-    expect(Buffer.isBuffer(original)).to.equal(true, "reference must be a single Buffer");
+    expect(Buffer.isBuffer(original)).to.equal(
+      true,
+      "reference must be a single Buffer",
+    );
     const referenceDecoded = uadp.decodeNetworkMessage(original);
 
     // Force chunking with a tiny MTU.
@@ -282,7 +324,10 @@ describe("UdpTransport — _reassemble (UADP chunking)", function () {
     transport.on("message", spy);
     chunks.forEach((c) => transport._onDatagram(c, {}));
 
-    expect(spy.calledOnce).to.equal(true, "exactly one 'message' after last chunk");
+    expect(spy.calledOnce).to.equal(
+      true,
+      "exactly one 'message' after last chunk",
+    );
     const assembled = spy.firstCall.args[0];
     expect(Buffer.isBuffer(assembled)).to.equal(true);
 
@@ -292,10 +337,15 @@ describe("UdpTransport — _reassemble (UADP chunking)", function () {
     const reDecoded = uadp.decodeNetworkMessage(assembled);
 
     // Reassembled buffer must equal the non-chunked encoding byte-for-byte.
-    expect(assembled.equals(original)).to.equal(true, "reassembled buffer == non-chunked encoded NetworkMessage");
+    expect(assembled.equals(original)).to.equal(
+      true,
+      "reassembled buffer == non-chunked encoded NetworkMessage",
+    );
 
     // And the decoded DataSetMessage fields must equal the original.
-    expect(reDecoded.payload).to.be.an("array").with.lengthOf(referenceDecoded.payload.length);
+    expect(reDecoded.payload)
+      .to.be.an("array")
+      .with.lengthOf(referenceDecoded.payload.length);
     const got = reDecoded.payload[0].fields.blob;
     const want = referenceDecoded.payload[0].fields.blob;
     expect(got.value).to.equal(want.value);
@@ -335,10 +385,14 @@ describe("UdpTransport — _reassemble (UADP chunking)", function () {
 
       // Original key must be gone; only the unrelated (publisherId 99) entry remains.
       const remainingKeys = [...transport._chunks.keys()];
-      expect(remainingKeys.some((k) => k.startsWith("7|"))).to.equal(false, "stale publisherId 7 entry swept");
+      expect(remainingKeys.some((k) => k.startsWith("7|"))).to.equal(
+        false,
+        "stale publisherId 7 entry swept",
+      );
 
       // Now deliver the rest of the ORIGINAL chunks — must NOT complete (entry was dropped).
-      for (let i = 1; i < chunks.length; i++) transport._onDatagram(chunks[i], {});
+      for (let i = 1; i < chunks.length; i++)
+        transport._onDatagram(chunks[i], {});
       expect(spy.called).to.equal(false, "stale message must not reassemble");
     } finally {
       clock.restore();
@@ -368,9 +422,14 @@ describe("UdpTransport — _reassemble (UADP chunking)", function () {
     }
 
     expect(transport._chunks.size).to.equal(1000, "bound holds at 1000");
-    expect(transport._chunks.has(firstKey)).to.equal(false, "oldest key dropped");
+    expect(transport._chunks.has(firstKey)).to.equal(
+      false,
+      "oldest key dropped",
+    );
     expect(warnSpy.called).to.equal(true);
-    expect(warnSpy.firstCall.args[0].message).to.match(/UDP_REASSEMBLY_OVERFLOW/);
+    expect(warnSpy.firstCall.args[0].message).to.match(
+      /UDP_REASSEMBLY_OVERFLOW/,
+    );
   });
 
   it("ME-04: oversized totalSize (beyond mtu * MAX_CHUNKS) is rejected (dropped + 'warn', no entry)", function () {
@@ -393,10 +452,15 @@ describe("UdpTransport — _reassemble (UADP chunking)", function () {
 
     transport._onDatagram(Buffer.alloc(4), {});
 
-    expect(transport._chunks.size).to.equal(0, "oversized totalSize must not create a reassembly entry");
+    expect(transport._chunks.size).to.equal(
+      0,
+      "oversized totalSize must not create a reassembly entry",
+    );
     expect(msgSpy.called).to.equal(false);
     expect(warnSpy.called).to.equal(true);
-    expect(warnSpy.firstCall.args[0].message).to.match(/UDP_REASSEMBLY_TOTALSIZE/);
+    expect(warnSpy.firstCall.args[0].message).to.match(
+      /UDP_REASSEMBLY_TOTALSIZE/,
+    );
   });
 
   it("ME-04: overlapping chunk offsets do NOT complete (dropped + 'warn', no message)", function () {
@@ -424,10 +488,18 @@ describe("UdpTransport — _reassemble (UADP chunking)", function () {
     transport._onDatagram(Buffer.alloc(4), {});
     transport._onDatagram(Buffer.alloc(4), {});
 
-    expect(msgSpy.called).to.equal(false, "overlapping/mis-tiled chunks must not reassemble");
+    expect(msgSpy.called).to.equal(
+      false,
+      "overlapping/mis-tiled chunks must not reassemble",
+    );
     expect(warnSpy.called).to.equal(true);
-    expect(warnSpy.firstCall.args[0].message).to.match(/UDP_REASSEMBLY_BAD_TILING/);
-    expect(transport._chunks.size).to.equal(0, "bad-tiling entry must be dropped");
+    expect(warnSpy.firstCall.args[0].message).to.match(
+      /UDP_REASSEMBLY_BAD_TILING/,
+    );
+    expect(transport._chunks.size).to.equal(
+      0,
+      "bad-tiling entry must be dropped",
+    );
   });
 
   it("ME-04: a chunk extending past totalSize is dropped per-chunk (never stored, 'warn')", function () {
@@ -451,17 +523,27 @@ describe("UdpTransport — _reassemble (UADP chunking)", function () {
 
     transport._onDatagram(Buffer.alloc(4), {});
 
-    expect(msgSpy.called).to.equal(false, "over-long chunk must not reassemble");
+    expect(msgSpy.called).to.equal(
+      false,
+      "over-long chunk must not reassemble",
+    );
     expect(warnSpy.called).to.equal(true);
-    expect(warnSpy.firstCall.args[0].message).to.match(/UDP_REASSEMBLY_BAD_TILING/);
-    expect(transport._chunks.size).to.equal(0, "rejected chunk leaves no entry");
+    expect(warnSpy.firstCall.args[0].message).to.match(
+      /UDP_REASSEMBLY_BAD_TILING/,
+    );
+    expect(transport._chunks.size).to.equal(
+      0,
+      "rejected chunk leaves no entry",
+    );
   });
 
   it("malformed datagram: decode error is caught and emitted as 'error', listener stays alive", function () {
     const stub = sinon.stub(uadp, "decodeNetworkMessage");
     stub.onFirstCall().throws(new Error("garbage bytes"));
     // Second call: a valid single-buffer (no chunk) message -> passthrough.
-    stub.onSecondCall().returns({ publisherId: 7, groupHeader: { writerGroupId: 1 } });
+    stub
+      .onSecondCall()
+      .returns({ publisherId: 7, groupHeader: { writerGroupId: 1 } });
 
     const errSpy = sinon.spy();
     const msgSpy = sinon.spy();
@@ -479,5 +561,4 @@ describe("UdpTransport — _reassemble (UADP chunking)", function () {
     transport._onDatagram(Buffer.from([0x01]), {});
     expect(msgSpy.calledOnce).to.equal(true);
   });
-
 });

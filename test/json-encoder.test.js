@@ -2,12 +2,14 @@
 
 const { expect } = require("chai");
 
-const { encodeNetworkMessage, decodeNetworkMessage } = require("../lib/json-encoder");
+const {
+  encodeNetworkMessage,
+  decodeNetworkMessage,
+} = require("../lib/json-encoder");
 
 // ─── module exports ───
 
 describe("json-encoder", function () {
-
   describe("module exports", function () {
     it("exports encodeNetworkMessage and decodeNetworkMessage", function () {
       expect(encodeNetworkMessage).to.be.a("function");
@@ -21,7 +23,11 @@ describe("json-encoder", function () {
     it("emits top-level fields in MessageId, MessageType, Messages order (no PublisherId/WriterGroupName/DataSetClassId)", function () {
       const json = encodeNetworkMessage({ messageId: "m1", payload: [] });
       const parsed = JSON.parse(json);
-      expect(Object.keys(parsed)).to.deep.equal(["MessageId", "MessageType", "Messages"]);
+      expect(Object.keys(parsed)).to.deep.equal([
+        "MessageId",
+        "MessageType",
+        "Messages",
+      ]);
       expect(parsed.MessageType).to.equal("ua-data");
     });
 
@@ -35,19 +41,26 @@ describe("json-encoder", function () {
       });
       const parsed = JSON.parse(json);
       expect(Object.keys(parsed)).to.deep.equal([
-        "MessageId", "MessageType", "PublisherId", "WriterGroupName", "DataSetClassId", "Messages",
+        "MessageId",
+        "MessageType",
+        "PublisherId",
+        "WriterGroupName",
+        "DataSetClassId",
+        "Messages",
       ]);
     });
 
     it("DataSetMessage emits DataSetWriterId, SequenceNumber, MessageType, Payload in spec order", function () {
       const json = encodeNetworkMessage({
         messageId: "m1",
-        payload: [{
-          dataSetWriterId: 7,
-          sequenceNumber: 100,
-          messageType: "keyframe",
-          fields: { x: { dataType: "Int32", value: 1 } },
-        }],
+        payload: [
+          {
+            dataSetWriterId: 7,
+            sequenceNumber: 100,
+            messageType: "keyframe",
+            fields: { x: { dataType: "Int32", value: 1 } },
+          },
+        ],
       });
       const parsed = JSON.parse(json);
       const dsmKeys = Object.keys(parsed.Messages[0]);
@@ -108,11 +121,19 @@ describe("json-encoder", function () {
       const date = new Date("2026-05-13T18:45:19.555Z");
       const json = encodeNetworkMessage({
         messageId: "m1",
-        payload: [{ messageType: "keyframe", timestamp: date, fields: { ts: { dataType: "DateTime", value: date } } }],
+        payload: [
+          {
+            messageType: "keyframe",
+            timestamp: date,
+            fields: { ts: { dataType: "DateTime", value: date } },
+          },
+        ],
       });
       const parsed = JSON.parse(json);
       expect(parsed.Messages[0].Timestamp).to.equal("2026-05-13T18:45:19.555Z");
-      expect(parsed.Messages[0].Payload.ts.Value).to.equal("2026-05-13T18:45:19.555Z");
+      expect(parsed.Messages[0].Payload.ts.Value).to.equal(
+        "2026-05-13T18:45:19.555Z",
+      );
     });
   });
 
@@ -123,7 +144,12 @@ describe("json-encoder", function () {
       const buf = Buffer.from("hello", "utf8");
       const json = encodeNetworkMessage({
         messageId: "m1",
-        payload: [{ messageType: "keyframe", fields: { blob: { dataType: "ByteString", value: buf } } }],
+        payload: [
+          {
+            messageType: "keyframe",
+            fields: { blob: { dataType: "ByteString", value: buf } },
+          },
+        ],
       });
       const parsed = JSON.parse(json);
       expect(parsed.Messages[0].Payload.blob.UaType).to.equal(15);
@@ -135,14 +161,25 @@ describe("json-encoder", function () {
 
   describe("NodeId conversion", function () {
     it("NodeId domain object → ns=X;s=Value string via nodeIdToString", function () {
-      const nodeId = { namespaceIndex: 2, identifierType: "String", value: "Temperature" };
+      const nodeId = {
+        namespaceIndex: 2,
+        identifierType: "String",
+        value: "Temperature",
+      };
       const json = encodeNetworkMessage({
         messageId: "m1",
-        payload: [{ messageType: "keyframe", fields: { ref: { dataType: "NodeId", value: nodeId } } }],
+        payload: [
+          {
+            messageType: "keyframe",
+            fields: { ref: { dataType: "NodeId", value: nodeId } },
+          },
+        ],
       });
       const parsed = JSON.parse(json);
       expect(parsed.Messages[0].Payload.ref.UaType).to.equal(17);
-      expect(parsed.Messages[0].Payload.ref.Value).to.equal("ns=2;s=Temperature");
+      expect(parsed.Messages[0].Payload.ref.Value).to.equal(
+        "ns=2;s=Temperature",
+      );
     });
   });
 
@@ -150,10 +187,10 @@ describe("json-encoder", function () {
 
   describe("MessageType wire mapping", function () {
     const cases = [
-      ["keyframe",   "ua-keyframe"],
+      ["keyframe", "ua-keyframe"],
       ["deltaframe", "ua-deltaframe"],
-      ["event",      "ua-event"],
-      ["keepalive",  "ua-keepalive"],
+      ["event", "ua-event"],
+      ["keepalive", "ua-keepalive"],
     ];
     for (const [model, wire] of cases) {
       it(`${model} → ${wire}`, function () {
@@ -173,18 +210,29 @@ describe("json-encoder", function () {
       const model = {
         messageId: "rt-1",
         publisherId: "pub-A",
-        payload: [{
-          dataSetWriterId: 5,
-          sequenceNumber: 42,
-          messageType: "keyframe",
-          fields: { a: { dataType: "Int32", value: 7 }, b: { dataType: "Double", value: 1.5 } },
-        }],
+        payload: [
+          {
+            dataSetWriterId: 5,
+            sequenceNumber: 42,
+            messageType: "keyframe",
+            fields: {
+              a: { dataType: "Int32", value: 7 },
+              b: { dataType: "Double", value: 1.5 },
+            },
+          },
+        ],
       };
       const decoded = decodeNetworkMessage(encodeNetworkMessage(model));
       expect(decoded.messageId).to.equal("rt-1");
       expect(decoded.publisherId).to.equal("pub-A");
-      expect(decoded.payload[0].fields.a).to.deep.equal({ dataType: 6, value: 7 });
-      expect(decoded.payload[0].fields.b).to.deep.equal({ dataType: 11, value: 1.5 });
+      expect(decoded.payload[0].fields.a).to.deep.equal({
+        dataType: 6,
+        value: 7,
+      });
+      expect(decoded.payload[0].fields.b).to.deep.equal({
+        dataType: 11,
+        value: 1.5,
+      });
     });
   });
 
@@ -209,7 +257,13 @@ describe("json-encoder", function () {
         messageId: "m1",
         publisherId: "pub-A",
         groupHeader: { writerGroupId: 42, sequenceNumber: 9 },
-        payload: [{ dataSetWriterId: 1, messageType: "keyframe", fields: { a: { dataType: "Int32", value: 1 } } }],
+        payload: [
+          {
+            dataSetWriterId: 1,
+            messageType: "keyframe",
+            fields: { a: { dataType: "Int32", value: 1 } },
+          },
+        ],
       };
       const decoded = decodeNetworkMessage(encodeNetworkMessage(model));
       expect(decoded.groupHeader).to.be.an("object");
@@ -242,7 +296,7 @@ describe("json-encoder", function () {
           messageId: "m1",
           publisherId: 5,
           payload: [{ messageType: "keyframe", fields: {} }],
-        })
+        }),
       );
       expect(decoded.publisherId).to.equal(5);
       expect(typeof decoded.publisherId).to.equal("number");
@@ -254,7 +308,7 @@ describe("json-encoder", function () {
           messageId: "m1",
           publisherId: "pub-A",
           payload: [{ messageType: "keyframe", fields: {} }],
-        })
+        }),
       );
       expect(decoded.publisherId).to.equal("pub-A");
       expect(typeof decoded.publisherId).to.equal("string");
@@ -266,8 +320,11 @@ describe("json-encoder", function () {
   describe("decodeNetworkMessage structured errors", function () {
     it("missing 'Messages' array throws { code: 'JSON_DECODE_MISSING_FIELD', path: 'Messages' }", function () {
       let caught = null;
-      try { decodeNetworkMessage("{\"MessageId\":\"x\",\"MessageType\":\"ua-data\"}"); }
-      catch (e) { caught = e; }
+      try {
+        decodeNetworkMessage('{"MessageId":"x","MessageType":"ua-data"}');
+      } catch (e) {
+        caught = e;
+      }
       expect(caught).to.not.equal(null);
       expect(caught.code).to.equal("JSON_DECODE_MISSING_FIELD");
       expect(caught.path).to.equal("Messages");
@@ -276,8 +333,12 @@ describe("json-encoder", function () {
     it("missing 'Payload' inside DataSetMessage throws with path 'Messages[0].Payload'", function () {
       let caught = null;
       try {
-        decodeNetworkMessage("{\"MessageId\":\"x\",\"MessageType\":\"ua-data\",\"Messages\":[{\"DataSetWriterId\":1,\"MessageType\":\"ua-keyframe\"}]}");
-      } catch (e) { caught = e; }
+        decodeNetworkMessage(
+          '{"MessageId":"x","MessageType":"ua-data","Messages":[{"DataSetWriterId":1,"MessageType":"ua-keyframe"}]}',
+        );
+      } catch (e) {
+        caught = e;
+      }
       expect(caught).to.not.equal(null);
       expect(caught.code).to.equal("JSON_DECODE_MISSING_FIELD");
       expect(caught.path).to.equal("Messages[0].Payload");
@@ -285,8 +346,11 @@ describe("json-encoder", function () {
 
     it("invalid JSON throws { code: 'JSON_DECODE_PARSE_ERROR' }", function () {
       let caught = null;
-      try { decodeNetworkMessage("{not valid json"); }
-      catch (e) { caught = e; }
+      try {
+        decodeNetworkMessage("{not valid json");
+      } catch (e) {
+        caught = e;
+      }
       expect(caught.code).to.equal("JSON_DECODE_PARSE_ERROR");
     });
   });

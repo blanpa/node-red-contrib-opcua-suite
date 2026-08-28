@@ -12,10 +12,7 @@ const path = require("path");
 const fs = require("fs");
 const { EventEmitter } = require("events");
 
-const {
-  parseNodeId,
-  serializeExtensionObject,
-} = require("../lib/opcua-utils");
+const { parseNodeId, serializeExtensionObject } = require("../lib/opcua-utils");
 const certStore = require("../lib/cert-store");
 const OpcUaClientManager = require("../lib/opcua-client-manager");
 
@@ -63,7 +60,9 @@ describe("serializeExtensionObject — recursion guards", function () {
     const a = { schema: { name: "A", fields: [] }, name: "a" };
     a.self = a;
     let out;
-    expect(() => { out = serializeExtensionObject(a); }).to.not.throw();
+    expect(() => {
+      out = serializeExtensionObject(a);
+    }).to.not.throw();
     expect(out.self).to.deep.equal({ _circular: true });
   });
 
@@ -72,10 +71,15 @@ describe("serializeExtensionObject — recursion guards", function () {
     let leaf = { value: "bottom" };
     for (let i = 0; i < 60; i++) leaf = { nested: leaf };
     let out;
-    expect(() => { out = serializeExtensionObject(leaf); }).to.not.throw();
+    expect(() => {
+      out = serializeExtensionObject(leaf);
+    }).to.not.throw();
     let cur = out;
     let depth = 0;
-    while (cur && cur.nested) { cur = cur.nested; depth++; }
+    while (cur && cur.nested) {
+      cur = cur.nested;
+      depth++;
+    }
     expect(cur).to.have.property("_truncated", true);
     expect(depth).to.be.lessThan(60);
   });
@@ -96,7 +100,11 @@ describe("cert-store — admin permission guard and extension whitelist", functi
       };
     }
     const RED = {
-      httpAdmin: { post: record("POST"), get: record("GET"), delete: record("DEL") },
+      httpAdmin: {
+        post: record("POST"),
+        get: record("GET"),
+        delete: record("DEL"),
+      },
       settings: { userDir: TMP_DIR },
       routes,
       middleware,
@@ -119,7 +127,9 @@ describe("cert-store — admin permission guard and extension whitelist", functi
   });
 
   it("puts RED.auth.needsPermission in front of every route", function () {
-    const guard = sinon.stub().returns(function (req, res, next) { next(); });
+    const guard = sinon.stub().returns(function (req, res, next) {
+      next();
+    });
     const RED = makeMockRED({ needsPermission: guard });
     certStore.registerCertRoutes(RED, "/p", TMP_DIR);
 
@@ -144,7 +154,11 @@ describe("cert-store — admin permission guard and extension whitelist", functi
   it("rejects a file whose extension is not on the whitelist", async function () {
     let thrown = null;
     try {
-      await certStore.uploadCert(TMP_DIR, "payload.js", Buffer.from("x").toString("base64"));
+      await certStore.uploadCert(
+        TMP_DIR,
+        "payload.js",
+        Buffer.from("x").toString("base64"),
+      );
     } catch (e) {
       thrown = e;
     }
@@ -155,7 +169,11 @@ describe("cert-store — admin permission guard and extension whitelist", functi
 
   it("still accepts every whitelisted extension", async function () {
     for (const name of ["a.pem", "b.der", "c.crt", "d.key", "e.pfx", "f.p12"]) {
-      const res = await certStore.uploadCert(TMP_DIR, name, Buffer.from("x").toString("base64"));
+      const res = await certStore.uploadCert(
+        TMP_DIR,
+        name,
+        Buffer.from("x").toString("base64"),
+      );
       expect(fs.existsSync(res.path)).to.equal(true);
     }
   });
@@ -164,7 +182,9 @@ describe("cert-store — admin permission guard and extension whitelist", functi
     expect(certStore.sanitiseFilename("..")).to.equal("cert.pem");
     expect(certStore.sanitiseFilename(".")).to.equal("cert.pem");
     // "/" becomes "_", so the result can never escape the certs directory
-    expect(certStore.sanitiseFilename("../../etc/passwd")).to.equal(".._.._etc_passwd");
+    expect(certStore.sanitiseFilename("../../etc/passwd")).to.equal(
+      ".._.._etc_passwd",
+    );
   });
 });
 
@@ -214,21 +234,31 @@ describe("_isConnectionLostError — operation timeouts", function () {
 
   it("classifies an operation timeout as connection-lost so the retry loop runs", function () {
     expect(
-      mgr._isConnectionLostError(new Error("Operation timed out after 10000ms: read")),
+      mgr._isConnectionLostError(
+        new Error("Operation timed out after 10000ms: read"),
+      ),
     ).to.equal(true);
   });
 
   it("still does not classify a genuine logic error", function () {
-    expect(mgr._isConnectionLostError(new Error("Invalid NodeId: ns=2;s=Nope"))).to.equal(false);
-    expect(mgr._isConnectionLostError(new Error("BadNodeIdUnknown"))).to.equal(false);
+    expect(
+      mgr._isConnectionLostError(new Error("Invalid NodeId: ns=2;s=Nope")),
+    ).to.equal(false);
+    expect(mgr._isConnectionLostError(new Error("BadNodeIdUnknown"))).to.equal(
+      false,
+    );
   });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 describe("getEndpoints — channel cleanup on failure", function () {
   let sandbox;
-  beforeEach(function () { sandbox = sinon.createSandbox(); });
-  afterEach(function () { sandbox.restore(); });
+  beforeEach(function () {
+    sandbox = sinon.createSandbox();
+  });
+  afterEach(function () {
+    sandbox.restore();
+  });
 
   it("disconnects the discovery client even when getEndpoints() throws", async function () {
     const { OPCUAClient } = require("node-opcua");
@@ -236,8 +266,12 @@ describe("getEndpoints — channel cleanup on failure", function () {
     sandbox.stub(OPCUAClient, "create").callsFake(() => {
       const c = new EventEmitter();
       c.connect = async () => {};
-      c.getEndpoints = async () => { throw new Error("BadServiceUnsupported"); };
-      c.disconnect = async () => { disconnected++; };
+      c.getEndpoints = async () => {
+        throw new Error("BadServiceUnsupported");
+      };
+      c.disconnect = async () => {
+        disconnected++;
+      };
       return c;
     });
 

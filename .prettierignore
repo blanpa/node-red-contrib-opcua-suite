@@ -1,0 +1,13 @@
+node_modules/
+data/
+logs/
+coverage/
+package-lock.json
+
+# Node-RED editor files embed <script type="text/html"> templates that are not
+# real HTML documents; Prettier rewrites them in ways the editor chokes on.
+*.html
+
+# Example flows are Node-RED exports — keep them byte-identical to what the
+# editor produces so a re-import/re-export round-trip is a no-op.
+examples/

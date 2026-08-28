@@ -65,7 +65,6 @@ function rmrf(dir) {
 }
 
 describe("cert-store", function () {
-
   before(function () {
     if (!fs.existsSync(TMP_DIR)) {
       fs.mkdirSync(TMP_DIR, { recursive: true });
@@ -246,7 +245,9 @@ describe("cert-store", function () {
       registerCertRoutes(RED, "/test-prefix", TMP_DIR);
       expect(RED.routes).to.have.property("POST /test-prefix/upload-cert");
       expect(RED.routes).to.have.property("GET /test-prefix/certs");
-      expect(RED.routes).to.have.property("DEL /test-prefix/upload-cert/:filename");
+      expect(RED.routes).to.have.property(
+        "DEL /test-prefix/upload-cert/:filename",
+      );
     });
 
     it("returns immediately when RED.httpAdmin is falsy", function () {
@@ -301,7 +302,9 @@ describe("cert-store", function () {
       expect(res.json.called).to.equal(true);
       const body = res.json.firstCall.args[0];
       expect(body).to.be.an("array");
-      const names = body.map(function (item) { return item.name; });
+      const names = body.map(function (item) {
+        return item.name;
+      });
       expect(names).to.include("x.pem");
       expect(names).to.include("y.crt");
       expect(names).to.not.include("z.txt");

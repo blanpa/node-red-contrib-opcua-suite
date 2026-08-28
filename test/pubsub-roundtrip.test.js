@@ -59,7 +59,9 @@ function createRED(nodeOverrides) {
         types[name] = { constructor: ctor, opts };
       },
       getNode(id) {
-        return registeredNodes[id] || (nodeOverrides && nodeOverrides[id]) || null;
+        return (
+          registeredNodes[id] || (nodeOverrides && nodeOverrides[id]) || null
+        );
       },
       _types: types,
       _registered: registeredNodes,
@@ -76,14 +78,12 @@ function makeConnStub(transport, props) {
   // 'connected' status (HI-05), so this fan-out must be wired for it to publish.
   const statusCallbacks = new Set();
   transport.on("connected", () =>
-    statusCallbacks.forEach((cb) => cb("connected"))
+    statusCallbacks.forEach((cb) => cb("connected")),
   );
   transport.on("disconnected", () =>
-    statusCallbacks.forEach((cb) => cb("disconnected"))
+    statusCallbacks.forEach((cb) => cb("disconnected")),
   );
-  transport.on("error", (e) =>
-    statusCallbacks.forEach((cb) => cb("error", e))
-  );
+  transport.on("error", (e) => statusCallbacks.forEach((cb) => cb("error", e)));
   return Object.assign(
     {
       acquireTransport() {
@@ -108,7 +108,7 @@ function makeConnStub(transport, props) {
       },
       _refs: () => refs,
     },
-    props
+    props,
   );
 }
 

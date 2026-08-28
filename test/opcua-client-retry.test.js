@@ -220,7 +220,9 @@ describe("opcua-client session retry", function () {
   it('should retry when error is "Secure Channel Closed"', async function () {
     mgr.read.onFirstCall().callsFake(async () => {
       mgr.isConnected = false;
-      throw new Error("The connection may have been rejected by server,\n Err = (Secure Channel Closed)");
+      throw new Error(
+        "The connection may have been rejected by server,\n Err = (Secure Channel Closed)",
+      );
     });
     mgr.read.onSecondCall().resolves({
       value: { value: 88, dataType: 6 },
@@ -382,10 +384,7 @@ describe("opcua-client session retry", function () {
 
     const msg = {
       operation: "readmultiple",
-      items: [
-        { nodeId: "ns=2;s=Var1" },
-        { nodeId: "ns=2;s=Var2" },
-      ],
+      items: [{ nodeId: "ns=2;s=Var1" }, { nodeId: "ns=2;s=Var2" }],
     };
     const send = sinon.stub();
     const done = sinon.stub();

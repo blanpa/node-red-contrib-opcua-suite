@@ -75,7 +75,12 @@ describe("OpcUaClientManager.connect single-flight (issue #17)", function () {
     const counters = stubOpcUaClient(sandbox);
     const mgr = new OpcUaClientManager({ endpointUrl: "opc.tcp://x:4840" });
 
-    await Promise.all([mgr.connect(), mgr.connect(), mgr.connect(), mgr.connect()]);
+    await Promise.all([
+      mgr.connect(),
+      mgr.connect(),
+      mgr.connect(),
+      mgr.connect(),
+    ]);
 
     expect(counters.clientsCreated).to.equal(1);
     expect(counters.sessionsOpened).to.equal(1);
@@ -129,7 +134,10 @@ describe("OpcUaClientManager.connect single-flight (issue #17)", function () {
   });
 
   it("disconnect() racing an in-flight connect() still tears the session down", async function () {
-    const counters = stubOpcUaClient(sandbox, { connectDelay: 30, sessionDelay: 30 });
+    const counters = stubOpcUaClient(sandbox, {
+      connectDelay: 30,
+      sessionDelay: 30,
+    });
     const mgr = new OpcUaClientManager({ endpointUrl: "opc.tcp://x:4840" });
 
     const connecting = mgr.connect();
@@ -194,7 +202,10 @@ describe("PooledClientManager.connect (issue #17)", function () {
 
   it("a pool of N opens exactly N sessions under concurrent connects", async function () {
     const counters = stubOpcUaClient(sandbox);
-    const pool = new PooledClientManager({ endpointUrl: "opc.tcp://x:4840" }, 2);
+    const pool = new PooledClientManager(
+      { endpointUrl: "opc.tcp://x:4840" },
+      2,
+    );
 
     await Promise.all([pool.connect(), pool.connect(), pool.connect()]);
 

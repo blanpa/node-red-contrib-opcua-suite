@@ -221,8 +221,9 @@ describe("OpcUaClientManager.reconnect / _isConnectionLostError (DEBT-01)", func
     });
 
     it("returns true for 'Session is no longer valid'", function () {
-      expect(mgr._isConnectionLostError(new Error("Session is no longer valid")))
-        .to.be.true;
+      expect(
+        mgr._isConnectionLostError(new Error("Session is no longer valid")),
+      ).to.be.true;
     });
 
     it("returns true for 'Not connected'", function () {
@@ -253,9 +254,7 @@ describe("OpcUaClientManager.reconnect / _isConnectionLostError (DEBT-01)", func
 
     it("returns true for messages containing 'Server end point'", function () {
       expect(
-        mgr._isConnectionLostError(
-          new Error("Server end point unreachable"),
-        ),
+        mgr._isConnectionLostError(new Error("Server end point unreachable")),
       ).to.be.true;
     });
 

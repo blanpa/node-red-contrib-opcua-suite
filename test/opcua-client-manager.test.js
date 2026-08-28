@@ -233,7 +233,9 @@ describe("OpcUaClientManager", function () {
       });
       mgr.isConnected = true;
       mgr.session = { isReconnecting: true };
-      expect(() => mgr._ensureConnected()).to.throw("Session is no longer valid");
+      expect(() => mgr._ensureConnected()).to.throw(
+        "Session is no longer valid",
+      );
       expect(mgr.isConnected).to.be.false;
     });
 
@@ -243,7 +245,9 @@ describe("OpcUaClientManager", function () {
       });
       mgr.isConnected = true;
       mgr.session = { hasBeenClosed: () => true };
-      expect(() => mgr._ensureConnected()).to.throw("Session is no longer valid");
+      expect(() => mgr._ensureConnected()).to.throw(
+        "Session is no longer valid",
+      );
       expect(mgr.isConnected).to.be.false;
     });
 
@@ -253,7 +257,9 @@ describe("OpcUaClientManager", function () {
       });
       mgr.isConnected = true;
       mgr.session = { hasBeenClosed: true };
-      expect(() => mgr._ensureConnected()).to.throw("Session is no longer valid");
+      expect(() => mgr._ensureConnected()).to.throw(
+        "Session is no longer valid",
+      );
       expect(mgr.isConnected).to.be.false;
     });
 
@@ -602,7 +608,9 @@ describe("OpcUaClientManager", function () {
         await mgr._withTimeout(neverResolves, 50, "testOp");
         throw new Error("should not reach here");
       } catch (err) {
-        expect(err.message).to.include("Operation timed out after 50ms: testOp");
+        expect(err.message).to.include(
+          "Operation timed out after 50ms: testOp",
+        );
         expect(mgr.isConnected).to.be.false;
       }
     });
@@ -640,7 +648,11 @@ describe("OpcUaClientManager", function () {
       mgr.session = {
         read: sinon.stub().resolves({
           value: { value: 42, dataType: 6 },
-          statusCode: { value: 0, name: "Good", toString: () => "Good (0x00000000)" },
+          statusCode: {
+            value: 0,
+            name: "Good",
+            toString: () => "Good (0x00000000)",
+          },
           sourceTimestamp: new Date(),
           serverTimestamp: new Date(),
         }),
@@ -652,10 +664,30 @@ describe("OpcUaClientManager", function () {
     });
 
     it("should fall back to attribute read for Object nodes (BadAttributeIdInvalid)", async function () {
-      const browseNameResult = { value: { value: { name: "MyObject" }, dataType: 0 }, statusCode: { value: 0, toString: () => "Good" }, sourceTimestamp: new Date(), serverTimestamp: new Date() };
-      const displayNameResult = { value: { value: { text: "My Object" }, dataType: 0 }, statusCode: { value: 0, toString: () => "Good" }, sourceTimestamp: new Date(), serverTimestamp: new Date() };
-      const descriptionResult = { value: { value: { text: "An OPC UA object" }, dataType: 0 }, statusCode: { value: 0, toString: () => "Good" }, sourceTimestamp: new Date(), serverTimestamp: new Date() };
-      const nodeClassResult = { value: { value: 1 }, statusCode: { value: 0, toString: () => "Good" }, sourceTimestamp: new Date(), serverTimestamp: new Date() };
+      const browseNameResult = {
+        value: { value: { name: "MyObject" }, dataType: 0 },
+        statusCode: { value: 0, toString: () => "Good" },
+        sourceTimestamp: new Date(),
+        serverTimestamp: new Date(),
+      };
+      const displayNameResult = {
+        value: { value: { text: "My Object" }, dataType: 0 },
+        statusCode: { value: 0, toString: () => "Good" },
+        sourceTimestamp: new Date(),
+        serverTimestamp: new Date(),
+      };
+      const descriptionResult = {
+        value: { value: { text: "An OPC UA object" }, dataType: 0 },
+        statusCode: { value: 0, toString: () => "Good" },
+        sourceTimestamp: new Date(),
+        serverTimestamp: new Date(),
+      };
+      const nodeClassResult = {
+        value: { value: 1 },
+        statusCode: { value: 0, toString: () => "Good" },
+        sourceTimestamp: new Date(),
+        serverTimestamp: new Date(),
+      };
 
       mgr.session = {
         read: sinon.stub(),
@@ -664,18 +696,24 @@ describe("OpcUaClientManager", function () {
       // First call: Value attribute read returns BadAttributeIdInvalid
       mgr.session.read.onFirstCall().resolves({
         value: { value: null },
-        statusCode: { value: 0x80350000, name: "BadAttributeIdInvalid", toString: () => "BadAttributeIdInvalid (0x80350000)" },
+        statusCode: {
+          value: 0x80350000,
+          name: "BadAttributeIdInvalid",
+          toString: () => "BadAttributeIdInvalid (0x80350000)",
+        },
         sourceTimestamp: null,
         serverTimestamp: null,
       });
 
       // Second call: fallback multi-attribute read
-      mgr.session.read.onSecondCall().resolves([
-        nodeClassResult,
-        browseNameResult,
-        displayNameResult,
-        descriptionResult,
-      ]);
+      mgr.session.read
+        .onSecondCall()
+        .resolves([
+          nodeClassResult,
+          browseNameResult,
+          displayNameResult,
+          descriptionResult,
+        ]);
 
       const result = await mgr.read("ns=2;s=MyObjectNode");
       expect(result.statusCode).to.equal("Good (0x00000000)");
@@ -705,7 +743,11 @@ describe("OpcUaClientManager", function () {
       mgr.session = {
         read: sinon.stub().resolves({
           value: { value: null, dataType: undefined },
-          statusCode: { value: 0x80010000, name: "BadUnexpectedError", toString: () => "BadUnexpectedError (0x80010000)" },
+          statusCode: {
+            value: 0x80010000,
+            name: "BadUnexpectedError",
+            toString: () => "BadUnexpectedError (0x80010000)",
+          },
           sourceTimestamp: null,
           serverTimestamp: null,
         }),
@@ -733,7 +775,11 @@ describe("OpcUaClientManager", function () {
       mgr.session = {
         read: sinon.stub().resolves({
           value: { value: extObj, dataType: 22 /* ExtensionObject */ },
-          statusCode: { value: 0, name: "Good", toString: () => "Good (0x00000000)" },
+          statusCode: {
+            value: 0,
+            name: "Good",
+            toString: () => "Good (0x00000000)",
+          },
           sourceTimestamp: new Date(),
           serverTimestamp: new Date(),
         }),
@@ -768,14 +814,22 @@ describe("OpcUaClientManager", function () {
         // Item 0: Variable — good
         {
           value: { value: 99, dataType: 6 },
-          statusCode: { value: 0, name: "Good", toString: () => "Good (0x00000000)" },
+          statusCode: {
+            value: 0,
+            name: "Good",
+            toString: () => "Good (0x00000000)",
+          },
           sourceTimestamp: new Date(),
           serverTimestamp: new Date(),
         },
         // Item 1: Object — BadAttributeIdInvalid
         {
           value: { value: null },
-          statusCode: { value: 0x80350000, name: "BadAttributeIdInvalid", toString: () => "BadAttributeIdInvalid (0x80350000)" },
+          statusCode: {
+            value: 0x80350000,
+            name: "BadAttributeIdInvalid",
+            toString: () => "BadAttributeIdInvalid (0x80350000)",
+          },
           sourceTimestamp: null,
           serverTimestamp: null,
         },
@@ -783,10 +837,30 @@ describe("OpcUaClientManager", function () {
 
       // Second call: fallback attribute read for item 1
       mgr.session.read.onSecondCall().resolves([
-        { value: { value: 1 }, statusCode: { value: 0, toString: () => "Good" }, sourceTimestamp: new Date(), serverTimestamp: new Date() },
-        { value: { value: { name: "Obj" } }, statusCode: { value: 0, toString: () => "Good" }, sourceTimestamp: new Date(), serverTimestamp: new Date() },
-        { value: { value: { text: "Object Node" } }, statusCode: { value: 0, toString: () => "Good" }, sourceTimestamp: new Date(), serverTimestamp: new Date() },
-        { value: { value: { text: null } }, statusCode: { value: 0, toString: () => "Good" }, sourceTimestamp: new Date(), serverTimestamp: new Date() },
+        {
+          value: { value: 1 },
+          statusCode: { value: 0, toString: () => "Good" },
+          sourceTimestamp: new Date(),
+          serverTimestamp: new Date(),
+        },
+        {
+          value: { value: { name: "Obj" } },
+          statusCode: { value: 0, toString: () => "Good" },
+          sourceTimestamp: new Date(),
+          serverTimestamp: new Date(),
+        },
+        {
+          value: { value: { text: "Object Node" } },
+          statusCode: { value: 0, toString: () => "Good" },
+          sourceTimestamp: new Date(),
+          serverTimestamp: new Date(),
+        },
+        {
+          value: { value: { text: null } },
+          statusCode: { value: 0, toString: () => "Good" },
+          sourceTimestamp: new Date(),
+          serverTimestamp: new Date(),
+        },
       ]);
 
       const results = await mgr.readMultiple(["ns=2;s=Var1", "ns=2;s=ObjNode"]);
@@ -812,20 +886,31 @@ describe("OpcUaClientManager", function () {
         read: sinon.stub().resolves([
           {
             value: { value: 7, dataType: 6 /* Int32-ish */ },
-            statusCode: { value: 0, name: "Good", toString: () => "Good (0x00000000)" },
+            statusCode: {
+              value: 0,
+              name: "Good",
+              toString: () => "Good (0x00000000)",
+            },
             sourceTimestamp: new Date(),
             serverTimestamp: new Date(),
           },
           {
             value: { value: extObj, dataType: 22 /* ExtensionObject */ },
-            statusCode: { value: 0, name: "Good", toString: () => "Good (0x00000000)" },
+            statusCode: {
+              value: 0,
+              name: "Good",
+              toString: () => "Good (0x00000000)",
+            },
             sourceTimestamp: new Date(),
             serverTimestamp: new Date(),
           },
         ]),
       };
 
-      const results = await mgr.readMultiple(["ns=2;s=Scalar", "ns=2;s=Struct"]);
+      const results = await mgr.readMultiple([
+        "ns=2;s=Scalar",
+        "ns=2;s=Struct",
+      ]);
       expect(results).to.have.lengthOf(2);
       expect(results[0].value).to.equal(7);
       expect(results[1].dataType).to.equal("ExtensionObject");

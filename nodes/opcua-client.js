@@ -16,7 +16,8 @@ const { NodeClass } = require("node-opcua");
 
 function nodeClassName(nodeClass) {
   if (typeof nodeClass === "string") return nodeClass;
-  if (typeof nodeClass === "number") return NodeClass[nodeClass] || String(nodeClass);
+  if (typeof nodeClass === "number")
+    return NodeClass[nodeClass] || String(nodeClass);
   return nodeClass != null ? String(nodeClass) : "";
 }
 
@@ -137,7 +138,8 @@ module.exports = function (RED) {
           node.status({ fill: "yellow", shape: "ring", text: "connecting..." });
           break;
         case "error":
-          if (verboseLog) node.error(`OPC UA error: ${error ? error.message : "unknown"}`);
+          if (verboseLog)
+            node.error(`OPC UA error: ${error ? error.message : "unknown"}`);
           node.status({ fill: "red", shape: "ring", text: "error" });
           break;
       }
@@ -312,7 +314,11 @@ module.exports = function (RED) {
                   `${attempt}/${maxOperationRetries}...`,
               );
             }
-            node.status({ fill: "yellow", shape: "ring", text: "reconnecting..." });
+            node.status({
+              fill: "yellow",
+              shape: "ring",
+              text: "reconnecting...",
+            });
             try {
               await clientManager.reconnect({
                 reason: "session-lost",

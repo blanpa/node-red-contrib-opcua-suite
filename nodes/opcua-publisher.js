@@ -16,7 +16,11 @@
 
 "use strict";
 
-const { WriterGroup, DataSetWriter, PublishedDataSet } = require("../lib/pubsub-config");
+const {
+  WriterGroup,
+  DataSetWriter,
+  PublishedDataSet,
+} = require("../lib/pubsub-config");
 
 module.exports = function (RED) {
   function OpcUaPublisherNode(config) {
@@ -37,7 +41,7 @@ module.exports = function (RED) {
 
     if (conn.transportType === "udp" && node.messageEncoding === "json") {
       node.error(
-        "UDP transport requires UADP encoding (UDP-JSON is not a supported combination)"
+        "UDP transport requires UADP encoding (UDP-JSON is not a supported combination)",
       );
       node.status({ fill: "red", shape: "ring", text: "UDP requires UADP" });
       return;
@@ -60,14 +64,15 @@ module.exports = function (RED) {
             ? Number(config.keepAliveTime)
             : undefined,
         maxNetworkMessageSize:
-          config.maxNetworkMessageSize != null && config.maxNetworkMessageSize !== ""
+          config.maxNetworkMessageSize != null &&
+          config.maxNetworkMessageSize !== ""
             ? Number(config.maxNetworkMessageSize)
             : undefined,
         priority:
           config.priority != null && config.priority !== ""
             ? Number(config.priority)
             : undefined,
-        writerGroupId: Number(config.writerGroupId)
+        writerGroupId: Number(config.writerGroupId),
       });
 
       const rawWriters =
@@ -87,7 +92,7 @@ module.exports = function (RED) {
         return DataSetWriter({
           dataSetWriterId: Number(w.dataSetWriterId),
           dataSetName: w.dataSetName,
-          publishedDataSet: pds
+          publishedDataSet: pds,
         });
       });
 
@@ -118,8 +123,8 @@ module.exports = function (RED) {
     });
 
     // ─── 5. Sequence state ───
-    node._nmSeq = 0;           // NetworkMessage groupHeader.sequenceNumber
-    node._dsmSeq = {};         // per-writer DataSetMessage sequenceNumber
+    node._nmSeq = 0; // NetworkMessage groupHeader.sequenceNumber
+    node._dsmSeq = {}; // per-writer DataSetMessage sequenceNumber
 
     // ─── Cyclic latest-value state (Task 2 / HI-03) ───
     // _latestValues accumulates the latest value per field from inbound msgs (a field
@@ -183,7 +188,7 @@ module.exports = function (RED) {
           node.status({
             fill: "red",
             shape: "ring",
-            text: err && err.message ? "error: " + err.message : "error"
+            text: err && err.message ? "error: " + err.message : "error",
           });
           break;
         default:
@@ -201,159 +206,163 @@ module.exports = function (RED) {
     // Wrap it so a setup failure releases the transport and unregisters the status
     // callback (mirroring the section-4 pattern) before red-statusing.
     try {
-
-    // ─── 7. NetworkMessage builder (keyframe) ───
-    node._buildNetworkMessage = function (sourceValues) {
-      sourceValues = sourceValues || {};
-      // HI-04: UADP sequence numbers are UInt16; wrap modulo 0x10000 so a long-running
-      // publisher rolls 65535 → 0 (spec-correct) instead of overflowing writeUInt16LE.
-      node._nmSeq = (node._nmSeq + 1) & 0xFFFF;
-      const payload = node.writers.map(function (writer) {
-        const id = writer.dataSetWriterId;
-        node._dsmSeq[id] = ((node._dsmSeq[id] || 0) + 1) & 0xFFFF;
-        const fields = {};
-        writer.publishedDataSet.fields.forEach(function (field) {
-          if (sourceValues[field.name] !== undefined) {
-            fields[field.name] = {
-              dataType: field.dataType,
-              value: sourceValues[field.name]
-            };
-          }
+      // ─── 7. NetworkMessage builder (keyframe) ───
+      node._buildNetworkMessage = function (sourceValues) {
+        sourceValues = sourceValues || {};
+        // HI-04: UADP sequence numbers are UInt16; wrap modulo 0x10000 so a long-running
+        // publisher rolls 65535 → 0 (spec-correct) instead of overflowing writeUInt16LE.
+        node._nmSeq = (node._nmSeq + 1) & 0xffff;
+        const payload = node.writers.map(function (writer) {
+          const id = writer.dataSetWriterId;
+          node._dsmSeq[id] = ((node._dsmSeq[id] || 0) + 1) & 0xffff;
+          const fields = {};
+          writer.publishedDataSet.fields.forEach(function (field) {
+            if (sourceValues[field.name] !== undefined) {
+              fields[field.name] = {
+                dataType: field.dataType,
+                value: sourceValues[field.name],
+              };
+            }
+          });
+          return {
+            dataSetWriterId: id,
+            messageType: "keyframe",
+            sequenceNumber: node._dsmSeq[id],
+            configurationVersion: writer.publishedDataSet.configurationVersion,
+            fields: fields,
+          };
         });
         return {
-          dataSetWriterId: id,
-          messageType: "keyframe",
-          sequenceNumber: node._dsmSeq[id],
-          configurationVersion: writer.publishedDataSet.configurationVersion,
-          fields: fields
+          publisherId: conn.publisherId,
+          groupHeader: {
+            writerGroupId: node.writerGroup.writerGroupId,
+            sequenceNumber: node._nmSeq,
+          },
+          payloadHeader: {
+            dataSetWriterIds: node.writers.map(function (w) {
+              return w.dataSetWriterId;
+            }),
+          },
+          timestamp: new Date(),
+          payload: payload,
         };
-      });
-      return {
-        publisherId: conn.publisherId,
-        groupHeader: {
-          writerGroupId: node.writerGroup.writerGroupId,
-          sequenceNumber: node._nmSeq
-        },
-        payloadHeader: {
-          dataSetWriterIds: node.writers.map(function (w) {
-            return w.dataSetWriterId;
-          })
-        },
-        timestamp: new Date(),
-        payload: payload
       };
-    };
 
-    // ─── KeepAlive builder (cyclic no-change, D4-06) ───
-    node._buildKeepAlive = function () {
-      // HI-04: same UInt16 wraparound as the keyframe path.
-      node._nmSeq = (node._nmSeq + 1) & 0xFFFF;
-      const payload = node.writers.map(function (writer) {
-        const id = writer.dataSetWriterId;
-        node._dsmSeq[id] = ((node._dsmSeq[id] || 0) + 1) & 0xFFFF;
+      // ─── KeepAlive builder (cyclic no-change, D4-06) ───
+      node._buildKeepAlive = function () {
+        // HI-04: same UInt16 wraparound as the keyframe path.
+        node._nmSeq = (node._nmSeq + 1) & 0xffff;
+        const payload = node.writers.map(function (writer) {
+          const id = writer.dataSetWriterId;
+          node._dsmSeq[id] = ((node._dsmSeq[id] || 0) + 1) & 0xffff;
+          return {
+            dataSetWriterId: id,
+            messageType: "keepalive",
+            sequenceNumber: node._dsmSeq[id],
+            fields: {},
+          };
+        });
         return {
-          dataSetWriterId: id,
-          messageType: "keepalive",
-          sequenceNumber: node._dsmSeq[id],
-          fields: {}
+          publisherId: conn.publisherId,
+          groupHeader: {
+            writerGroupId: node.writerGroup.writerGroupId,
+            sequenceNumber: node._nmSeq,
+          },
+          payloadHeader: {
+            dataSetWriterIds: node.writers.map(function (w) {
+              return w.dataSetWriterId;
+            }),
+          },
+          timestamp: new Date(),
+          payload: payload,
         };
-      });
-      return {
-        publisherId: conn.publisherId,
-        groupHeader: {
-          writerGroupId: node.writerGroup.writerGroupId,
-          sequenceNumber: node._nmSeq
-        },
-        payloadHeader: {
-          dataSetWriterIds: node.writers.map(function (w) {
-            return w.dataSetWriterId;
-          })
-        },
-        timestamp: new Date(),
-        payload: payload
       };
-    };
 
-    // ─── 8. Encode + send a NetworkMessage ───
-    // MQTT requires topic identifiers — the MqttTransport builds
-    // `${prefix}/${publisherId}/${writerGroupId}/${dataSetWriterId}` from the
-    // send() opts and throws TOPIC_INVALID_CHARACTER when they are missing. UDP
-    // ignores opts. Pass the WriterGroup id + first DataSetWriter id (the topic
-    // granularity matching the published frame) so the MQTT path actually
-    // publishes instead of throwing.
-    node._sendOpts = {
-      writerGroupId: node.writerGroup.writerGroupId,
-      dataSetWriterId: node.writers[0].dataSetWriterId
-    };
+      // ─── 8. Encode + send a NetworkMessage ───
+      // MQTT requires topic identifiers — the MqttTransport builds
+      // `${prefix}/${publisherId}/${writerGroupId}/${dataSetWriterId}` from the
+      // send() opts and throws TOPIC_INVALID_CHARACTER when they are missing. UDP
+      // ignores opts. Pass the WriterGroup id + first DataSetWriter id (the topic
+      // granularity matching the published frame) so the MQTT path actually
+      // publishes instead of throwing.
+      node._sendOpts = {
+        writerGroupId: node.writerGroup.writerGroupId,
+        dataSetWriterId: node.writers[0].dataSetWriterId,
+      };
 
-    node._emit = function (nm) {
-      // HI-05: hold sends until the transport reports 'connected'. Queue only the
-      // most-recent NetworkMessage (older pending frames are superseded) so a burst of
-      // pre-connect injects collapses to the latest, then flushes on 'connected'.
-      if (!node._connected) {
-        node._pendingSend = nm;
-        return;
-      }
-      const encoded = encoder.encodeNetworkMessage(nm, {
-        mtu: node.writerGroup.maxNetworkMessageSize
-      });
-      node.transport.send(encoded, node._sendOpts);
-      node._setPublishing();
-    };
-
-    // ─── Cyclic interval: one setInterval per WriterGroup (D4-06, PUB-02) ───
-    if (node.publishMode === "cyclic") {
-      node._interval = setInterval(function () {
-        try {
-          let nm;
-          // HI-03: deep-compare the accumulated latest values against the last PUBLISHED
-          // snapshot. Changed (or nothing published yet) → keyframe + refresh snapshot;
-          // unchanged → KeepAlive. A value re-sent equal to the last published one does
-          // NOT force a keyframe.
-          if (node._valuesChanged(node._latestValues, node._publishedSnapshot)) {
-            nm = node._buildNetworkMessage(node._latestValues);
-            // Snapshot the exact values that went into this keyframe.
-            node._publishedSnapshot = JSON.parse(JSON.stringify(node._latestValues));
-          } else {
-            nm = node._buildKeepAlive();
-          }
-          node._emit(nm);
-        } catch (e) {
-          node.error(e.message);
-          node.status({ fill: "red", shape: "ring", text: "error" });
-        }
-      }, node.writerGroup.publishingInterval);
-    }
-
-    // ─── 9. Input handler (D4-05, PUB-03) ───
-    node.on("input", function (msg, send, done) {
-      send = send || function () {};
-      done = done || function () {};
-      try {
-        const sourceValues =
-          msg && msg.payload && typeof msg.payload === "object" ? msg.payload : {};
-
-        if (node.publishMode === "cyclic") {
-          // Cyclic: merge the latest value per field; the interval decides keyframe vs
-          // KeepAlive by comparing _latestValues to the last published snapshot (HI-03).
-          Object.assign(node._latestValues, sourceValues);
-          send(msg);
-          done();
+      node._emit = function (nm) {
+        // HI-05: hold sends until the transport reports 'connected'. Queue only the
+        // most-recent NetworkMessage (older pending frames are superseded) so a burst of
+        // pre-connect injects collapses to the latest, then flushes on 'connected'.
+        if (!node._connected) {
+          node._pendingSend = nm;
           return;
         }
+        const encoded = encoder.encodeNetworkMessage(nm, {
+          mtu: node.writerGroup.maxNetworkMessageSize,
+        });
+        node.transport.send(encoded, node._sendOpts);
+        node._setPublishing();
+      };
 
-        // Acyclic: one inbound msg → one outbound NetworkMessage.
-        const nm = node._buildNetworkMessage(sourceValues);
-        node._emit(nm);
-        send(msg);
-        done();
-      } catch (e) {
-        node.error(e.message, msg);
-        node.status({ fill: "red", shape: "ring", text: "error" });
-        done(e);
+      // ─── Cyclic interval: one setInterval per WriterGroup (D4-06, PUB-02) ───
+      if (node.publishMode === "cyclic") {
+        node._interval = setInterval(function () {
+          try {
+            let nm;
+            // HI-03: deep-compare the accumulated latest values against the last PUBLISHED
+            // snapshot. Changed (or nothing published yet) → keyframe + refresh snapshot;
+            // unchanged → KeepAlive. A value re-sent equal to the last published one does
+            // NOT force a keyframe.
+            if (
+              node._valuesChanged(node._latestValues, node._publishedSnapshot)
+            ) {
+              nm = node._buildNetworkMessage(node._latestValues);
+              // Snapshot the exact values that went into this keyframe.
+              node._publishedSnapshot = JSON.parse(
+                JSON.stringify(node._latestValues),
+              );
+            } else {
+              nm = node._buildKeepAlive();
+            }
+            node._emit(nm);
+          } catch (e) {
+            node.error(e.message);
+            node.status({ fill: "red", shape: "ring", text: "error" });
+          }
+        }, node.writerGroup.publishingInterval);
       }
-    });
 
+      // ─── 9. Input handler (D4-05, PUB-03) ───
+      node.on("input", function (msg, send, done) {
+        send = send || function () {};
+        done = done || function () {};
+        try {
+          const sourceValues =
+            msg && msg.payload && typeof msg.payload === "object"
+              ? msg.payload
+              : {};
+
+          if (node.publishMode === "cyclic") {
+            // Cyclic: merge the latest value per field; the interval decides keyframe vs
+            // KeepAlive by comparing _latestValues to the last published snapshot (HI-03).
+            Object.assign(node._latestValues, sourceValues);
+            send(msg);
+            done();
+            return;
+          }
+
+          // Acyclic: one inbound msg → one outbound NetworkMessage.
+          const nm = node._buildNetworkMessage(sourceValues);
+          node._emit(nm);
+          send(msg);
+          done();
+        } catch (e) {
+          node.error(e.message, msg);
+          node.status({ fill: "red", shape: "ring", text: "error" });
+          done(e);
+        }
+      });
     } catch (setupErr) {
       // HI-05: post-acquire setup failed — release the transport and unregister the
       // status callback so no ref leaks, then surface the error.

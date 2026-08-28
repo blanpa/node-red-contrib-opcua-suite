@@ -57,7 +57,6 @@ function _redactConfig(cfg) {
 }
 
 module.exports = function (RED) {
-
   // ─── Certificate Upload HTTP Endpoint (reuse Phase 1 cert-store, DEBT-02) ───
   // Registered once at module load under this node's own prefix. Mirrors
   // nodes/opcua-endpoint.js line 17. registerCertRoutes is a no-op when
@@ -148,11 +147,9 @@ module.exports = function (RED) {
           node.transportType +
           " (config: " +
           JSON.stringify(_redactConfig(config)) +
-          ")"
+          ")",
       );
-      throw new Error(
-        "OPCUA_PUBSUB_UNKNOWN_TRANSPORT: " + node.transportType
-      );
+      throw new Error("OPCUA_PUBSUB_UNKNOWN_TRANSPORT: " + node.transportType);
     };
 
     /**
@@ -178,28 +175,28 @@ module.exports = function (RED) {
 
         // Status fan-out — mirrors opcua-endpoint.js lines 92-104.
         transport.on("connected", () =>
-          node._statusCallbacks.forEach((cb) => safeCb(cb, "connected"))
+          node._statusCallbacks.forEach((cb) => safeCb(cb, "connected")),
         );
         transport.on("disconnected", () =>
-          node._statusCallbacks.forEach((cb) => safeCb(cb, "disconnected"))
+          node._statusCallbacks.forEach((cb) => safeCb(cb, "disconnected")),
         );
         transport.on("reconnecting", () =>
-          node._statusCallbacks.forEach((cb) => safeCb(cb, "reconnecting"))
+          node._statusCallbacks.forEach((cb) => safeCb(cb, "reconnecting")),
         );
         transport.on("error", (e) =>
-          node._statusCallbacks.forEach((cb) => safeCb(cb, "error", e))
+          node._statusCallbacks.forEach((cb) => safeCb(cb, "error", e)),
         );
         // W-4: surface UDP_REASSEMBLY_OVERFLOW (and any future 'warn') to the
         // Node-RED log so operators see it. NOT part of the worker fan-out set.
         transport.on("warn", (e) =>
-          node.warn(e && e.message ? e.message : String(e))
+          node.warn(e && e.message ? e.message : String(e)),
         );
 
         // Kick off connect; surface a connect failure via the error fan-out.
         Promise.resolve()
           .then(() => transport.connect())
           .catch((err) =>
-            node._statusCallbacks.forEach((cb) => safeCb(cb, "error", err))
+            node._statusCallbacks.forEach((cb) => safeCb(cb, "error", err)),
           );
       }
 
