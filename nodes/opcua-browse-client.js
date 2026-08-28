@@ -14,33 +14,62 @@ const {
   resolveNodeId,
   NodeClass,
   AttributeIds,
-  DataType,
 } = require("node-opcua");
 
 module.exports = function (RED) {
   // ─── Cached browse connections (per endpoint, shared across editor tabs) ───
-  const browseConnections = new Map(); // endpointId -> { mgr, timer, refCount }
+  const browseConnections = new Map(); // endpointId -> { mgr, timer }
+  // Single-flight per endpoint. The editor tree fires several expand requests
+  // in parallel; without this each one built its own manager and overwrote
+  // browseConnections, orphaning the earlier sessions with nothing left to
+  // close them (issue #17, editor-side variant of the same bug).
+  const pendingConnections = new Map(); // endpointId -> Promise<OpcUaClientManager>
 
-  async function getBrowseConnection(endpointNode) {
+  const IDLE_TIMEOUT_MS = 60000;
+
+  /**
+   * Middleware enforcing a Node-RED admin permission, or a pass-through when
+   * RED.auth is unavailable. These routes open OPC UA connections to arbitrary
+   * configured endpoints, so they must not be reachable unauthenticated when
+   * adminAuth is configured.
+   */
+  function permission(scope) {
+    if (RED.auth && typeof RED.auth.needsPermission === "function") {
+      return RED.auth.needsPermission(scope);
+    }
+    return function (req, res, next) {
+      next();
+    };
+  }
+
+  function getBrowseConnection(endpointNode) {
     const id = endpointNode.id;
 
-    if (browseConnections.has(id)) {
-      const entry = browseConnections.get(id);
+    const existing = browseConnections.get(id);
+    if (existing) {
       // Reset idle timer
-      clearTimeout(entry.timer);
-      entry.timer = setTimeout(() => closeBrowseConnection(id), 60000);
-      if (entry.mgr.isConnected) {
-        return entry.mgr;
+      clearTimeout(existing.timer);
+      existing.timer = setTimeout(() => closeBrowseConnection(id), IDLE_TIMEOUT_MS);
+      if (existing.mgr.isConnected) {
+        return Promise.resolve(existing.mgr);
       }
-      // Connection lost — recreate
-      try {
-        await entry.mgr.disconnect();
-      } catch (e) {
-        /* ignore */
-      }
+      // Connection lost — drop it and build a fresh one below.
       browseConnections.delete(id);
+      Promise.resolve(existing.mgr.disconnect()).catch(() => {});
     }
 
+    const inFlight = pendingConnections.get(id);
+    if (inFlight) return inFlight;
+
+    const attempt = createBrowseConnection(endpointNode).finally(() => {
+      pendingConnections.delete(id);
+    });
+    pendingConnections.set(id, attempt);
+    return attempt;
+  }
+
+  async function createBrowseConnection(endpointNode) {
+    const id = endpointNode.id;
     const certData = endpointNode.getCertificateData
       ? endpointNode.getCertificateData()
       : {};
@@ -60,9 +89,19 @@ module.exports = function (RED) {
       userPrivateKeyFile: certData.userPrivateKeyFile || "",
     });
 
-    await mgr.connect();
+    try {
+      await mgr.connect();
+    } catch (err) {
+      // Never leave a half-built manager (and its channel) behind.
+      try {
+        await mgr.disconnect();
+      } catch (e) {
+        /* ignore */
+      }
+      throw err;
+    }
 
-    const timer = setTimeout(() => closeBrowseConnection(id), 60000);
+    const timer = setTimeout(() => closeBrowseConnection(id), IDLE_TIMEOUT_MS);
     browseConnections.set(id, { mgr, timer });
     return mgr;
   }
@@ -78,6 +117,24 @@ module.exports = function (RED) {
         /* ignore */
       }
     }
+  }
+
+  async function closeAllBrowseConnections() {
+    await Promise.all(
+      [...browseConnections.keys()].map((id) => closeBrowseConnection(id)),
+    );
+  }
+
+  // Editor browse sessions are not tied to any deployed node, so nothing else
+  // would close them on shutdown — they would linger until the 60s idle timer,
+  // or forever if the process exits before it fires (the server then keeps the
+  // session until its own timeout). "flows:stopped" fires on shutdown and on
+  // every redeploy; rebuilding a cached browse connection on the next editor
+  // request is cheap, so closing on both is the safe side.
+  if (RED.events && typeof RED.events.on === "function") {
+    RED.events.on("flows:stopped", function () {
+      closeAllBrowseConnections().catch(() => {});
+    });
   }
 
   // ─── Browse ResultMask bit flags (OPC UA Part 4, §7.5) ───
@@ -200,6 +257,7 @@ module.exports = function (RED) {
   if (RED.httpAdmin) {
     RED.httpAdmin.post(
       "/opcua-browse-client/browse",
+      permission("flows.read"),
       async function (req, res) {
         try {
           const { endpointId, nodeId } = req.body;
@@ -497,6 +555,7 @@ module.exports = function (RED) {
     // Disconnect cached browse connection
     RED.httpAdmin.post(
       "/opcua-browse-client/disconnect",
+      permission("flows.read"),
       async function (req, res) {
         try {
           const { endpointId } = req.body;
@@ -560,6 +619,18 @@ module.exports = function (RED) {
           monitorItems.clear();
           subscription = null;
           break;
+        case "session_recreated":
+          // The manager replaced the session after a reconnect (e.g. a Siemens
+          // S7 ~60s session timeout). Every ClientSubscription/MonitoredItem we
+          // hold is bound to the dead session and would throw "expecting a valid
+          // session" on reuse, so drop them and rebuild on the fresh session —
+          // the same fix opcua-client got for issue #15.
+          monitorItems.clear();
+          subscription = null;
+          if (mode === "subscribe" && selectedItems.length > 0) {
+            setupSubscriptions();
+          }
+          break;
         case "reconnecting":
           node.status({ fill: "yellow", shape: "ring", text: "connecting..." });
           break;
@@ -580,6 +651,14 @@ module.exports = function (RED) {
       if (mode === "subscribe" && selectedItems.length > 0) {
         setupSubscriptions();
       }
+    } else if (mode === "subscribe" && selectedItems.length > 0) {
+      // Subscribe mode is passive — nothing here ever sends an input message,
+      // so without a proactive connect a flow whose only OPC UA node is this
+      // one stayed at "not connected" forever and never delivered a value.
+      node.status({ fill: "yellow", shape: "ring", text: "connecting..." });
+      clientManager.connect().catch((err) => {
+        node.warn(`Initial connect failed: ${err.message}`);
+      });
     }
 
     // ─── Subscribe Mode ───

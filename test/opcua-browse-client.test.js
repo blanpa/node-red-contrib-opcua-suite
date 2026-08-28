@@ -10,6 +10,7 @@ const OpcUaClientManager = require("../lib/opcua-client-manager");
 
 function createRED(endpointNodes) {
   const routes = {};
+  const middleware = {};
   return {
     nodes: {
       createNode: function (node, config) {
@@ -26,14 +27,22 @@ function createRED(endpointNodes) {
       },
     },
     httpAdmin: {
-      post: function (routePath, handler) {
-        routes[routePath] = handler;
+      // Express routes are variadic: (path, ...middleware, handler). The last
+      // argument is the request handler; the admin-permission guard sits in
+      // front of it.
+      post: function (routePath) {
+        const fns = Array.prototype.slice.call(arguments, 1);
+        routes[routePath] = fns[fns.length - 1];
+        middleware[routePath] = fns.slice(0, -1);
       },
-      get: function (routePath, handler) {
-        routes[routePath] = handler;
+      get: function (routePath) {
+        const fns = Array.prototype.slice.call(arguments, 1);
+        routes[routePath] = fns[fns.length - 1];
+        middleware[routePath] = fns.slice(0, -1);
       },
     },
     _routes: routes,
+    _middleware: middleware,
   };
 }
 

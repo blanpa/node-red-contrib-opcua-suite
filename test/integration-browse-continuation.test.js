@@ -15,7 +15,6 @@ const sinon = require("sinon");
 const path = require("path");
 const {
   OPCUAServer,
-  Variant,
   DataType,
   MessageSecurityMode,
   SecurityPolicy,
@@ -171,11 +170,13 @@ describe("Integration: browse with continuation points (issue #14)", function ()
           },
         },
         httpAdmin: {
-          post(routePath, handler) {
-            routes[routePath] = handler;
+          // Variadic like Express: the last argument is the request handler,
+          // anything before it is middleware (the admin-permission guard).
+          post(routePath, ...fns) {
+            routes[routePath] = fns[fns.length - 1];
           },
-          get(routePath, handler) {
-            routes[routePath] = handler;
+          get(routePath, ...fns) {
+            routes[routePath] = fns[fns.length - 1];
           },
         },
       };
