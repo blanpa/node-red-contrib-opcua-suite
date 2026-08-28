@@ -4,6 +4,15 @@
  */
 
 const { parseNodeId } = require('../lib/opcua-utils');
+const { NodeClass } = require('node-opcua');
+
+// ReferenceDescription.nodeClass is a NodeClass ENUM value, not a string, so
+// the old `ref.nodeClass === 'Object'` comparisons were always false.
+function nodeClassName(nodeClass) {
+    if (typeof nodeClass === 'string') return nodeClass;
+    if (typeof nodeClass === 'number') return NodeClass[nodeClass] || String(nodeClass);
+    return nodeClass != null ? String(nodeClass) : '';
+}
 
 module.exports = function(RED) {
     function OpcUaBrowserNode(config) {
@@ -35,6 +44,9 @@ module.exports = function(RED) {
                     node.status({ fill: 'yellow', shape: 'ring', text: 'connecting...' });
                     break;
                 case 'error':
+                    // The connection error was previously received and dropped,
+                    // leaving a red dot with no explanation anywhere.
+                    node.error(`OPC UA error: ${error ? error.message : 'unknown'}`);
                     node.status({ fill: 'red', shape: 'ring', text: 'error' });
                     break;
             }
@@ -71,7 +83,7 @@ module.exports = function(RED) {
                     references: references.map(ref => ({
                         browseName: ref.browseName?.name || '',
                         nodeId: ref.nodeId?.toString() || '',
-                        nodeClass: ref.nodeClass || '',
+                        nodeClass: nodeClassName(ref.nodeClass),
                         typeDefinition: ref.typeDefinition?.toString() || '',
                         isForward: ref.isForward || false
                     })),
@@ -116,8 +128,15 @@ module.exports = function(RED) {
         });
     }
 
-    // Recursive browsing
-    async function browseRecursive(manager, nodeId, maxDepth, currentDepth = 0) {
+    // Recursive browsing.
+    //
+    // `visited` guards against revisiting a node: an OPC UA address space is a
+    // graph, not a tree, and without the guard a shared child (or an inverse
+    // reference exposed by the server) makes this walk the same subtree over
+    // and over. `manager.browse()` restricts itself to HierarchicalReferences,
+    // so we stay inside the address space instead of descending into the type
+    // system via HasTypeDefinition.
+    async function browseRecursive(manager, nodeId, maxDepth, currentDepth = 0, visited = new Set()) {
         if (currentDepth >= maxDepth) {
             return [];
         }
@@ -127,17 +146,23 @@ module.exports = function(RED) {
             const result = [];
 
             for (const ref of references) {
+                const refNodeId = ref.nodeId?.toString() || '';
+                const ncName = nodeClassName(ref.nodeClass);
                 const item = {
                     browseName: ref.browseName?.name || '',
-                    nodeId: ref.nodeId?.toString() || '',
-                    nodeClass: ref.nodeClass || '',
+                    nodeId: refNodeId,
+                    nodeClass: ncName,
                     depth: currentDepth,
                     children: []
                 };
 
                 // Only browse objects and variables recursively
-                if ((ref.nodeClass === 'Object' || ref.nodeClass === 'Variable') && ref.isForward) {
-                    item.children = await browseRecursive(manager, ref.nodeId, maxDepth, currentDepth + 1);
+                if ((ncName === 'Object' || ncName === 'Variable') &&
+                    ref.isForward && refNodeId && !visited.has(refNodeId)) {
+                    visited.add(refNodeId);
+                    item.children = await browseRecursive(
+                        manager, ref.nodeId, maxDepth, currentDepth + 1, visited
+                    );
                 }
 
                 result.push(item);

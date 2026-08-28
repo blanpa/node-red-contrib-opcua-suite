@@ -8,6 +8,7 @@ const fs = require('fs');
 const OpcUaClientManager = require('../lib/opcua-client-manager');
 const PooledClientManager = require('../lib/opcua-pool');
 const { registerCertRoutes, getCertsDir } = require('../lib/cert-store');
+const { isValidEndpointUrl } = require('../lib/opcua-utils');
 
 module.exports = function(RED) {
 
@@ -23,6 +24,14 @@ module.exports = function(RED) {
 
         // Endpoint URL
         node.endpointUrl = config.endpointUrl || 'opc.tcp://localhost:4840';
+        // Surface a malformed URL at deploy time instead of as an opaque
+        // node-opcua connect failure minutes later.
+        if (!isValidEndpointUrl(node.endpointUrl)) {
+            node.error(
+                `Invalid OPC UA endpoint URL "${node.endpointUrl}" — expected the form ` +
+                'opc.tcp://host[:port][/path]'
+            );
+        }
 
         // Security Settings
         node.securityMode = config.securityMode || 'None';
@@ -40,6 +49,16 @@ module.exports = function(RED) {
         // Optional session pool (opt-in). 1 = single shared session (default,
         // unchanged behaviour); >1 round-robins stateless ops across N sessions.
         node.poolSize = Math.max(1, parseInt(config.poolSize, 10) || 1);
+
+        // Per-operation timeout (ms). The manager has always honoured
+        // config.operationTimeout, but nothing passed it in — so the 10s
+        // default was unreachable from the editor. A slow batch read on a PLC
+        // could exceed it, which marks the connection dead and tears down an
+        // otherwise healthy session on the next message.
+        node.operationTimeout = Math.max(
+            1000,
+            parseInt(config.operationTimeout, 10) || 10000
+        );
 
         // ─── Shared Connection ───
         node._sharedManager = null;
@@ -86,6 +105,7 @@ module.exports = function(RED) {
                     applicationName: (clientConfig && clientConfig.applicationName) || 'Node-RED OPC UA Client',
                     maxReconnectAttempts: (clientConfig && clientConfig.maxReconnectAttempts) || 10,
                     reconnectDelay: (clientConfig && clientConfig.reconnectDelay) || 5000,
+                    operationTimeout: node.operationTimeout,
                     certificateFile: certData.certificateFile || '',
                     privateKeyFile: certData.privateKeyFile || '',
                     caCertificateFile: certData.caCertificateFile || '',
@@ -109,6 +129,9 @@ module.exports = function(RED) {
                 });
                 node._sharedManager.on('session_recreated', () => {
                     node._statusCallbacks.forEach(cb => cb('session_recreated'));
+                });
+                node._sharedManager.on('reconnected', (info) => {
+                    node._statusCallbacks.forEach(cb => cb('reconnected', info));
                 });
                 node._sharedManager.on('error', (error) => {
                     node._statusCallbacks.forEach(cb => cb('error', error));

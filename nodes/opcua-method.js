@@ -35,6 +35,9 @@ module.exports = function(RED) {
                     node.status({ fill: 'yellow', shape: 'ring', text: 'connecting...' });
                     break;
                 case 'error':
+                    // The connection error was previously received and dropped,
+                    // leaving a red dot with no explanation anywhere.
+                    node.error(`OPC UA error: ${error ? error.message : 'unknown'}`);
                     node.status({ fill: 'red', shape: 'ring', text: 'error' });
                     break;
             }

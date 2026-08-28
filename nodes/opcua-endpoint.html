@@ -16,7 +16,8 @@
             caCertificateFile: { value: '' },
             userCertificateFile: { value: '' },
             userPrivateKeyFile: { value: '' },
-            poolSize: { value: 1, validate: function(v) { return v === '' || v === undefined || parseInt(v, 10) >= 1; } }
+            poolSize: { value: 1, validate: function(v) { return v === '' || v === undefined || parseInt(v, 10) >= 1; } },
+            operationTimeout: { value: 10000, validate: function(v) { return v === '' || v === undefined || parseInt(v, 10) >= 1000; } }
         },
         credentials: {
             userName: { type: 'text' },
@@ -374,6 +375,11 @@
             <label for="node-config-input-poolSize"><i class="fa fa-database"></i> Session Pool</label>
             <input type="number" id="node-config-input-poolSize" min="1" max="16" style="width:80px;" placeholder="1">
             <span style="font-size:11px;color:#999;margin-left:4px">sessions (1 = shared single session)</span>
+        </div>
+        <div class="form-row">
+            <label for="node-config-input-operationTimeout"><i class="fa fa-hourglass-half"></i> Op. Timeout</label>
+            <input type="number" id="node-config-input-operationTimeout" min="1000" step="500" style="width:80px;" placeholder="10000">
+            <span style="font-size:11px;color:#999;margin-left:4px">ms per read/write/browse (raise for slow PLCs)</span>
         </div>
     </div>
 

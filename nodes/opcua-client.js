@@ -12,6 +12,13 @@
  */
 
 const { parseNodeId, createError } = require("../lib/opcua-utils");
+const { NodeClass } = require("node-opcua");
+
+function nodeClassName(nodeClass) {
+  if (typeof nodeClass === "string") return nodeClass;
+  if (typeof nodeClass === "number") return NodeClass[nodeClass] || String(nodeClass);
+  return nodeClass != null ? String(nodeClass) : "";
+}
 
 module.exports = function (RED) {
   function OpcUaClientNode(config) {
@@ -37,7 +44,7 @@ module.exports = function (RED) {
     }
 
     // Get shared ClientManager from endpoint (connection sharing)
-    let clientManager = endpointConfig.getSharedManager({
+    const clientManager = endpointConfig.getSharedManager({
       applicationName: config.applicationName || "Node-RED OPC UA Client",
       maxReconnectAttempts: config.maxReconnectAttempts || 10,
       reconnectDelay: config.reconnectDelay || 5000,
@@ -194,7 +201,15 @@ module.exports = function (RED) {
           return undefined;
 
         case "unsubscribe":
-          result = await handleUnsubscribe(msg, monitorItems, subscribedTopics);
+          result = await handleUnsubscribe(
+            msg,
+            monitorItems,
+            subscribedTopics,
+            subscription,
+            (sub) => {
+              subscription = sub;
+            },
+          );
           break;
 
         case "browse":
@@ -242,11 +257,10 @@ module.exports = function (RED) {
       }
     }
 
-    // DEBT-01: forceReconnect() is now a thin wrapper that delegates
-    // the entire retry loop / single-flight lock / exponential-backoff
-    // policy to OpcUaClientManager.reconnect(). The retryAttempts config
-    // value (0 = infinite) is forwarded as opts.maxAttempts so existing
-    // user configuration keeps working unchanged.
+    // DEBT-01: the entire retry loop / single-flight lock / exponential-backoff
+    // policy lives in OpcUaClientManager.reconnect(). The retryAttempts config
+    // value (0 = infinite) is forwarded as opts.maxAttempts by the input
+    // handler below so existing user configuration keeps working unchanged.
     const retryAttempts = Number(config.retryAttempts) || 0;
 
     // Bounded operation-level retry: a single session drop under concurrent
@@ -258,14 +272,6 @@ module.exports = function (RED) {
         ? Number(config.maxOperationRetries)
         : 3;
     const retryBackoffMs = Number(config.retryBackoffMs) || 100;
-
-    function forceReconnect(reason) {
-      return clientManager
-        .reconnect({ reason, maxAttempts: retryAttempts })
-        .catch((err) => {
-          if (verboseLog) node.warn("reconnect failed: " + err.message);
-        });
-    }
 
     node.on("input", async function (msg, send, done) {
       const operation = (
@@ -650,8 +656,12 @@ module.exports = function (RED) {
 
     monitorItem.on("changed", (dataValue) => {
       send({
-        payload: dataValue.value.value,
-        statusCode: dataValue.statusCode.toString(),
+        // Route through the manager's serializer so a struct variable yields
+        // the same plain-JSON payload on "subscribe" as it does on "read".
+        payload: mgr._serializeValue
+          ? mgr._serializeValue(dataValue.value?.value)
+          : dataValue.value?.value,
+        statusCode: dataValue.statusCode?.toString(),
         sourceTimestamp: dataValue.sourceTimestamp,
         serverTimestamp: dataValue.serverTimestamp,
         nodeId: nodeIdString,
@@ -665,7 +675,13 @@ module.exports = function (RED) {
 
   // ─── Unsubscribe ───
 
-  async function handleUnsubscribe(msg, monitorItems, subscribedTopics) {
+  async function handleUnsubscribe(
+    msg,
+    monitorItems,
+    subscribedTopics,
+    subscription,
+    setSubscription,
+  ) {
     const nodeIdString = msg.topic || msg.nodeId;
     if (!nodeIdString) throw new Error("NodeId missing");
 
@@ -680,6 +696,18 @@ module.exports = function (RED) {
 
     await monitorItem.terminate();
     monitorItems.delete(nodeIdString);
+
+    // Dropping the last monitored item leaves an empty ClientSubscription that
+    // the server keeps publishing keep-alives for until its lifetime expires.
+    if (monitorItems.size === 0 && subscription && setSubscription) {
+      try {
+        await subscription.terminate();
+      } catch (e) {
+        /* ignore — a stale session throws here */
+      }
+      setSubscription(null);
+    }
+
     return { nodeId: nodeIdString, payload: "Unsubscribed" };
   }
 
@@ -695,7 +723,9 @@ module.exports = function (RED) {
       payload: references.map((ref) => ({
         browseName: ref.browseName?.name || "",
         nodeId: ref.nodeId?.toString() || "",
-        nodeClass: ref.nodeClass || "",
+        // ReferenceDescription.nodeClass is a NodeClass enum value; emit the
+        // readable name so the output matches the Browse Client node.
+        nodeClass: nodeClassName(ref.nodeClass),
         typeDefinition: ref.typeDefinition?.toString() || "",
         isForward: ref.isForward || false,
       })),
