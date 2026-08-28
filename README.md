@@ -290,7 +290,7 @@ The UDP socket always binds to `0.0.0.0`. Leave `multicastInterface` at `0.0.0.0
 
 ### PubSub examples
 
-See example flows **10 - PubSub UDP-UADP Loopback** (self-contained, no external infra), **11 - PubSub MQTT-UADP**, and **12 - PubSub MQTT-JSON**. Flows 11 and 12 require a local MQTT broker at `mqtt://localhost:1883` (e.g. `docker run -p 1883:1883 eclipse-mosquitto`).
+See example flows **10 - PubSub UDP-UADP Loopback** (self-contained, no external infra), **11 - PubSub MQTT-UADP**, and **12 - PubSub MQTT-JSON**. Flows 11 and 12 require a local MQTT broker at `mqtt://localhost:1883` (e.g. `docker run -p 1883:1883 eclipse-mosquitto`, or `docker compose -f docker-compose.dev.yml up -d`, which publishes one on 1883).
 
 ## Reference
 
@@ -358,7 +358,16 @@ Available examples:
 
 All examples work **without function nodes**.
 
-Two comprehensive, self-asserting **validation flows** also live in the GitHub repo (not shipped in the npm package — they target the bundled Docker test stack): `13 - PubSub Full Validation` (9 PubSub scenarios: every transport × encoding, multi-writer, cyclic/KeepAlive, chunking, filtering, ConfigurationVersion mismatch) and `14 - Full Suite Validation` (24 tabs exercising **every** node — client read/write/subscribe/browse/method, item collector, browser, browse-client, method, event, embedded server, authentication, plus all PubSub scenarios). Each tab emits a `[VALIDATE] … PASS/FAIL` line. Run them against `docker compose -f docker-compose.dev.yml up`.
+Two comprehensive, self-asserting **validation flows** also live in the GitHub repo (not shipped in the npm package — they target the bundled Docker test stack): `13 - PubSub Full Validation` (9 PubSub scenarios: every transport × encoding, multi-writer, cyclic/KeepAlive, chunking, filtering, ConfigurationVersion mismatch) and `14 - Full Suite Validation` (24 tabs exercising **every** node — client read/write/subscribe/browse/method, item collector, browser, browse-client, method, event, embedded server, authentication, plus all PubSub scenarios). Each tab emits a `[VALIDATE] … PASS/FAIL` line.
+
+Run them against the dev stack, which provides everything both flows address — the OPC UA test server as `opcua-server:4840` and an anonymous MQTT broker as `val-mosquitto:1883`:
+
+```bash
+docker compose -f docker-compose.dev.yml up -d
+# import the flow, deploy, then click every inject node
+```
+
+Two tabs are two-step by design: **T5** (cyclic/KeepAlive), **T8** (filtering) and **T9** (ConfigurationVersion) each have a *reset+publish* inject and a *check* inject. Leave the documented **~2 s gap** between them — a KeepAlive cannot arrive before the next publishing interval elapses, and firing the check immediately reports `FAIL - no keepalive` for what is only impatience.
 
 ## Docker
 

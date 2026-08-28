@@ -2,6 +2,73 @@
 
 ## Unreleased
 
+Verified against a real Node-RED 5.0.4 / Node.js 24 container talking to the
+bundled OPC UA test server over `opc.tcp` — not only the mock-based unit
+suite. The full `14 - Full Suite Validation` flow (24 tabs, every shipped node,
+all three PubSub transport/encoding combinations) passes 24/24 on the dev
+stack. No node code changed; the fixes below are to the Docker stack and the
+documentation.
+
+### Fixed
+
+- **`opcua-server` container was permanently `unhealthy`.** The service reuses
+  the `nodered/node-red` image but replaces the entrypoint with the OPC UA test
+  server, so it inherited that image's `HEALTHCHECK` — a probe of Node-RED's
+  HTTP port that nothing in the container answers. Both compose files now
+  override it with a TCP probe of port 4840. `docker-compose.yml` consequently
+  upgrades `depends_on` from `service_started` to `service_healthy`, so
+  Node-RED no longer races the OPC UA server's startup on the first deploy.
+- **The dev stack had no MQTT broker.** The validation flows
+  `13 - PubSub Full Validation` and `14 - Full Suite Validation` address one as
+  `mqtt://val-mosquitto:1883`, and `README.md` told you to run them against
+  `docker-compose.dev.yml` — which never provided it, so the MQTT PubSub tabs
+  (T2, T3) could not pass as documented. `docker-compose.dev.yml` now ships an
+  anonymous `eclipse-mosquitto` service under the service name the flows
+  expect.
+
+### Documentation
+
+- **`docs/MSG-SCHEMA.md` covered eight of the eleven shipped nodes.**
+  `opcua-pubsub-connection`, `opcua-publisher` and `opcua-subscriber` shipped in
+  0.2.0 but the reference still listed their fields under *"Reserved for
+  v0.1.0 (PubSub)"* — and reserved names that never materialised (`msg.dataSet`,
+  an `amqp` transport) while omitting the ones that did. All three nodes now
+  have real sections matching the implementation.
+- **Every source citation in `docs/MSG-SCHEMA.md` pointed at the wrong line.**
+  The repository-wide Prettier pass in 0.2.0 shifted all 82 of them at once
+  (`opcua-client.js:244` for an `Object.assign` that now sits at 343, and so
+  on). Citations are now anchored to file + function name, which a reformat
+  cannot invalidate.
+- Documented three behaviours that the live runs made visible and the reference
+  did not state: a Bad OPC UA status arrives in `msg.statusCode` and does **not**
+  raise `msg.error` or trigger a Catch node; subscription value-change messages
+  carry `msg.nodeId` but not `msg.topic` (unlike `opcua-event`); and array
+  variables arrive as node-opcua typed arrays (`Int32Array`, `Float64Array`),
+  which `JSON.stringify` renders as objects.
+- Corrected the coverage cross-check: the documented grep finds 45 fields, not
+  39, and structurally cannot see fields introduced as object-literal keys —
+  the entire `opcua-subscriber` output message among them. The section now says
+  so instead of implying the grep is exhaustive.
+- `DOCKER.md`: documented the dev stack's third container and why the
+  `val-mosquitto` *service* name is load-bearing, added troubleshooting entries
+  for the healthcheck fix and for the first-run
+  `Cannot find private key … private_key.pem` race, and normalised the v1
+  `docker-compose` invocations to `docker compose`.
+- `README.md`: the validation-flow instructions now name the broker requirement
+  and warn that T5/T8/T9 are two-step tabs whose *check* inject needs the
+  documented ~2 s gap — firing it immediately reports a failure that is only
+  impatience.
+
+### Known issues
+
+- **First start on an empty Node-RED user directory can fail with
+  `Cannot find private key … private_key.pem`.** Deploying a flow with several
+  `opcua-endpoint` config nodes and/or an `opcua-server` node before node-opcua
+  has written its default self-signed certificate makes every instance create
+  that certificate in the same PKI folder at once; one wins and the others read
+  a key that is not on disk yet. It is first-run-only and does not recur —
+  restarting Node-RED clears it permanently. Not introduced by this release.
+
 ## 0.2.0 (2026-08-28)
 
 A connection-lifecycle and code-review release. The headline fix closes
