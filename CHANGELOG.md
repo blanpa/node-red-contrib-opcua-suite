@@ -2,6 +2,179 @@
 
 ## Unreleased
 
+## 0.2.0 (2026-08-28)
+
+A connection-lifecycle and code-review release. The headline fix closes
+**issue #17**; a full review of the client/server/editor layer (the PubSub layer
+was already covered by `REVIEW.md`) surfaced a further 20 defects, all fixed
+here. See `REVIEW-CLIENT-SERVER.md` for the complete findings with evidence.
+
+### Breaking
+
+- **`opcua-server`: `msg.func` is now opt-in.** The `addMethod` command
+  evaluates the JavaScript body in `msg.func` via `new Function()`. Unlike a
+  Function node that code arrives with the **message**, so any upstream node fed
+  from outside (`http in`, MQTT, …) was a remote-code-execution path into the
+  Node-RED process. Enable **Allow method code from `msg.func`** under
+  *Security* in the server node to keep using it; `addMethod` without `msg.func`
+  is unaffected.
+- **`opcua-client` / `opcua-browser`: `browse` now follows
+  `HierarchicalReferences` only** — the same filter the editor tree and
+  node-opcua's own default use. Passing a BrowseDescription object bypassed that
+  default and returned *every* reference type, mixing `HasTypeDefinition` /
+  `HasSubtype` links into the children of an address-space browse. Set
+  `msg.referenceTypeId = null` to opt back into the old behaviour.
+- **`opcua-client` / `opcua-browser`: `nodeClass` is emitted as a name**
+  (`"Variable"`) instead of the raw `NodeClass` enum number, matching the Browse
+  Client node.
+
+### Fixed
+
+- **Sessions leaked on every redeploy until the server refused new connections
+  (issue #17).** `OpcUaClientManager.connect()` had no single-flight lock, but
+  every consumer node calls `connect()` on the *shared* manager when its flow is
+  deployed. All those calls passed the `isConnected` check in the same tick and
+  each built its own `OPCUAClient` + session; only the last assignment survived
+  in `this.client` / `this.session`, so every earlier session was orphaned —
+  still open on the server, kept alive by `keepSessionAlive`, and invisible to
+  `disconnect()`. With three client nodes a redeploy leaked two sessions, which
+  accumulated until the server answered *"connection was rejected by the
+  server"*. `connect()` now shares one in-flight attempt, `disconnect()` awaits
+  a connect that is still running, a session refused after the secure channel is
+  up tears that channel down, and `after_reconnection` closes the session it
+  replaces.
+- **The editor's browse connection had the same race.** Parallel expand requests
+  in the address-space tree each built their own manager and overwrote the cache
+  entry, orphaning the rest. Browse connections are now single-flighted per
+  endpoint, a failed connect is not cached, and they are closed on runtime stop
+  instead of lingering until the 60 s idle timer.
+- **`opcua-server`: `setValue` only ever worked on `Double` variables.** The
+  handler resolved the target type with `DataType[msg.datatype || node.dataType]`,
+  but `UAVariable.dataType` is a `NodeId` object, so that lookup was always
+  `undefined` and every datatype-less `setValue` silently became a `Double` —
+  which node-opcua then rejected with *"the provided variant must have the
+  expected dataType"*. The variable's declared type is now resolved via
+  `addressSpace.findCorrespondingBasicDataType()`, with inference from the JS
+  value as a last resort. An explicit `msg.datatype` still wins.
+- **`opcua-server`: a fast redeploy could leave the port bound.** `startServer()`
+  was fire-and-forget and `close()` did not await it, so a close landing between
+  `new OPCUAServer()` and `await server.start()` made `shutdown()` fail while
+  `start()` went on to bind the port — with no reference left to release it, the
+  next deploy hit `EADDRINUSE`.
+- **`opcua-server`: `addVariable` with `Byte` / `SByte` defaulted to `null`.**
+  The `getDefaultValue` switch used `DataType.Int8` / `DataType.UInt8`, which do
+  not exist in node-opcua (the names are `SByte` / `Byte`), so those cases fell
+  through to `null` instead of `0`.
+- **`opcua-browse-client` and `opcua-event`: subscriptions died after a
+  reconnect.** The `session_recreated` handling that fixed issue #15 in
+  `opcua-client` was never applied to these two nodes, so after a server-side
+  session timeout they held handles bound to the dead session and silently
+  stopped delivering. Both now drop the stale handles and rebuild on the fresh
+  session; the Event node remembers its request for replay and stops replaying
+  after an explicit `unsubscribe`.
+- **`opcua-browse-client`: subscribe mode never connected on its own.** A flow
+  whose only OPC UA node was a subscribe-mode Browse Client stayed at
+  *"not connected"* forever, because subscriptions were only set up in reaction
+  to a `connected` event that nothing triggered.
+- **`opcua-event`: the configured event type was ignored.** It was read into a
+  variable and then discarded — every event type was delivered regardless of the
+  setting. It is now translated into an `OfType` where-clause, and an unknown
+  type name is reported instead of silently dropped.
+- **`opcua-browser`: recursive browsing produced no children.** The recursion
+  compared `ref.nodeClass === 'Object'`, but `nodeClass` is a `NodeClass` enum
+  value, so the comparison was always false and `children` was always `[]`. The
+  walk now also carries a visited set, so a shared subtree cannot be traversed
+  repeatedly.
+- **`parseNodeId` truncated String identifiers containing `;`.**
+  `ns=2;s=Line1;Motor` parsed to `Line1`, because the parser split on every `;`
+  and took `parts[1]`. Only the first separator is significant now. A
+  non-numeric namespace (`ns=abc;…`) is rejected instead of yielding `NaN`.
+- **`PooledClientManager.write()` dropped `arrayType`.** The delegation forwarded
+  only four of the manager's five parameters, so with `poolSize > 1` every array
+  write silently degraded to a scalar.
+- **`getEndpoints()` leaked its discovery channel** when the call threw — the
+  `disconnect()` was not in a `finally`.
+- **An operation timeout no longer costs a message.** `_withTimeout` already
+  marks the connection dead, but the timeout message matched none of the
+  connection-lost patterns, so the retry loop skipped the reconnect and failed
+  the message outright; the *next* message then reconnected and succeeded.
+- **`opcua-client`: `subscribe` now serialises ExtensionObjects** like `read`
+  does, so a struct variable yields the same plain-JSON payload either way. The
+  same applies to `readAttribute`.
+- **`opcua-client`: unsubscribing the last item terminates the subscription**
+  instead of leaving an empty one for the server to keep publishing keep-alives
+  for.
+- **Connection errors are surfaced in the Browser / Event / Method nodes.** They
+  received the error object and dropped it, leaving a red status dot with no
+  explanation anywhere.
+- **`serializeExtensionObject` guards against cycles and unbounded depth** —
+  this walks decoded network input, where an unbounded recursion would take the
+  process down with a stack overflow rather than yielding a bad message.
+
+### Security
+
+- **All six HTTP admin routes now require a Node-RED admin permission.** The
+  certificate upload/list/delete routes (registered under both
+  `/opcua-endpoint` and `/opcua-pubsub-connection`) and the two
+  `/opcua-browse-client` routes had no `RED.auth.needsPermission` guard, so they
+  stayed reachable unauthenticated even with `adminAuth` configured — allowing
+  file writes under the user directory and OPC UA connections to configured
+  endpoints. Writes require `flows.write`, reads `flows.read`; a pass-through is
+  used where `RED.auth` is unavailable.
+- **Certificate uploads enforce the extension whitelist on write**, not only
+  when listing — previously anything could be written and would simply be
+  invisible in the UI.
+- **`msg.func` is opt-in** (see *Breaking*).
+- **Dev private keys removed from the repository.** `data/opcua-certs/` held
+  real RSA private keys for the dev container and is now git-ignored.
+  ⚠️ They remain in the git history — rotate them if they were ever used
+  anywhere but the local dev container.
+- **`ip-address` pinned to `^10.5.0`** via `overrides` (reached through
+  `mqtt` → `socks`), closing the SSRF / trust-boundary advisories. The remaining
+  `npm audit` findings are devDependency-only (mocha's `diff` /
+  `serialize-javascript`); the published dependency tree is clean.
+
+### Added
+
+- **`opcua-endpoint`: configurable operation timeout.** The manager always
+  honoured `config.operationTimeout`, but nothing passed it in, so the 10 s
+  default was unreachable from the editor. A slow batch read on a PLC could
+  exceed it, which marked the connection dead and tore down an otherwise healthy
+  session on the next message.
+- **`opcua-endpoint`: the endpoint URL is validated at deploy time** instead of
+  failing later as an opaque node-opcua connect error.
+- **`opcua-endpoint`: the `reconnected` manager event is forwarded** to status
+  callbacks; it was previously swallowed.
+
+### Changed
+
+- **Dependencies updated**: `node-opcua` 2.163 → 2.179, `mqtt` 5.15.1 → 5.15.2,
+  `aedes` 1.0.2 → 1.1.1, `mocha` 10 → 11, `sinon` 17 → 22, `prettier` 3.8 → 3.9,
+  `eslint` 8 → 9. `chai` stays on 4.x — 6.x is ESM-only and the suite is
+  CommonJS.
+- **`npm run lint` actually runs.** The repo declared the script but shipped no
+  ESLint config at all, so it failed with *"ESLint couldn't find a configuration
+  file"*; the glob also only covered `lib/*.js` and silently skipped
+  `lib/transports/`. Added `eslint.config.js` (flat config) covering
+  `nodes/`, `lib/` and `test/`, and cleaned up the ~35 findings it reported
+  (dead imports, unused parameters).
+
+### Tests
+
+- `test/connect-single-flight.test.js` — the issue #17 leak, proven by counting
+  opened vs. closed sessions across concurrent connects, redeploy cycles, a
+  disconnect racing an in-flight connect, and a session refused after the
+  channel is up. Plus the pool's `arrayType` forwarding.
+- `test/opcua-server-setvalue.test.js` — `setValue` without `msg.datatype`
+  against a **real** node-opcua server for `Boolean` / `Int32` / `String` /
+  `Double`, the `Byte` / `SByte` defaults, and the `msg.func` opt-in gate.
+- `test/node-reconnect-resilience.test.js` — `session_recreated` rebuilds for the
+  Browse Client and Event nodes, subscribe-mode auto-connect, the event-type
+  where-clause, and the editor browse-connection single-flight.
+- `test/review-fixes.test.js` — `parseNodeId` semicolons, serializer recursion
+  guards, the admin-permission guards and extension whitelist, the browse
+  reference-type default, timeout classification, and `getEndpoints` cleanup.
+
 ## 0.1.8 (2026-08-26)
 
 ### Changed

@@ -26,6 +26,8 @@ docker-entrypoint*.sh
 
 # Build / Dev tools
 Makefile
+eslint.config.js
+.prettierrc*
 
 # Extra markdown docs (keep README.md)
 DOCKER.md
@@ -41,6 +43,7 @@ examples/14*
 # Internal planning / code-review artifacts (GitHub only)
 .planning/
 REVIEW.md
+REVIEW-CLIENT-SERVER.md
 
 # Environment
 .env*

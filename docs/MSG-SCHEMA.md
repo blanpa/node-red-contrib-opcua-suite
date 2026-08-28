@@ -130,13 +130,13 @@ by `msg.command` plus per-command parameter fields.
 | `msg.folderName` | in | String | conditional | Required for `addFolder`. | nodes/opcua-server.js:166 |
 | `msg.parentNodeId` | in | String | conditional | Parent NodeId for `addFolder` / `addVariable` / `addObject` (default `ObjectsFolder`). **Required** for `addMethod` and must reference an Object node (e.g. one created via `addObject`) — OPC UA does not allow methods directly under the standard Objects folder. | nodes/opcua-server.js:167, 187, 278, 363 |
 | `msg.variableName` | in | String | conditional | Required for `addVariable`. | nodes/opcua-server.js:186 |
-| `msg.datatype` | in | String | optional | Variable datatype for `addVariable` (default `Double`). | nodes/opcua-server.js:188 |
+| `msg.datatype` | in | String | optional | Variable datatype for `addVariable` (default `Double`), and an explicit type override for `setValue`. **Optional on `setValue` since 0.2.0** — the variable's own declared DataType is used when it is absent (before 0.2.0 a missing `msg.datatype` silently coerced the write to `Double`, which failed on every non-`Double` variable). | nodes/opcua-server.js |
 | `msg.initialValue` | in | any | optional | Initial value for `addVariable`. | nodes/opcua-server.js:189 |
 | `msg.objectName` | in | String | conditional | Required for `addObject`. | nodes/opcua-server.js:362 |
 | `msg.methodName` | in | String | conditional | Required for `addMethod`. | nodes/opcua-server.js:277 |
 | `msg.inputArguments` | in | Array | optional | Argument list for `addMethod` registration: `[{ name, dataType, valueRank, … }]`. | nodes/opcua-server.js:309 |
 | `msg.outputArguments` | in | Array | optional | Output-argument list for `addMethod` registration. | nodes/opcua-server.js:315 |
-| `msg.func` | in | String | conditional (`addMethod`) | **DANGER:** JavaScript function body string used by `addMethod`. Server evaluates it via `new Function(...)` — only accept this from trusted flow authors. Treat any inbound flow that supplies `msg.func` as a privileged path. The body is called as `(inputArguments, context, Variant, DataType, StatusCodes)` and must return `{ statusCode, outputArguments }`. | nodes/opcua-server.js:328 |
+| `msg.func` | in | String | conditional (`addMethod`) | **DANGER — opt-in since 0.2.0.** JavaScript function body string used by `addMethod`. The server evaluates it via `new Function(...)`, so it is rejected unless *Allow method code from `msg.func`* is enabled on the server node. Only accept this from trusted flow authors; treat any inbound flow that supplies `msg.func` as a privileged path. The body is called as `(inputArguments, context, Variant, DataType, StatusCodes)` and must return `{ statusCode, outputArguments }`. | nodes/opcua-server.js |
 | `msg.nodeId` | in | String | conditional | Target NodeId for `setValue`, `setWritable`, `deleteNode`, `raiseEvent`; or explicit NodeId override on `addFolder` / `addVariable` / `addObject`. Also accepted as `msg.topic` on commands that look up by `msg.nodeId \|\| msg.topic`. | nodes/opcua-server.js:175, 210, 224, 257, 323, 372, 398 |
 | `msg.topic` | in | String | optional | Alias for `msg.nodeId` on `setValue` and `deleteNode`. | nodes/opcua-server.js:224, 257, 398 |
 | `msg.payload` | both | any | conditional | **In:** new value for `setValue`; also a fallback for parameter fields (`msg.payload.command`, `msg.payload.folderName`, `msg.payload.variableName`, etc.). **Out:** server-info object on `getServerInfo`; error envelope on the error path. | nodes/opcua-server.js:83, 138, 225 |
@@ -225,15 +225,20 @@ Calls a method on the OPC UA server.
 
 Browses the OPC UA address space starting from a given NodeId.
 
+**Since 0.2.0** a browse follows `HierarchicalReferences` only — the same filter
+the editor tree and node-opcua's own default use. Before that it returned *every*
+reference type, mixing `HasTypeDefinition` / `HasSubtype` links into the children
+of an address-space browse.
+
 | Field | Direction | Type | Required | Description | Source |
 |---|---|---|---|---|---|
 | `msg.topic` | in | String | optional | Starting NodeId. Falls back to `msg.nodeId`, then to `config.startNodeId`, then to `RootFolder`. | nodes/opcua-browser.js:58 |
 | `msg.nodeId` | both | String | optional | **In:** alias for `msg.topic`. **Out:** set to the NodeId actually browsed. | nodes/opcua-browser.js:58, 84 |
 | `msg.recursive` | in | Boolean | optional | Recurse into child references when `true`. Also configurable in node UI. | nodes/opcua-browser.js:87 |
 | `msg.startNodeId` | in | String | optional | Alternative starting-NodeId field (read by the underlying browse helper). Equivalent to `msg.topic` for the basic browse flow. | nodes/opcua-client.js:690 (browse helper shared with opcua-browser) |
-| `msg.payload` | out | Array | — | Array of browse references: `[{ browseName, nodeId, nodeClass, typeDefinition, … }, …]`. | nodes/opcua-browser.js:82 |
-| `msg.browseResult` | out | Object | — | Raw browse-result object from `node-opcua`. | nodes/opcua-browser.js:83 |
-| `msg.recursiveResult` | out | Array | — | Recursive traversal result when `msg.recursive === true`. | nodes/opcua-browser.js:89 |
+| `msg.payload` | out | Array | — | Array of browse references: `[{ browseName, nodeId, nodeClass, typeDefinition, … }, …]`. **Since 0.2.0** `nodeClass` is the readable name (`"Variable"`), not the raw `NodeClass` enum number. | nodes/opcua-browser.js |
+| `msg.browseResult` | out | Object | — | Raw browse-result object from `node-opcua`. | nodes/opcua-browser.js |
+| `msg.recursiveResult` | out | Array | — | Recursive traversal result when `msg.recursive === true`. Before 0.2.0 the `children` arrays were always empty. | nodes/opcua-browser.js |
 | `msg.error` | out | String | — | Error message string. | nodes/opcua-browser.js:97 |
 
 ---
@@ -284,9 +289,18 @@ The `opcua-server` node reads `msg.func` for the `addMethod` command and
 evaluates its body via `new Function(...)`. This is **arbitrary code
 execution by design** — the node ships an embedded OPC UA server and the
 `addMethod` command exists to let flow authors define server methods at
-deploy time. Treat any flow path that can supply `msg.func` from outside the
-trusted flow author as a privileged surface. v1.0 does not change this
-behaviour; the security boundary is the flow definition itself.
+deploy time.
+
+Unlike a Function node, that body arrives with the **message**, not from the
+editor, so an `http in` / MQTT / TCP source upstream turns it into a remote
+code execution path into the Node-RED process.
+
+**Since 0.2.0 it is opt-in per server node.** Enable *Allow method code from
+`msg.func`* under **Security** in the node configuration; with the option off
+(the default) `addMethod` rejects a message carrying `msg.func` with an
+explanatory error. `addMethod` without `msg.func` is unaffected. Treat any flow
+path that can supply `msg.func` from outside the trusted flow author as a
+privileged surface.
 
 ---
 

@@ -87,6 +87,7 @@ With **Session Pool** > 1 the endpoint holds N sessions instead of one — see [
 | Username / Password | Optional credentials |
 | Certificates | Drag & drop upload for client cert, private key, CA cert, X509 user token |
 | Session Pool | Number of sessions (default 1 = single shared session). `>1` round-robins stateless reads/writes/browse across N sessions; subscriptions & registered nodes stay on the primary. Only helps when a single session is the bottleneck — see [Benchmark](#benchmark--stress-test). |
+| Op. Timeout | Per-operation timeout in ms (default 10000). Raise it for slow PLCs — an operation that overruns marks the connection dead and forces a reconnect on the next message. |
 
 Authentication priority: X509 User Token > Username/Password > Anonymous.
 
@@ -194,12 +195,20 @@ Embedded OPC UA server. Starts automatically on deploy. Build the address space 
 | `addFolder` | `msg.folderName` | Create a folder in the address space |
 | `addVariable` | `msg.variableName`, `msg.datatype` | Add a variable (optional: `msg.initialValue`) |
 | `addObject` | `msg.objectName` | Add an object node |
-| `addMethod` | `msg.methodName`, `msg.parentNodeId` | Add a callable method under an object node (optional: `msg.inputArguments`, `msg.outputArguments`, `msg.func`) |
-| `setValue` | `msg.nodeId`, `msg.payload` | Update a variable's value |
+| `addMethod` | `msg.methodName`, `msg.parentNodeId` | Add a callable method under an object node (optional: `msg.inputArguments`, `msg.outputArguments`, `msg.func` — see the security note below) |
+| `setValue` | `msg.nodeId`, `msg.payload` | Update a variable's value. `msg.datatype` is optional — the variable's own declared DataType is used when it is absent |
 | `setWritable` | `msg.nodeId` | Make a variable writable by clients |
 | `deleteNode` | `msg.nodeId` | Remove a node |
 | `raiseEvent` | `msg.sourceNodeId`, `msg.message` | Raise an event |
 | `getServerInfo` | — | Get session count, endpoint URL, server state |
+
+> **Security — `msg.func`:** `addMethod` can bind a method handler from a
+> JavaScript body carried in `msg.func`, which the server evaluates with
+> `new Function()`. Unlike a Function node that body arrives with the
+> **message**, so any upstream node fed from outside (`http in`, MQTT, …) can
+> execute arbitrary code in the Node-RED process. Since 0.2.0 it is **off by
+> default** — enable *Allow method code from `msg.func`* under **Security** in
+> the node configuration when every path into the node is trusted.
 
 ### opcua-pubsub-connection (Config Node)
 
