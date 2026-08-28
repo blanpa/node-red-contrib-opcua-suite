@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-opcua-suite",
-  "version": "0.1.8",
+  "version": "0.2.0",
   "description": "A modern OPC UA suite for Node-RED — Client/Server plus OPC UA PubSub (UDP-UADP / MQTT) with shared connections, batch operations, drag-and-drop certificates, and a clean msg-driven API",
   "keywords": [
     "node-red",
@@ -35,22 +35,23 @@
     "test:integration": "node test-server/test-client.js",
     "bench": "node test-server/benchmark.js",
     "bench:quick": "node test-server/benchmark.js --quick",
-    "lint": "eslint nodes/*.js lib/*.js",
-    "format": "prettier --write nodes/**/*.js lib/**/*.js"
+    "lint": "eslint \"nodes/**/*.js\" \"lib/**/*.js\" \"test/**/*.js\"",
+    "format": "prettier --write \"nodes/**/*.js\" \"lib/**/*.js\"",
+    "lint:fix": "eslint --fix \"nodes/**/*.js\" \"lib/**/*.js\" \"test/**/*.js\""
   },
   "author": "blanpa",
   "license": "Apache-2.0",
   "dependencies": {
-    "mqtt": "^5.15.1",
-    "node-opcua": "^2.115.0"
+    "mqtt": "^5.15.2",
+    "node-opcua": "^2.179.0"
   },
   "devDependencies": {
-    "aedes": "^1.0.2",
-    "chai": "^4.3.10",
-    "eslint": "^8.57.0",
-    "mocha": "^10.2.0",
-    "prettier": "^3.2.5",
-    "sinon": "^17.0.1"
+    "aedes": "^1.1.1",
+    "chai": "^4.5.0",
+    "eslint": "^9.39.5",
+    "mocha": "^11.8.0",
+    "prettier": "^3.9.6",
+    "sinon": "^22.1.0"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -62,5 +63,8 @@
   "bugs": {
     "url": "https://github.com/blanpa/node-red-contrib-opcua-suite/issues"
   },
-  "homepage": "https://github.com/blanpa/node-red-contrib-opcua-suite#readme"
+  "homepage": "https://github.com/blanpa/node-red-contrib-opcua-suite#readme",
+  "overrides": {
+    "ip-address": "^10.5.0"
+  }
 }
