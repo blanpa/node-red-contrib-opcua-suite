@@ -18,15 +18,28 @@ const {
 
 const TMP_DIR = path.join(os.tmpdir(), "cert-store-test");
 
-function makeMockRED(userDir) {
+// Express routes are variadic: (path, ...middleware, handler). The final
+// argument is the request handler; everything between is middleware (the
+// admin-permission guard). Both are captured so tests can assert on either.
+function makeMockRED(userDir, auth) {
   const routes = {};
+  const middleware = {};
+  function record(method) {
+    return function (routePath) {
+      const fns = Array.prototype.slice.call(arguments, 1);
+      routes[method + " " + routePath] = fns[fns.length - 1];
+      middleware[method + " " + routePath] = fns.slice(0, -1);
+    };
+  }
   const httpAdmin = {
-    post: function (routePath, fn) { routes["POST " + routePath] = fn; },
-    get: function (routePath, fn) { routes["GET " + routePath] = fn; },
-    delete: function (routePath, fn) { routes["DEL " + routePath] = fn; },
+    post: record("POST"),
+    get: record("GET"),
+    delete: record("DEL"),
   };
   const settings = { userDir: userDir || os.tmpdir() };
-  return { httpAdmin, routes, settings };
+  const RED = { httpAdmin, routes, middleware, settings };
+  if (auth) RED.auth = auth;
+  return RED;
 }
 
 function makeRes() {
