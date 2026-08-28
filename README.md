@@ -382,9 +382,16 @@ docker compose build --no-cache && docker compose up -d --force-recreate  # Rebu
 ## Testing
 
 ```bash
-npm test                  # 120 unit tests
+npm test                       # 767 unit tests (8 pending)
+npm run lint                   # ESLint
+npm run format:check           # Prettier
 node test/live-integration.js  # 36 live integration tests (requires Docker)
 ```
+
+`live-integration.js` drives a running Node-RED over its admin API and the
+`/comms` websocket on **port 1880**, so run it against the dev stack
+(`docker compose -f docker-compose.dev.yml up -d`), which publishes that port.
+The plain stack maps Node-RED to 1881 and the script will not reach it.
 
 ## Benchmark & Stress Test
 

@@ -28,6 +28,7 @@ docker-entrypoint*.sh
 Makefile
 eslint.config.js
 .prettierrc*
+.prettierignore
 
 # Extra markdown docs (keep README.md)
 DOCKER.md
