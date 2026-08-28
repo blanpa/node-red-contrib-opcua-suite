@@ -140,3 +140,10 @@ vite.config.ts.timestamp-*
 
 # Auto-generated OPC UA test-server certificates (benchmark / integration runs)
 test-server/pki/
+
+# Node-RED dev-container runtime state — never commit keys or credentials.
+# data/opcua-certs/ previously held real RSA private keys; the cert-upload UI
+# recreates the directory at runtime.
+data/opcua-certs/
+data/flows_cred.json
+data/.config.*
