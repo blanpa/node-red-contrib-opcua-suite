@@ -19,6 +19,12 @@
 "use strict";
 
 const { DataSetReader } = require("../lib/pubsub-config");
+const { UadpReassembler } = require("../lib/uadp-reassembler");
+
+// Largest UADP NetworkMessage reassembled from MQTT chunks. UDP derives its cap
+// from the connection's MTU; over MQTT the chunk size is the publisher's Max Msg
+// Size, which the subscriber does not know.
+const MQTT_MAX_REASSEMBLED_SIZE = 16 * 1024 * 1024;
 
 module.exports = function (RED) {
   function OpcUaSubscriberNode(config) {
@@ -219,11 +225,29 @@ module.exports = function (RED) {
 
     // ─── 9. Acquire transport + register OWN message listener (D4-07) ───
     const transport = conn.acquireTransport();
+    // The UDP transport reassembles chunked UADP itself. The MQTT transport
+    // also carries JSON and passes every frame through as-is, so UADP chunks
+    // arriving over MQTT are reassembled here; before, each chunk decoded to
+    // an empty payload and large messages were dropped without a trace.
+    const reassembler =
+      encoding === "uadp" && transportType !== "udp"
+        ? new UadpReassembler({
+            maxTotalSize: MQTT_MAX_REASSEMBLED_SIZE,
+            prefix: "MQTT",
+            onWarn: (e) => node.warn(e.message),
+          })
+        : null;
     const onMessage = function (buffer, metadata) {
       try {
         // MQTT-JSON arrives as a Buffer; the JSON decoder takes a STRING.
         const input = encoding === "json" ? buffer.toString() : buffer;
-        const nm = decoder.decodeNetworkMessage(input);
+        let nm = decoder.decodeNetworkMessage(input);
+        if (nm && nm.chunk) {
+          if (!reassembler) return; // UDP delivers whole messages only
+          const complete = reassembler.push(nm);
+          if (!complete) return; // wait for the remaining chunks
+          nm = decoder.decodeNetworkMessage(complete);
+        }
         handleNetworkMessage(nm, metadata);
       } catch (e) {
         // D4-07: never throw out of the EventEmitter callback (keep the shared
@@ -244,6 +268,7 @@ module.exports = function (RED) {
       } catch (e) {
         /* ignore */
       }
+      if (reassembler) reassembler.clear();
       if (conn.unregisterStatusCallback) {
         conn.unregisterStatusCallback(statusCallback);
       }

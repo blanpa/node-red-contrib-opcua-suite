@@ -88,6 +88,16 @@
   - Only the current transport reaches the callbacks. A transport closed by the
     500 ms grace timer reported its `disconnected` late and could stall the
     publishers on its replacement the same way.
+- **Large UADP messages over MQTT arrive.**
+  - **Before:** the publisher splits a NetworkMessage larger than *Max Msg Size*
+    into chunks on every transport, but only the UDP transport put them back
+    together. Over MQTT each chunk decoded to an empty payload, so the
+    subscriber emitted nothing, with no error.
+  - **Now:** the reassembly moved to `lib/uadp-reassembler.js`. The UDP
+    transport uses it unchanged, and `opcua-subscriber` uses it for UADP over
+    MQTT. That transport also carries JSON, so only the subscriber knows a frame
+    is UADP. A reassembled message may be up to 16 MiB; rejected chunks show up
+    as `MQTT_REASSEMBLY_*` warnings.
 
 ### Tests
 
@@ -110,6 +120,10 @@
   nodes: a publisher redeployed on its own, a second publisher on a running
   transport, and a late `disconnected` from a transport the grace timer closed.
   All three fail on the previous code.
+- `test/pubsub-roundtrip.test.js` sends a 5000-character field over a real
+  in-process MQTT broker and checks that it arrives in one piece. On the
+  previous code it times out. `test/uadp-reassembler.test.js` covers the
+  shared module.
 - Unit tests for the lifecycle abort (in-flight connect, retry loop, offline
   teardown order), endpoint detach-before-await, and `terminateWithin`.
 - The real-node test harness moved to `test/helpers/live-node-harness.js`.

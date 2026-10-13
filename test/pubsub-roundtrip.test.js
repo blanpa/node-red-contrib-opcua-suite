@@ -358,6 +358,35 @@ describe("PubSub round-trip — TEST-01", function () {
       // topic = `${prefix}/${publisherId}/${writerGroupId}/${dataSetWriterId}`
       expect(msg.topic).to.equal("ua/pub1/1/1");
     });
+
+    it("reassembles a message larger than Max Msg Size (chunked over MQTT)", async function () {
+      const transport = new MqttTransport({
+        brokerUrl: mq.url,
+        qos: 0,
+        topicPrefix: "ua",
+        publisherId: "pub1",
+        reconnectPeriod: 0,
+      });
+      const sendSpy = sinon.spy(transport, "send");
+      const label = "x".repeat(5000); // well above the 1400-byte limit
+      const { msgs } = await roundTrip({
+        transport,
+        encoding: "uadp",
+        publisherId: "pub1",
+        payloads: [{ temperature: 21.5, label, count: 7 }],
+      });
+      // The publisher really chunked it: one send with several frames.
+      expect(Array.isArray(sendSpy.firstCall.args[0])).to.equal(true);
+      expect(sendSpy.firstCall.args[0].length).to.be.greaterThan(1);
+      expect(msgs).to.have.length(1);
+      expect(msgs[0].payload).to.deep.equal({
+        temperature: 21.5,
+        label,
+        count: 7,
+      });
+      expect(msgs[0].sequenceNumber).to.equal(1);
+      expect(msgs[0].topic).to.equal("ua/pub1/1/1");
+    });
   });
 
   describe("MQTT-JSON", function () {
