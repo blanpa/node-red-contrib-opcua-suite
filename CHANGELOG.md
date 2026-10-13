@@ -49,6 +49,34 @@
 - An in-flight `connect()` that `disconnect()` cancels now rejects with
   "Connection closed" instead of resolving with a session that was already
   closed again.
+- **A flow deployed while the server is offline connects once it is back,
+  however long that takes.**
+  - **Before:** the background reconnect gave up after `maxReconnectAttempts`
+    (about 8 min with the defaults). A flow that only subscribes never sends a
+    message that would trigger a connect, so it stayed disconnected until the
+    next redeploy, for example after a PLC was switched off over a weekend.
+  - **Now:** it keeps retrying while the connection is in use. The pause
+    doubles from *Reconnect Delay* up to one minute, and a redeploy ends the
+    chain.
+  - **"Max Reconnects"** now only sets how often one connect attempt is
+    retried. That also bounds how long a message waits for a connection.
+- **A *Reconnect Delay* of 1000 ms or less no longer breaks every connect.**
+  - **Cause:** node-opcua rejects a back-off whose maximum isn't above its
+    initial delay, and that initial delay was fixed at 1000 ms.
+  - **Effect:** with the editor's minimum of 1000 ms, every connect failed
+    within milliseconds with "The maximal backoff delay…", even while the
+    server was up.
+  - **Now:** the initial delay follows *Reconnect Delay*.
+- **An explicit 0 for "Max Reconnects" is kept.**
+  - **Before:** `value || 10` turned 0 into 10, and the string `"0"` from the
+    editor made the background reconnect stop at once. The editor's browse
+    connection, meant to try exactly once, blocked for about 40 s on an
+    unreachable endpoint.
+  - **Now:** the manager parses the setting itself. When `reconnect()` falls
+    back to this setting as its default, 0 counts as one attempt, so a node
+    never ends up in an endless loop. Only an explicit `maxAttempts: 0`, such
+    as the client's documented *Retry Attempts* = 0, still means infinite.
+- The client's editor help now documents the connection-recovery settings.
 
 ### Tests
 
@@ -62,6 +90,11 @@
   afterwards and asserts that no session appears. The second closes a
   subscribed client after the server went away. On the previous code these took
   41 s and over 60 s.
+- `test/integration-offline-at-deploy.test.js` deploys a subscribe-only
+  `opcua-browse-client` against an offline server, waits past the old give-up
+  point and then starts the server. On the previous code it fails with
+  "background reconnect stopped retrying"; it also covers the 1000 ms
+  *Reconnect Delay* case.
 - Unit tests for the lifecycle abort (in-flight connect, retry loop, offline
   teardown order), endpoint detach-before-await, and `terminateWithin`.
 - The real-node test harness moved to `test/helpers/live-node-harness.js`.

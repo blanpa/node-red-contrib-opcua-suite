@@ -196,6 +196,9 @@
                     style="width:80px;"
                     placeholder="10"
                 />
+                <span style="font-size:11px;color:#999;margin-left:4px"
+                    >retries per connect attempt</span
+                >
             </div>
             <div class="form-row">
                 <label for="node-input-reconnectDelay"
@@ -333,6 +336,35 @@
 
     <h4>Subscribe / Browse / Method / History</h4>
     <p>See example flows for all supported operations.</p>
+
+    <h3>Connection recovery</h3>
+    <p>
+        The connection is shared through the endpoint, so these settings
+        are taken from the first OPC UA node that opens it.
+    </p>
+    <dl class="message-properties">
+        <dt>Max Reconnects</dt>
+        <dd>
+            How often one connect attempt is retried before it fails
+            (default 10; 0 = a single try). This also bounds how long a
+            message waits for a connection while the server is down.
+        </dd>
+        <dt>Reconnect Delay</dt>
+        <dd>
+            Longest pause between those retries, and the starting pause of
+            the background reconnect.
+        </dd>
+    </dl>
+    <p>
+        After a failed connect the node keeps reconnecting in the
+        background and never gives up. The pause doubles from
+        <i>Reconnect Delay</i> up to one minute. A flow that only
+        subscribes therefore connects as soon as the server is reachable,
+        however long it was offline. A redeploy stops the old attempts.
+        If the server drops an established connection, node-opcua restores
+        the channel and the session itself, and subscriptions resume
+        without a new <code>subscribe</code> message.
+    </p>
 
     <h3>Unwrap single value</h3>
     <p>

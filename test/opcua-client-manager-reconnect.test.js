@@ -317,6 +317,25 @@ describe("OpcUaClientManager.reconnect / _isConnectionLostError (DEBT-01)", func
     });
   });
 
+  // ─── default attempts ───
+
+  describe("reconnect() default attempts", function () {
+    it("treats maxReconnectAttempts=0 as one attempt, not an endless loop", async function () {
+      const mgr = makeManager({ maxReconnectAttempts: 0 });
+      const connect = sinon
+        .stub(mgr, "connect")
+        .rejects(new Error("Not connected"));
+      let err = null;
+      try {
+        await mgr.reconnect({ initialDelay: 1 });
+      } catch (e) {
+        err = e;
+      }
+      expect(err).to.be.an("error");
+      expect(connect.callCount).to.equal(1);
+    });
+  });
+
   // ─── session_recreated (issue #15) ───
 
   describe("_handleSessionReplaced()", function () {

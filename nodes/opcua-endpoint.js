@@ -104,9 +104,13 @@ module.exports = function (RED) {
           applicationName:
             (clientConfig && clientConfig.applicationName) ||
             "Node-RED OPC UA Client",
-          maxReconnectAttempts:
-            (clientConfig && clientConfig.maxReconnectAttempts) || 10,
-          reconnectDelay: (clientConfig && clientConfig.reconnectDelay) || 5000,
+          // Normalised by the manager (an explicit 0 is kept).
+          maxReconnectAttempts: clientConfig
+            ? clientConfig.maxReconnectAttempts
+            : undefined,
+          reconnectDelay: clientConfig
+            ? clientConfig.reconnectDelay
+            : undefined,
           operationTimeout: node.operationTimeout,
           certificateFile: certData.certificateFile || "",
           privateKeyFile: certData.privateKeyFile || "",

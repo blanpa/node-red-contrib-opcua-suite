@@ -32,6 +32,40 @@ describe("OpcUaClientManager", function () {
       expect(mgr.reconnectDelay).to.equal(5000);
     });
 
+    it("derives a connection strategy node-opcua accepts for any reconnectDelay", function () {
+      // node-opcua rejects maxDelay <= initialDelay, which failed every
+      // connect at once when reconnectDelay was 1000 ms (the editor minimum).
+      for (const reconnectDelay of [1, 500, 1000, 1001, 5000, 60000]) {
+        const s = new OpcUaClientManager({
+          endpointUrl: "opc.tcp://localhost:4840",
+          reconnectDelay,
+        })._connectionStrategy();
+        expect(s.initialDelay, `reconnectDelay ${reconnectDelay}`).to.be.above(
+          0,
+        );
+        expect(s.maxDelay, `reconnectDelay ${reconnectDelay}`).to.be.above(
+          s.initialDelay,
+        );
+      }
+    });
+
+    it("keeps an explicit 0 and parses editor strings for the reconnect settings", function () {
+      const make = (maxReconnectAttempts, reconnectDelay) =>
+        new OpcUaClientManager({
+          endpointUrl: "opc.tcp://localhost:4840",
+          maxReconnectAttempts,
+          reconnectDelay,
+        });
+      expect(make(0).maxReconnectAttempts).to.equal(0);
+      expect(make("0").maxReconnectAttempts).to.equal(0);
+      expect(make("7").maxReconnectAttempts).to.equal(7);
+      expect(make("").maxReconnectAttempts).to.equal(10);
+      expect(make("abc").maxReconnectAttempts).to.equal(10);
+      expect(make(-1).maxReconnectAttempts).to.equal(10);
+      expect(make(undefined, "2500").reconnectDelay).to.equal(2500);
+      expect(make(undefined, 0).reconnectDelay).to.equal(5000);
+    });
+
     it("should accept custom maxReconnectAttempts and reconnectDelay", function () {
       const mgr = new OpcUaClientManager({
         endpointUrl: "opc.tcp://localhost:4840",
@@ -950,9 +984,38 @@ describe("OpcUaClientManager", function () {
       expect(mgr.reconnectTimer).to.not.be.null;
     });
 
-    it("should not schedule if already at max attempts", function () {
+    it("keeps scheduling past maxReconnectAttempts (never gives up)", function () {
+      // It used to stop here, and a subscribe-only flow stayed disconnected
+      // for good once the server came back.
       mgr.reconnectAttempts = 3;
       mgr.scheduleReconnect();
+      expect(mgr.reconnectTimer).to.not.be.null;
+      expect(mgr.reconnectAttempts).to.equal(4);
+    });
+
+    it("backs off exponentially from reconnectDelay up to one minute", function () {
+      const delays = [1, 2, 3, 4, 10, 100].map((n) =>
+        mgr._backgroundReconnectDelay(n),
+      );
+      expect(delays).to.deep.equal([100, 200, 400, 800, 51200, 60000]);
+    });
+
+    it("keeps retrying a server that stays down until it is back", async function () {
+      const connect = sinon.stub(mgr, "connect").callsFake(async () => {
+        mgr.reconnectTimer = null;
+        if (connect.callCount < 20) mgr.scheduleReconnect();
+      });
+      mgr.scheduleReconnect();
+      await clock.tickAsync(30 * 60 * 1000);
+      expect(connect.callCount).to.equal(20);
+    });
+
+    it("stops the chain when the manager is disconnected (redeploy)", async function () {
+      const connect = sinon.stub(mgr, "connect").resolves();
+      mgr.scheduleReconnect();
+      await mgr.disconnect();
+      await clock.tickAsync(10 * 60 * 1000);
+      expect(connect.called).to.be.false;
       expect(mgr.reconnectTimer).to.be.null;
     });
 
@@ -964,17 +1027,14 @@ describe("OpcUaClientManager", function () {
       expect(mgr.reconnectAttempts).to.equal(1);
     });
 
-    it("should schedule again after reconnectAttempts is manually reset", function () {
-      // Simulate exhausting all attempts
-      mgr.reconnectAttempts = 3;
+    it("restarts the back-off from reconnectDelay after a reset", function () {
+      mgr.reconnectAttempts = 5;
+      mgr.reconnectAttempts = 0; // what a successful connect does
       mgr.scheduleReconnect();
-      expect(mgr.reconnectTimer).to.be.null; // stuck — won't schedule
-
-      // Simulate what the input handler fix does: reset before connect
-      mgr.reconnectAttempts = 0;
-      mgr.scheduleReconnect();
-      expect(mgr.reconnectTimer).to.not.be.null; // recovers
       expect(mgr.reconnectAttempts).to.equal(1);
+      expect(mgr._backgroundReconnectDelay(mgr.reconnectAttempts)).to.equal(
+        100,
+      );
     });
   });
 

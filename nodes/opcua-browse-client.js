@@ -589,8 +589,8 @@ module.exports = function (RED) {
     const clientManager = endpointConfig.getSharedManager({
       applicationName:
         config.applicationName || "Node-RED OPC UA Browse Client",
-      maxReconnectAttempts: config.maxReconnectAttempts || 10,
-      reconnectDelay: config.reconnectDelay || 5000,
+      maxReconnectAttempts: config.maxReconnectAttempts,
+      reconnectDelay: config.reconnectDelay,
     });
 
     const selectedItems = config.selectedItems || [];

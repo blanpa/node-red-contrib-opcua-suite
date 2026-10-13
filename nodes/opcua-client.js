@@ -51,8 +51,10 @@ module.exports = function (RED) {
     // Get shared ClientManager from endpoint (connection sharing)
     const clientManager = endpointConfig.getSharedManager({
       applicationName: config.applicationName || "Node-RED OPC UA Client",
-      maxReconnectAttempts: config.maxReconnectAttempts || 10,
-      reconnectDelay: config.reconnectDelay || 5000,
+      // Passed through as configured: the manager normalises them, and an
+      // explicit 0 is meaningful.
+      maxReconnectAttempts: config.maxReconnectAttempts,
+      reconnectDelay: config.reconnectDelay,
     });
 
     let subscription = null;
