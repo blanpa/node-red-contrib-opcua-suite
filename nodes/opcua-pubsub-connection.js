@@ -98,6 +98,7 @@ module.exports = function (RED) {
 
     // ─── Shared transport lifecycle state ───
     node._sharedTransport = null;
+    node._transportConnected = false;
     node._refCount = 0;
     node._graceTimer = null;
     node._statusCallbacks = new Set();
@@ -173,19 +174,20 @@ module.exports = function (RED) {
         const transport = node._createTransport();
         node._sharedTransport = transport;
 
-        // Status fan-out — mirrors opcua-endpoint.js lines 92-104.
-        transport.on("connected", () =>
-          node._statusCallbacks.forEach((cb) => safeCb(cb, "connected")),
-        );
-        transport.on("disconnected", () =>
-          node._statusCallbacks.forEach((cb) => safeCb(cb, "disconnected")),
-        );
-        transport.on("reconnecting", () =>
-          node._statusCallbacks.forEach((cb) => safeCb(cb, "reconnecting")),
-        );
-        transport.on("error", (e) =>
-          node._statusCallbacks.forEach((cb) => safeCb(cb, "error", e)),
-        );
+        // Status fan-out — mirrors opcua-endpoint.js lines 92-104. Only the
+        // current transport reaches the callbacks: a transport closed by the
+        // grace timer emits 'disconnected' late, and that must not mark the
+        // consumers of its replacement as disconnected.
+        const fanOut = (status, err) => {
+          if (node._sharedTransport !== transport) return;
+          if (status === "connected") node._transportConnected = true;
+          else if (status !== "error") node._transportConnected = false;
+          node._statusCallbacks.forEach((cb) => safeCb(cb, status, err));
+        };
+        transport.on("connected", () => fanOut("connected"));
+        transport.on("disconnected", () => fanOut("disconnected"));
+        transport.on("reconnecting", () => fanOut("reconnecting"));
+        transport.on("error", (e) => fanOut("error", e));
         // W-4: surface UDP_REASSEMBLY_OVERFLOW (and any future 'warn') to the
         // Node-RED log so operators see it. NOT part of the worker fan-out set.
         transport.on("warn", (e) =>
@@ -230,6 +232,7 @@ module.exports = function (RED) {
             // builds a FRESH instance instead of reusing the closing one.
             const closing = node._sharedTransport;
             node._sharedTransport = null;
+            node._transportConnected = false;
             node._statusCallbacks.clear();
             closing.close().catch(() => {});
           }
@@ -237,8 +240,18 @@ module.exports = function (RED) {
       }
     };
 
+    /**
+     * Registers a status callback. If the shared transport is already
+     * connected, the callback gets "connected" right away: the transport
+     * announces that only once, so a publisher deployed on its own (or added
+     * next to a running subscriber) would otherwise wait for it forever and
+     * never send.
+     */
     node.registerStatusCallback = function (callback) {
       node._statusCallbacks.add(callback);
+      if (node._sharedTransport && node._transportConnected) {
+        safeCb(callback, "connected");
+      }
     };
 
     node.unregisterStatusCallback = function (callback) {
@@ -254,12 +267,14 @@ module.exports = function (RED) {
         node._graceTimer = null;
       }
       if (node._sharedTransport) {
+        const closing = node._sharedTransport;
+        node._sharedTransport = null;
+        node._transportConnected = false;
         try {
-          await node._sharedTransport.close();
+          await closing.close();
         } catch (e) {
           /* ignore — close is best-effort idempotent */
         }
-        node._sharedTransport = null;
       }
       node._refCount = 0;
       node._statusCallbacks.clear();

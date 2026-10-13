@@ -77,6 +77,17 @@
     never ends up in an endless loop. Only an explicit `maxAttempts: 0`, such
     as the client's documented *Retry Attempts* = 0, still means infinite.
 - The client's editor help now documents the connection-recovery settings.
+- **A PubSub publisher redeployed on its own sends again.**
+  - **Before:** the shared transport announces `connected` only once. A
+    publisher deployed with "Modified Nodes", or added next to a running
+    subscriber, joined after that announcement. Its readiness gate stayed
+    closed, so every message was queued and nothing reached the network, with
+    no error and a blue "idle" status.
+  - **Now:** `opcua-pubsub-connection` tracks whether its transport is
+    connected and reports `connected` to a callback as soon as it registers.
+  - Only the current transport reaches the callbacks. A transport closed by the
+    500 ms grace timer reported its `disconnected` late and could stall the
+    publishers on its replacement the same way.
 
 ### Tests
 
@@ -95,6 +106,10 @@
   point and then starts the server. On the previous code it fails with
   "background reconnect stopped retrying"; it also covers the 1000 ms
   *Reconnect Delay* case.
+- `test/pubsub-late-join.test.js` runs the real connection and publisher
+  nodes: a publisher redeployed on its own, a second publisher on a running
+  transport, and a late `disconnected` from a transport the grace timer closed.
+  All three fail on the previous code.
 - Unit tests for the lifecycle abort (in-flight connect, retry loop, offline
   teardown order), endpoint detach-before-await, and `terminateWithin`.
 - The real-node test harness moved to `test/helpers/live-node-harness.js`.
