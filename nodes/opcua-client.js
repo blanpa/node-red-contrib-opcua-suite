@@ -11,7 +11,11 @@
  *   msg.operation = "write" + msg.topic/msg.nodeId + msg.payload
  */
 
-const { parseNodeId, createError } = require("../lib/opcua-utils");
+const {
+  parseNodeId,
+  createError,
+  terminateWithin,
+} = require("../lib/opcua-utils");
 const { NodeClass } = require("node-opcua");
 
 function nodeClassName(nodeClass) {
@@ -355,23 +359,10 @@ module.exports = function (RED) {
     // ─── Cleanup ───
 
     node.on("close", async function (removed, done) {
-      for (const monitorItem of monitorItems.values()) {
-        try {
-          await monitorItem.terminate();
-        } catch (e) {
-          /* ignore */
-        }
-      }
+      // Bounded: offline, node-opcua holds terminate() until reconnect.
+      await terminateWithin([...monitorItems.values(), subscription]);
       monitorItems.clear();
-
-      if (subscription) {
-        try {
-          await subscription.terminate();
-        } catch (e) {
-          /* ignore */
-        }
-        subscription = null;
-      }
+      subscription = null;
 
       // Unregister status callback and release shared connection
       if (endpointConfig.unregisterStatusCallback) {

@@ -8,6 +8,7 @@ const {
   parseNodeId,
   createError,
   serializeExtensionObject,
+  terminateWithin,
 } = require("../lib/opcua-utils");
 const OpcUaClientManager = require("../lib/opcua-client-manager");
 const { resolveNodeId, NodeClass, AttributeIds } = require("node-opcua");
@@ -824,23 +825,10 @@ module.exports = function (RED) {
     // ─── Cleanup ───
 
     node.on("close", async function (removed, done) {
-      for (const mi of monitorItems.values()) {
-        try {
-          await mi.terminate();
-        } catch (e) {
-          /* ignore */
-        }
-      }
+      // Bounded: offline, node-opcua holds terminate() until reconnect.
+      await terminateWithin([...monitorItems.values(), subscription]);
       monitorItems.clear();
-
-      if (subscription) {
-        try {
-          await subscription.terminate();
-        } catch (e) {
-          /* ignore */
-        }
-        subscription = null;
-      }
+      subscription = null;
 
       if (endpointConfig.unregisterStatusCallback) {
         endpointConfig.unregisterStatusCallback(statusCallback);

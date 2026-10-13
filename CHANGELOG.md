@@ -24,6 +24,31 @@
     delivering data.
   - Requests that node-opcua fails when it abandons a session repair ("Failure
     during reconnection") now count as connection-lost and are retried.
+- **Redeploying while the server is unreachable is fast and leaks nothing.**
+  - **Endpoint unreachable at deploy:** closing waited out the in-flight
+    connect, which node-opcua keeps retrying for about 40 s with the defaults.
+    Node-RED gave up after 15 s ("Close timed out"). The manager's catch then
+    armed a reconnect timer, so once the server appeared the closed manager
+    connected anyway and opened a session that no node owned.
+  - **Server gone while subscribed:** node-opcua holds `terminate()` until the
+    channel is back, so closing a subscribed node hung indefinitely.
+  - **Now:** `disconnect()` ends the manager's lifecycle. The in-flight client
+    is disconnected, which aborts node-opcua's connect at once. The connect
+    attempt, the `reconnect()` retry loop and the reconnect timer of that
+    lifecycle stand down quietly instead of reconnecting. When offline, the
+    client is disconnected before subscriptions are terminated, so the teardown
+    settles immediately.
+  - `opcua-client`, `opcua-event` and `opcua-browse-client` wait at most 2 s for
+    their `terminate()` calls on close. node-opcua keeps a request it is
+    holding queued, so it still runs if a shared connection recovers.
+  - **Measured:** close went from 42 s to 4 ms with the endpoint unreachable,
+    and from over 60 s to 2 s with a subscribed node and the server down.
+  - `opcua-endpoint` detaches a released manager before awaiting its
+    shutdown. The next deploy always gets a fresh manager, and a manager still
+    shutting down no longer reports "disconnected" to the new nodes.
+- An in-flight `connect()` that `disconnect()` cancels now rejects with
+  "Connection closed" instead of resolving with a session that was already
+  closed again.
 
 ### Tests
 
@@ -32,6 +57,14 @@
   in-place repair and the full-reconnect path forced by reads during the
   outage. The in-place case fails on the previous code with 0 values after the
   restart.
+- `test/integration-redeploy.test.js` closes a flow against a real server in
+  both failure modes. The first case closes while connecting, starts the server
+  afterwards and asserts that no session appears. The second closes a
+  subscribed client after the server went away. On the previous code these took
+  41 s and over 60 s.
+- Unit tests for the lifecycle abort (in-flight connect, retry loop, offline
+  teardown order), endpoint detach-before-await, and `terminateWithin`.
+- The real-node test harness moved to `test/helpers/live-node-harness.js`.
 
 ## 0.2.0 (2026-08-28)
 

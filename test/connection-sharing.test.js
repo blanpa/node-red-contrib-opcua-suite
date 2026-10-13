@@ -176,6 +176,28 @@ describe("Connection Sharing", function () {
       expect(ep._refCount).to.equal(0);
     });
 
+    it("detaches the manager before its disconnect settles (redeploy)", async function () {
+      const ep = createEndpoint();
+      const old = ep.getSharedManager();
+      // A close that outlives Node-RED's timeout: disconnect never settles.
+      old.disconnect = () => new Promise(() => {});
+      ep.releaseSharedManager();
+
+      // The next deploy's node must get a fresh manager right away…
+      expect(ep._sharedManager).to.be.null;
+      const fresh = ep.getSharedManager();
+      expect(fresh).to.not.equal(old);
+
+      // …and the old one, still shutting down, must not reach its callbacks.
+      const cb = sinon.stub();
+      ep.registerStatusCallback(cb);
+      old.emit("disconnected");
+      old.emit("error", new Error("late"));
+      expect(cb.called).to.be.false;
+      fresh.emit("connected");
+      expect(cb.calledWith("connected")).to.be.true;
+    });
+
     it("should not go below zero", async function () {
       const ep = createEndpoint();
       await ep.releaseSharedManager();

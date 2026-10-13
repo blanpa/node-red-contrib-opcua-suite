@@ -140,14 +140,122 @@ describe("OpcUaClientManager.connect single-flight (issue #17)", function () {
     });
     const mgr = new OpcUaClientManager({ endpointUrl: "opc.tcp://x:4840" });
 
-    const connecting = mgr.connect();
+    const connecting = mgr.connect().then(
+      () => null,
+      (err) => err,
+    );
     // Redeploy lands while the connect is still in flight.
     const closing = mgr.disconnect();
-    await Promise.all([connecting, closing]);
+    const [connectErr] = await Promise.all([connecting, closing]);
 
-    expect(counters.sessionsOpened).to.equal(1);
-    expect(counters.sessionsClosed).to.equal(1);
+    // The attempt was cancelled, and whatever it opened was released.
+    expect(connectErr).to.be.an("error");
+    expect(connectErr.message).to.equal("Connection closed");
+    expect(counters.sessionsOpened).to.equal(counters.sessionsClosed);
     expect(mgr.isConnected).to.equal(false);
+    expect(mgr.client).to.equal(null);
+    expect(mgr.session).to.equal(null);
+  });
+
+  it("disconnect() aborts a connect still retrying an unreachable endpoint", async function () {
+    // node-opcua retries an unreachable endpoint inside client.connect() for
+    // up to maxReconnectAttempts (~40 s with the defaults) and aborts that
+    // retry loop when the client is disconnected. Model exactly that.
+    const counters = { created: 0, disconnected: 0, sessions: 0 };
+    sandbox.stub(OPCUAClient, "create").callsFake(() => {
+      counters.created++;
+      const client = new EventEmitter();
+      let fail;
+      client.connect = () =>
+        new Promise((resolve, reject) => {
+          fail = reject;
+        });
+      client.disconnect = async () => {
+        counters.disconnected++;
+        fail(new Error("connection may have been rejected by server"));
+      };
+      client.createSession = async () => {
+        counters.sessions++;
+        return { close: async () => {} };
+      };
+      return client;
+    });
+    const mgr = new OpcUaClientManager({
+      endpointUrl: "opc.tcp://x:4840",
+      reconnectDelay: 20,
+    });
+    const errors = [];
+    mgr.on("error", (e) => errors.push(e));
+
+    const connecting = mgr.connect().catch((e) => e);
+    await new Promise((r) => setImmediate(r));
+    const t0 = Date.now();
+    await mgr.disconnect();
+
+    expect(Date.now() - t0).to.be.below(1000);
+    expect((await connecting).message).to.equal("Connection closed");
+    expect(counters.disconnected).to.equal(1);
+    // Closing is not an error, and nothing comes back afterwards: the old
+    // code's catch armed scheduleReconnect(), which reconnected the closed
+    // manager and opened a session no node owned.
+    expect(errors).to.deep.equal([]);
+    expect(mgr.reconnectTimer).to.equal(null);
+    await new Promise((r) => setTimeout(r, 100));
+    expect(counters.created).to.equal(1);
+    expect(counters.sessions).to.equal(0);
+  });
+
+  it("disconnect() stops a running reconnect() retry loop", async function () {
+    const mgr = new OpcUaClientManager({ endpointUrl: "opc.tcp://x:4840" });
+    const connect = sandbox
+      .stub(mgr, "connect")
+      .rejects(new Error("connection may have been rejected"));
+
+    const looping = mgr
+      .reconnect({ maxAttempts: 0, initialDelay: 50 })
+      .catch((e) => e);
+    await new Promise((r) => setTimeout(r, 20));
+    await mgr.disconnect();
+
+    expect((await looping).message).to.equal("reconnect aborted");
+    const calls = connect.callCount;
+    await new Promise((r) => setTimeout(r, 150));
+    expect(connect.callCount).to.equal(calls);
+  });
+
+  it("disconnect() while offline drops the client before terminating subscriptions", async function () {
+    // node-opcua holds subscription.terminate() until the channel is back,
+    // so an offline close used to hang until Node-RED gave up on it.
+    const order = [];
+    const mgr = new OpcUaClientManager({ endpointUrl: "opc.tcp://x:4840" });
+    let release;
+    const held = new Promise((r) => (release = r));
+    mgr.client = new EventEmitter();
+    mgr.client.disconnect = async () => {
+      order.push("client.disconnect");
+      release();
+    };
+    mgr.session = {
+      isReconnecting: true,
+      close: async () => order.push("session.close"),
+    };
+    mgr.subscriptions.set(1, {
+      terminate: async () => {
+        await held;
+        order.push("subscription.terminate");
+      },
+    });
+    mgr.isConnected = false;
+
+    const t0 = Date.now();
+    await mgr.disconnect();
+
+    expect(Date.now() - t0).to.be.below(1000);
+    expect(order).to.deep.equal([
+      "client.disconnect",
+      "subscription.terminate",
+      "session.close",
+    ]);
   });
 
   it("a session refused after the channel is up does not leak the channel", async function () {

@@ -114,30 +114,30 @@ module.exports = function (RED) {
           userCertificateFile: certData.userCertificateFile || "",
           userPrivateKeyFile: certData.userPrivateKeyFile || "",
         };
-        node._sharedManager =
+        const mgr =
           node.poolSize > 1
             ? new PooledClientManager(managerConfig, node.poolSize)
             : new OpcUaClientManager(managerConfig);
+        node._sharedManager = mgr;
 
-        // Propagate status events to all registered client nodes
-        node._sharedManager.on("connected", () => {
-          node._statusCallbacks.forEach((cb) => cb("connected"));
-        });
-        node._sharedManager.on("disconnected", () => {
-          node._statusCallbacks.forEach((cb) => cb("disconnected"));
-        });
-        node._sharedManager.on("reconnecting", () => {
-          node._statusCallbacks.forEach((cb) => cb("reconnecting"));
-        });
-        node._sharedManager.on("session_recreated", () => {
-          node._statusCallbacks.forEach((cb) => cb("session_recreated"));
-        });
-        node._sharedManager.on("reconnected", (info) => {
-          node._statusCallbacks.forEach((cb) => cb("reconnected", info));
-        });
-        node._sharedManager.on("error", (error) => {
-          node._statusCallbacks.forEach((cb) => cb("error", error));
-        });
+        // Propagate status events to all registered client nodes — but only
+        // while this manager is the endpoint's current one. A released
+        // manager is still shutting down in the background, and its
+        // "disconnected" must not reach the nodes of the next deploy.
+        const forward = (event) => (arg) => {
+          if (node._sharedManager !== mgr) return;
+          node._statusCallbacks.forEach((cb) => cb(event, arg));
+        };
+        for (const event of [
+          "connected",
+          "disconnected",
+          "reconnecting",
+          "session_recreated",
+          "reconnected",
+          "error",
+        ]) {
+          mgr.on(event, forward(event));
+        }
 
         node.log(
           `Shared connection created for ${node.endpointUrl}` +
@@ -168,28 +168,33 @@ module.exports = function (RED) {
 
       if (node._refCount === 0 && node._sharedManager) {
         node.log(`Last client closed — disconnecting from ${node.endpointUrl}`);
+        // Detach before awaiting: if the close outlives Node-RED's timeout,
+        // the next deploy's nodes must get a fresh manager, not this one
+        // half torn down — and must not have it nulled under them later.
+        const mgr = node._sharedManager;
+        node._sharedManager = null;
+        node._statusCallbacks.clear();
         try {
-          await node._sharedManager.disconnect();
+          await mgr.disconnect();
         } catch (e) {
           /* ignore */
         }
-        node._sharedManager = null;
-        node._statusCallbacks.clear();
       }
     };
 
     node.on("close", async function (done) {
       // Force cleanup if endpoint config itself is removed
-      if (node._sharedManager) {
+      const mgr = node._sharedManager;
+      node._sharedManager = null;
+      node._refCount = 0;
+      node._statusCallbacks.clear();
+      if (mgr) {
         try {
-          await node._sharedManager.disconnect();
+          await mgr.disconnect();
         } catch (e) {
           /* ignore */
         }
-        node._sharedManager = null;
       }
-      node._refCount = 0;
-      node._statusCallbacks.clear();
       done();
     });
   }

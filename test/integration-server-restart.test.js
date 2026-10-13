@@ -15,8 +15,16 @@
  */
 
 const { expect } = require("chai");
-const path = require("path");
 const { OPCUAServer, Variant, DataType } = require("node-opcua");
+const {
+  createRED,
+  loadNode,
+  makeNode,
+  closeNode,
+  input: deliver,
+  sleep,
+  waitFor,
+} = require("./helpers/live-node-harness");
 
 const PORT = 49500 + Math.floor(Math.random() * 400);
 const ENDPOINT = `opc.tcp://localhost:${PORT}/UA/RestartTest`;
@@ -54,63 +62,6 @@ async function stopServer(server) {
   await server.shutdown(0);
 }
 
-// Minimal RED runtime: real endpoint + client nodes, recorded sends.
-function createRED() {
-  const types = {};
-  const nodes = {};
-  return {
-    nodes: {
-      createNode(node, config) {
-        Object.assign(node, config);
-        node._events = {};
-        node.on = (event, cb) =>
-          (node._events[event] = node._events[event] || []).push(cb);
-        node.status = (s) => {
-          node._status = s;
-        };
-        node.log = () => {};
-        node.warn = () => {};
-        node.error = () => {};
-        node.sent = [];
-        node.send = (msg) => node.sent.push(msg);
-      },
-      registerType(name, ctor) {
-        types[name] = ctor;
-      },
-      getNode: (id) => nodes[id],
-    },
-    _types: types,
-    _nodes: nodes,
-  };
-}
-
-function loadNode(RED, file) {
-  const p = path.resolve(__dirname, "..", "nodes", file);
-  delete require.cache[require.resolve(p)];
-  require(p)(RED);
-}
-
-async function closeNode(node) {
-  for (const cb of node._events.close || []) {
-    await new Promise((resolve) => {
-      if (cb.length >= 2) cb.call(node, false, resolve);
-      else if (cb.length === 1) cb.call(node, resolve);
-      else Promise.resolve(cb.call(node)).then(resolve, resolve);
-    });
-  }
-}
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-async function waitFor(predicate, timeoutMs) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (predicate()) return true;
-    await sleep(100);
-  }
-  return predicate();
-}
-
 describe("Integration: subscription survives an OPC UA server restart", function () {
   this.timeout(90000);
 
@@ -122,19 +73,13 @@ describe("Integration: subscription survives an OPC UA server restart", function
     loadNode(RED, "opcua-endpoint.js");
     loadNode(RED, "opcua-client.js");
 
-    endpoint = {};
-    RED._types["opcua-endpoint"].call(endpoint, {
+    endpoint = makeNode(RED, "opcua-endpoint", {
       id: "ep",
       endpointUrl: ENDPOINT,
       securityMode: "None",
       securityPolicy: "None",
     });
-    endpoint.credentials = {};
-    RED._nodes.ep = endpoint;
-
-    client = {};
-    RED._types["opcua-client"].call(client, { id: "cl", endpoint: "ep" });
-    RED._nodes.cl = client;
+    client = makeNode(RED, "opcua-client", { id: "cl", endpoint: "ep" });
   });
 
   afterEach(async function () {
@@ -148,15 +93,7 @@ describe("Integration: subscription survives an OPC UA server restart", function
       (m) => m.operation === "subscribe" && typeof m.payload === "number",
     );
 
-  function input(msg) {
-    return new Promise((resolve) =>
-      client._events.input[0](
-        msg,
-        (m) => client.sent.push(m),
-        () => resolve(),
-      ),
-    );
-  }
+  const input = (msg) => deliver(client, msg);
 
   async function subscribeAndRestart({ readDuringOutage }) {
     await input({ topic: "ns=1;s=Counter", operation: "subscribe" });

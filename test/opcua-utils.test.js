@@ -7,6 +7,7 @@ const {
   createError,
   parseDataType,
   isValidEndpointUrl,
+  terminateWithin,
   WELL_KNOWN_NODES,
 } = require("../lib/opcua-utils");
 
@@ -319,6 +320,44 @@ describe("opcua-utils", function () {
 
     it("should reject empty string", function () {
       expect(isValidEndpointUrl("")).to.be.false;
+    });
+  });
+
+  // ─── terminateWithin ───
+
+  describe("terminateWithin", function () {
+    it("stops waiting after the bound when a terminate() never settles", async function () {
+      // Offline, node-opcua holds terminate() until the channel is back.
+      const hanging = { terminate: () => new Promise(() => {}) };
+      const quick = { terminate: async () => {} };
+      const t0 = Date.now();
+      await terminateWithin([hanging, quick], 50);
+      expect(Date.now() - t0).to.be.below(500);
+    });
+
+    it("still issues every terminate, in parallel", async function () {
+      const calls = [];
+      const handle = (id) => ({
+        terminate: () => {
+          calls.push(id);
+          return new Promise(() => {});
+        },
+      });
+      await terminateWithin([handle(1), handle(2), handle(3)], 20);
+      expect(calls).to.deep.equal([1, 2, 3]);
+    });
+
+    it("skips empty handles and never rejects", async function () {
+      const throwing = {
+        terminate: () => {
+          throw new Error("sync boom");
+        },
+      };
+      const rejecting = {
+        terminate: async () => Promise.reject(new Error("x")),
+      };
+      await terminateWithin([null, undefined, throwing, rejecting], 50);
+      await terminateWithin([], 50);
     });
   });
 });

@@ -1,7 +1,11 @@
 /**
  * OPC UA Event Node — Subscribes to OPC UA events (BaseEventType etc.)
  */
-const { parseNodeId, createError } = require("../lib/opcua-utils");
+const {
+  parseNodeId,
+  createError,
+  terminateWithin,
+} = require("../lib/opcua-utils");
 
 module.exports = function (RED) {
   function OpcUaEventNode(config) {
@@ -264,18 +268,10 @@ module.exports = function (RED) {
     });
 
     node.on("close", async function (removed, done) {
-      if (monitoredItem)
-        try {
-          await monitoredItem.terminate();
-        } catch (e) {
-          /**/
-        }
-      if (subscription)
-        try {
-          await subscription.terminate();
-        } catch (e) {
-          /**/
-        }
+      // Bounded: offline, node-opcua holds terminate() until reconnect.
+      await terminateWithin([monitoredItem, subscription]);
+      monitoredItem = null;
+      subscription = null;
       if (endpointConfig.unregisterStatusCallback) {
         endpointConfig.unregisterStatusCallback(statusCallback);
       }
