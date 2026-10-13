@@ -290,6 +290,16 @@ describe("OpcUaClientManager.reconnect / _isConnectionLostError (DEBT-01)", func
       }
     });
 
+    it("returns true for a request failed by an abandoned session repair", function () {
+      expect(
+        mgr._isConnectionLostError(
+          new Error(
+            "Error reading: Failure during reconnection : client or session is not usable anymore",
+          ),
+        ),
+      ).to.be.true;
+    });
+
     it("returns false for 'timeout reading'", function () {
       expect(mgr._isConnectionLostError(new Error("timeout reading"))).to.be
         .false;
@@ -327,6 +337,95 @@ describe("OpcUaClientManager.reconnect / _isConnectionLostError (DEBT-01)", func
     it("starts a fresh manager with _everConnected=false (no replay on first connect)", function () {
       const mgr = makeManager();
       expect(mgr._everConnected).to.be.false;
+    });
+  });
+
+  // ─── after_reconnection: defer to node-opcua's own session repair ───
+
+  describe("_onAfterReconnection()", function () {
+    // A session as node-opcua leaves it right after it restored the channel:
+    // still reconnecting until its repair (activate, or recreate + transfer
+    // subscriptions) finishes.
+    function repairingSession() {
+      const session = {
+        isReconnecting: true,
+        closed: false,
+        hasBeenClosed() {
+          return this.closed;
+        },
+        close: sinon.stub().resolves(),
+      };
+      return session;
+    }
+
+    function setup() {
+      const mgr = makeManager();
+      const client = { createSession: sinon.stub() };
+      const session = repairingSession();
+      mgr.client = client;
+      mgr.session = session;
+      mgr.isConnected = false;
+      const events = [];
+      for (const e of ["connected", "session_recreated", "error"]) {
+        mgr.on(e, () => events.push(e));
+      }
+      return { mgr, client, session, events };
+    }
+
+    it("waits for the repair and keeps the session — no second session, no replay", async function () {
+      const { mgr, client, session, events } = setup();
+
+      const done = mgr._onAfterReconnection(client);
+      await new Promise((r) => setTimeout(r, 250));
+      // Still repairing: nothing reported yet, nothing torn down.
+      expect(events).to.deep.equal([]);
+      expect(mgr.isConnected).to.be.false;
+
+      session.isReconnecting = false;
+      await done;
+
+      expect(client.createSession.called).to.be.false;
+      expect(session.close.called).to.be.false;
+      expect(mgr.session).to.equal(session);
+      expect(mgr.isConnected).to.be.true;
+      expect(events).to.deep.equal(["connected"]);
+    });
+
+    it("falls back to a full connect() when the repair ends with the session closed", async function () {
+      const { mgr, client, session } = setup();
+      const connect = sinon.stub(mgr, "connect").resolves();
+
+      session.isReconnecting = false;
+      session.closed = true;
+      await mgr._onAfterReconnection(client);
+
+      expect(connect.calledOnce).to.be.true;
+      expect(client.createSession.called).to.be.false;
+    });
+
+    it("stands down when a full connect()/disconnect() replaced the client meanwhile", async function () {
+      const { mgr, client, events } = setup();
+      const connect = sinon.stub(mgr, "connect").resolves();
+
+      const done = mgr._onAfterReconnection(client);
+      mgr.client = null;
+      mgr.session = null;
+      await done;
+
+      expect(events).to.deep.equal([]);
+      expect(connect.called).to.be.false;
+      expect(mgr.isConnected).to.be.false;
+    });
+
+    it("is single-flight across repeated after_reconnection events", async function () {
+      const { mgr, client, session, events } = setup();
+
+      const first = mgr._onAfterReconnection(client);
+      const second = mgr._onAfterReconnection(client);
+      session.isReconnecting = false;
+      await Promise.all([first, second]);
+
+      expect(events).to.deep.equal(["connected"]);
     });
   });
 });

@@ -2,6 +2,37 @@
 
 ## Unreleased
 
+### Fixed
+
+- **Subscriptions survive a server restart or network drop.** Before this fix,
+  data stopped for good after the server came back, while every node still
+  showed a green "connected".
+  - **Cause:** node-opcua restores the secure channel itself and then repairs
+    the session. The manager's `after_reconnection` handler raced that repair:
+    it opened a second session and closed the one node-opcua was repairing.
+  - **Effect:** the repair then failed forever ("session has no
+    userIdentityInfo"), and the replayed subscribes landed on a session that
+    was still reconnecting ("Session is no longer valid").
+  - **Now:** the manager waits for node-opcua's repair, which keeps the session
+    and transfers or recreates its subscriptions in place. It only falls back to
+    a full reconnect plus `session_recreated` when the repair ends with the
+    session closed.
+  - `opcua-client`, `opcua-event` and `opcua-browse-client` keep their
+    subscription handles on `disconnected`, because those handles stay valid
+    after an in-place repair. They are still rebuilt on `session_recreated`.
+    Previously `unsubscribe` could not reach a repaired item that was still
+    delivering data.
+  - Requests that node-opcua fails when it abandons a session repair ("Failure
+    during reconnection") now count as connection-lost and are retried.
+
+### Tests
+
+- `test/integration-server-restart.test.js` restarts a real in-process OPC UA
+  server under a live `opcua-client` subscription. It covers both node-opcua's
+  in-place repair and the full-reconnect path forced by reads during the
+  outage. The in-place case fails on the previous code with 0 values after the
+  restart.
+
 ## 0.2.0 (2026-08-28)
 
 A connection-lifecycle and code-review release. The headline fix closes

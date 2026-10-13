@@ -40,11 +40,9 @@ module.exports = function (RED) {
           break;
         case "disconnected":
           node.status({ fill: "red", shape: "ring", text: "disconnected" });
-          // The handles below belong to a session that is gone;
-          // reusing them throws "expecting a valid session".
-          // activeRequest is kept so we can replay after recovery.
-          monitoredItem = null;
-          subscription = null;
+          // Keep the handles: node-opcua repairs them in place once the
+          // channel is back. "session_recreated" discards them if the
+          // session has to be replaced instead.
           break;
         case "session_recreated":
           monitoredItem = null;

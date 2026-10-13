@@ -115,12 +115,11 @@ module.exports = function (RED) {
           break;
         case "disconnected":
           node.status({ fill: "red", shape: "ring", text: "disconnected" });
-          // Drop references to the now-dead subscription/monitored items so a
-          // subscribe arriving during the outage doesn't reuse them and crash
-          // with "expecting a valid session". subscribedTopics is kept for
-          // replay once the session is re-established.
-          subscription = null;
-          monitorItems.clear();
+          // Keep the subscription/monitored items: when node-opcua restores
+          // the channel it repairs them in place and data resumes on these
+          // very objects. Dropping them here orphaned live server-side items
+          // that unsubscribe could no longer reach. If the session has to be
+          // replaced instead, "session_recreated" below discards them.
           break;
         case "session_recreated":
           // The manager replaced the session after a reconnect. Rebuild every

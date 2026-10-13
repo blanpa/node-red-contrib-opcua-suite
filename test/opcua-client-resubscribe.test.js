@@ -188,17 +188,57 @@ describe("opcua-client re-subscribe after session recreation (issue #15)", funct
     expect(created[2].itemToMonitor.nodeId.value).to.equal("Keep");
   });
 
-  it("clears the stale subscription on disconnect so a later subscribe is safe", async function () {
+  it("keeps its handles across a channel drop that node-opcua repairs in place", async function () {
+    const node = makeNode({});
+    await subscribe(node, "ns=2;s=Var1");
+
+    // node-opcua restores the channel and repairs the session: the manager
+    // reports disconnected → connected without "session_recreated".
+    endpoint.fire("disconnected");
+    endpoint.fire("connected");
+    await flush();
+
+    // Nothing was rebuilt, and the original item is still reachable — the
+    // old behaviour dropped it, so unsubscribe answered "Not subscribed"
+    // while the repaired item kept delivering data.
+    expect(mgr.createSubscription.callCount).to.equal(1);
+    expect(created.length).to.equal(1);
+    const send = sinon.stub();
+    await node._events["input"][0](
+      { topic: "ns=2;s=Var1", operation: "unsubscribe" },
+      send,
+      sinon.stub(),
+    );
+    expect(created[0].terminate.calledOnce).to.equal(true);
+  });
+
+  it("a subscribe during the outage reconnects and builds on the fresh session", async function () {
     const node = makeNode({});
     await subscribe(node, "ns=2;s=Var1");
     const firstSub = created[0].subscription;
 
-    endpoint.fire("disconnected"); // subscription nulled, monitorItems cleared
+    endpoint.fire("disconnected");
+    mgr.isConnected = false;
+    // A full connect() replaces the session and announces it, like the real
+    // manager's _doConnect does on every reconnect.
+    mgr.connect = sinon.stub().callsFake(async () => {
+      mgr.isConnected = true;
+      endpoint.fire("connected");
+      endpoint.fire("session_recreated");
+    });
 
-    // A subscribe arriving during the outage must build a fresh subscription,
-    // not reuse the dead one (which would throw "expecting a valid session").
-    await subscribe(node, "ns=2;s=Var1");
-    expect(mgr.createSubscription.callCount).to.equal(2);
-    expect(created[1].subscription).to.not.equal(firstSub);
+    await subscribe(node, "ns=2;s=Var2");
+    await flush();
+
+    expect(mgr.connect.calledOnce).to.equal(true);
+    // Neither topic is left on the dead subscription.
+    const live = created.slice(1);
+    expect(live.map((i) => i.itemToMonitor.nodeId.value).sort()).to.deep.equal([
+      "Var1",
+      "Var2",
+    ]);
+    for (const item of live) {
+      expect(item.subscription).to.not.equal(firstSub);
+    }
   });
 });

@@ -615,8 +615,9 @@ module.exports = function (RED) {
           break;
         case "disconnected":
           node.status({ fill: "red", shape: "ring", text: "disconnected" });
-          monitorItems.clear();
-          subscription = null;
+          // Keep the handles: node-opcua repairs them in place once the
+          // channel is back. "session_recreated" discards them if the
+          // session has to be replaced instead.
           break;
         case "session_recreated":
           // The manager replaced the session after a reconnect (e.g. a Siemens

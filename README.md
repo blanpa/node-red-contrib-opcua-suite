@@ -382,7 +382,7 @@ docker compose build --no-cache && docker compose up -d --force-recreate  # Rebu
 ## Testing
 
 ```bash
-npm test                       # 767 unit tests (8 pending)
+npm test                       # 775 unit tests (8 pending)
 npm run lint                   # ESLint
 npm run format:check           # Prettier
 node test/live-integration.js  # 36 live integration tests (requires Docker)
