@@ -50,6 +50,10 @@
     <h4>Argument Formats</h4>
     <pre>[{dataType: "Double", value: 3.14}, {dataType: "String", value: "hello"}]</pre>
     <p>Or simple values (auto-detect): <code>[3.14, "hello", true]</code></p>
+    <p>Values are converted from JSON like client writes (e.g.
+    <code>{dataType: "DateTime", value: "2026-01-01T00:00:00Z"}</code>). Add
+    <code>arrayType: "Array"</code> for an array argument, and
+    <code>dataTypeNodeId</code> for an <code>ExtensionObject</code> argument.</p>
     <h3>Output</h3>
     <ul>
         <li><code>msg.payload</code> — Array of output values</li>

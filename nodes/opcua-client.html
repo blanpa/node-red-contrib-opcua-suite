@@ -314,7 +314,9 @@
         </li>
         <li>
             <code>msg.datatype</code> — Optional: DataType (e.g. "Int32",
-            "Double", "ExtensionObject")
+            "Double", "DateTime", "ExtensionObject"). JSON values are converted
+            to it: an ISO string or epoch ms for DateTime, "ns=2;s=X" for
+            NodeId, base64 for ByteString.
         </li>
     </ul>
 
@@ -401,26 +403,16 @@
 
     <h4>Writing ExtensionObjects</h4>
     <p>
-        To write a structured type, set
-        <code>msg.datatype = "ExtensionObject"</code> and provide:
+        Send the struct fields as a plain JSON object in
+        <code>msg.payload</code>. The structure type is read from the target
+        variable, so no further settings are needed. Nested structures are
+        nested objects; an <b>array of structures</b> is an array of objects.
     </p>
-    <ul>
-        <li>
-            <code>msg.dataTypeNodeId</code> — The NodeId of the structured
-            DataType definition (e.g. <code>"ns=2;i=3003"</code>)
-        </li>
-        <li>
-            <code>msg.payload</code> — A plain JSON object with the field
-            values: <code>{ field1: 42, field2: "hello" }</code>
-        </li>
-    </ul>
     <p>Example:</p>
     <pre>
 msg = {
     operation: "write",
     nodeId: "ns=2;s=MyStructVar",
-    datatype: "ExtensionObject",
-    dataTypeNodeId: "ns=2;i=3003",
     payload: {
         temperature: 25.5,
         unit: "Celsius",
@@ -429,8 +421,12 @@ msg = {
 }</pre
     >
     <p>
-        For batch writes, include <code>datatype: "ExtensionObject"</code> and
-        <code>dataTypeNodeId</code> in each item object.
+        <code>msg.datatype = "ExtensionObject"</code> with
+        <code>msg.dataTypeNodeId</code> (e.g. <code>"ns=2;i=3003"</code>) is
+        still accepted and only needed when the variable is declared with an
+        abstract type. A write replaces the <b>whole</b> structure: fields left
+        out are written with their default value. To change one field, read
+        the structure, change it and write it back.
     </p>
 
     <h3>Item Collector Pattern</h3>

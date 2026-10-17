@@ -12,6 +12,7 @@ const {
   resolveNodeId,
   NodeClass,
 } = require("node-opcua");
+const { buildVariant, resolveDataType } = require("../lib/opcua-variant");
 
 module.exports = function (RED) {
   function OpcUaServerNode(config) {
@@ -251,12 +252,12 @@ module.exports = function (RED) {
       throw new Error("variableName missing");
     }
 
-    const dataType = DataType[datatype] || DataType.Double;
-    const variant = new Variant({
-      dataType: dataType,
-      value:
-        initialValue !== undefined ? initialValue : getDefaultValue(dataType),
-    });
+    // An unknown name used to become a Double without a word.
+    const dataType = resolveDataType(datatype) ?? DataType.Double;
+    const variant =
+      initialValue !== undefined
+        ? buildVariant(initialValue, dataType)
+        : new Variant({ dataType, value: getDefaultValue(dataType) });
 
     // The standard "Objects" folder only accepts Organizes references
     // (per OPC UA spec). For user-created folders/objects we use HasComponent.
@@ -291,9 +292,8 @@ module.exports = function (RED) {
    * ("the provided variant must have the expected dataType").
    */
   function resolveSetValueDataType(msg, node, addressSpace) {
-    if (msg.datatype && DataType[msg.datatype] !== undefined) {
-      return DataType[msg.datatype];
-    }
+    const explicit = resolveDataType(msg.datatype);
+    if (explicit !== null) return explicit;
     if (node.dataType && addressSpace) {
       try {
         const basic = addressSpace.findCorrespondingBasicDataType(
@@ -336,10 +336,7 @@ module.exports = function (RED) {
     }
 
     const dataType = resolveSetValueDataType(msg, node, addressSpace);
-    const variant = new Variant({
-      dataType: dataType,
-      value: value,
-    });
+    const variant = buildVariant(value, dataType);
 
     node.setValueFromSource(variant);
 

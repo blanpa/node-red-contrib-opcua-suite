@@ -71,7 +71,7 @@
                     '<button type="button" class="opcua-il-remove red-ui-button red-ui-button-small"><i class="fa fa-remove"></i></button>' +
                     '</div>');
                 var extRow = $('<div class="opcua-il-extrow">' +
-                    '<input type="text" class="opcua-il-dtnodeid" placeholder="DataType NodeId (e.g. ns=2;i=3003)">' +
+                    '<input type="text" class="opcua-il-dtnodeid" placeholder="DataType NodeId (optional, e.g. ns=2;i=3003)">' +
                     '</div>');
                 row.find('.opcua-il-nodeId').val(nid || '');
                 row.find('.opcua-il-itemName').val(iname || '');
@@ -286,6 +286,9 @@
     <h4>DataType (write only)</h4>
     <p>The DataType is used for <b>writes</b> only — reads always return the server's type.
     The dropdown lists the full OPC UA type set. <b>Auto</b> infers the type from the JS value.
+    The payload is converted from its JSON form — e.g. an ISO string or epoch ms for
+    <code>DateTime</code>, <code>"ns=2;s=X"</code> for <code>NodeId</code>, base64 for
+    <code>ByteString</code>; a value that does not fit is reported as an error.
     The <i>Advanced</i> types (<code>DataValue</code>, <code>Variant</code>, <code>DiagnosticInfo</code>)
     are rarely writable as a variable value and will surface a server error if the value does not
     match — they are offered for completeness.</p>
@@ -295,10 +298,12 @@
     The payload must then be a JS array. Sets <code>arrayType: "Array"</code> on the item.</p>
 
     <h4>ExtensionObject (structured types)</h4>
-    <p>Select <b>ExtensionObject</b> to reveal a <b>DataType NodeId</b> field — enter the NodeId of
-    the structured DataType definition (e.g. <code>ns=2;i=3003</code>). The payload is a plain JSON
-    object of the struct fields. Reading ExtensionObjects needs no configuration — they come back
-    as JSON automatically.</p>
+    <p>The payload is a plain JSON object of the struct fields (or an array of them with
+    <code>[]</code>). <b>Auto</b> already writes it as a structure, using the variable's own type.
+    Selecting <b>ExtensionObject</b> reveals an optional <b>DataType NodeId</b> field
+    (e.g. <code>ns=2;i=3003</code>), needed only when the variable is declared with an abstract
+    type. A write replaces the whole structure — fields left out get their default value.
+    Reading ExtensionObjects needs no configuration — they come back as JSON automatically.</p>
 
     <h4>Chain Pattern</h4>
     <p>Multiple Item nodes can be chained — each adds its items to <code>msg.items</code>:</p>

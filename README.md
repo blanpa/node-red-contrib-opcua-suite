@@ -137,7 +137,7 @@ In **Collector Mode** (default), items are appended to `msg.items` for batch ope
 
 **Array (`[]`)** — tick the per-item `[]` box to write the value as an array (ValueRank); the payload must be a JS array (e.g. `[1, 2, 3]`). Sets `arrayType: "Array"` on the item (or `msg.arrayType` for a single write).
 
-**ExtensionObject** — selecting `ExtensionObject` reveals a **DataType NodeId** field (e.g. `ns=2;i=3003`); the payload is a plain JSON object of the struct fields. See [ExtensionObjects](#extensionobjects-structured-types).
+**ExtensionObject** — selecting `ExtensionObject` reveals an optional **DataType NodeId** field (e.g. `ns=2;i=3003`); leave it empty to take the structure type from the variable. The payload is a plain JSON object of the struct fields, or an array of them. See [ExtensionObjects](#extensionobjects-structured-types).
 
 **Operation** (optional) sets `msg.operation` (Read / Write / Subscribe / Unsubscribe) so the downstream client knows what to do without a separate config — leave on *don't set* to keep the client's default or an existing `msg.operation`.
 
@@ -316,7 +316,32 @@ See [docs/MSG-SCHEMA.md](docs/MSG-SCHEMA.md) for the full message field referenc
 | `string` | String |
 | `Date` | DateTime |
 
-Explicit override: `msg.datatype = "UInt16"` or in item config. The item node's **DataType** dropdown offers the full OPC UA scalar set (see [opcua-item](#opcua-item-item-collector)); the override applies to writes only.
+A plain object (or an array of plain objects) in auto mode is resolved from the target variable's DataType: a structure is written as an [ExtensionObject](#extensionobjects-structured-types), a built-in type such as `LocalizedText` as that type.
+
+Explicit override: `msg.datatype = "UInt16"` or in item config. The item node's **DataType** dropdown offers the full OPC UA scalar set (see [opcua-item](#opcua-item-item-collector)); the override applies to writes only. An unknown name (e.g. a typo) is rejected with `Unknown DataType` instead of falling back to auto detection.
+
+### Value formats for writes
+
+Message values are plain JSON, so writes (`write`, `writemultiple`, method input arguments, the server's `addVariable` / `setValue`) convert them to the declared DataType. A value that does not fit is rejected with an error naming the type and the value — it is never written as something else.
+
+| DataType | Accepted JSON values |
+|---|---|
+| `Boolean` | `true` / `false`, `"true"` / `"false"`, `1` / `0` |
+| Integers, `Float`, `Double` | number or numeric string |
+| `Int64` / `UInt64` | number, decimal string (`"9007199254740993"`, exact beyond 2^53), BigInt, or the `[high, low]` pair a read returns. An **array** of Int64 needs `arrayType: "Array"` — a two-number array alone is read as `[high, low]` |
+| `String`, `XmlElement` | string (numbers and booleans are converted) |
+| `DateTime` | `Date`, ISO 8601 string, or epoch milliseconds (an inject node's timestamp) |
+| `Guid` | `"72962B91-FA75-4AE6-8D28-B404DC7DAF63"` |
+| `ByteString` | `Buffer`, byte array `[104, 105]`, or a **base64** string (plain text is rejected) |
+| `NodeId` | `"ns=2;s=Name"`, `"i=2253"`, well-known names such as `"Server"` |
+| `ExpandedNodeId` | as NodeId, optionally `nsu=<namespace uri>;` and `svr=<index>;` prefixes |
+| `StatusCode` | number or name (`"Good"`) |
+| `QualifiedName` | `"2:Name"` or `{ namespaceIndex, name }` |
+| `LocalizedText` | string or `{ locale, text }` |
+| `Variant` | `{ dataType, value }` — the value carries its own type; without one the type is inferred |
+| `ExtensionObject` | plain object of the struct fields, or an array of them — see below |
+
+Arrays (`arrayType: "Array"` or the item's `[]` box) convert every element the same way.
 
 ### Single-value reads
 
@@ -328,16 +353,22 @@ Enable **Unwrap single value** on the client node (or set `msg.unwrapSingle = tr
 
 **Reading:** ExtensionObjects are automatically serialized to plain JSON in `msg.payload`. The `msg.dataType` will be `"ExtensionObject"` with a `_typeName` field.
 
-**Writing:** Set `msg.datatype = "ExtensionObject"` and `msg.dataTypeNodeId` to the DataType definition NodeId:
+**Writing:** send the struct fields as a plain JSON object. The structure type is taken from the target variable's DataType, so no further configuration is needed:
 ```json
 {
     "topic": "ns=2;s=MyStructVar",
-    "datatype": "ExtensionObject",
-    "dataTypeNodeId": "ns=2;i=3003",
     "payload": { "temperature": 25.5, "unit": "Celsius" }
 }
 ```
 
+`msg.datatype = "ExtensionObject"` and `msg.dataTypeNodeId` (the DataType definition NodeId, e.g. `ns=2;i=3003`) are still accepted. Set `dataTypeNodeId` when the variable is declared with an abstract type (e.g. `Structure`) and the concrete subtype cannot be derived from it.
+
+- **Nested structures** are written as nested objects, array fields as JSON arrays. Field names may be camelCase or PascalCase; values follow the [value formats](#value-formats-for-writes) (a DateTime field takes an ISO string).
+- **Arrays of structures:** send an array of objects (with `arrayType: "Array"` or in auto mode). Previously the array was written as a single empty record although the server answered `Good`.
+- **Read, modify, write back:** a value read from the server can be written back unchanged; the `_typeName` fields are ignored.
+- **A write replaces the whole structure.** Fields missing from the object are written with their default value (`0`, `""`, `[]`, `1601-01-01`), they are not kept from the server's current value. To change a single field, read the structure first, change the field and write the whole object back.
+
+## Examples
 ## Examples
 
 Import ready-to-use flows in the Node-RED editor: **Menu → Import → Examples → node-red-contrib-opcua-suite**.
@@ -382,7 +413,7 @@ docker compose build --no-cache && docker compose up -d --force-recreate  # Rebu
 ## Testing
 
 ```bash
-npm test                       # 798 unit tests (8 pending)
+npm test                       # 861 unit tests (8 pending)
 npm run lint                   # ESLint
 npm run format:check           # Prettier
 node test/live-integration.js  # 36 live integration tests (requires Docker)

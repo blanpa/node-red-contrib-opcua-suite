@@ -98,9 +98,51 @@
     MQTT. That transport also carries JSON, so only the subscriber knows a frame
     is UADP. A reassembled message may be up to 16 MiB; rejected chunks show up
     as `MQTT_REASSEMBLY_*` warnings.
+- **Writes convert JSON message values to the declared DataType.**
+  - **Before:** values went to node-opcua unconverted. Several types failed
+    or, worse, arrived as something else with a `Good` status:
+    - an `ExpandedNodeId` string was written as `ns=0;i=0`;
+    - a `Variant` given as `{ dataType, value }` was written as `Null`;
+    - a `DateTime` from an ISO string or an inject timestamp failed with the
+      empty message `Error writing: `;
+    - a `NodeId` string was refused;
+    - an `Int64` could not be written back in the `[high, low]` form a read
+      returns.
+  - **Now:** `lib/opcua-variant.js` converts every write value, for `write`,
+    `writemultiple`, method input arguments and the server's `addVariable` /
+    `setValue`. A value that does not fit is rejected with an error that
+    names the type and the value; `writemultiple` adds the item's NodeId. The
+    accepted formats are listed in the README under *Value formats for
+    writes*.
+- **Arrays of structures (UDTs) are written correctly.**
+  - **Before:** the whole array was handed to `constructExtensionObject`,
+    which built one empty structure from it. The server answered `Good` and
+    the array was replaced by a single default record.
+  - **Now:** each element becomes its own ExtensionObject in an array
+    Variant.
+- **Structures can be written without a `dataTypeNodeId`.** It is read from
+  the variable's DataType attribute (cached per session). In auto mode a
+  plain object, or an array of them, is resolved the same way, so a UDT can
+  be written with no type configuration at all. Method arguments still need
+  `dataTypeNodeId`.
+
+### Changed
+
+- An unknown `msg.datatype` / item DataType name (e.g. a typo) is now an
+  error. The client used to fall back to auto detection, method arguments to
+  `Null` and the server's `addVariable` to `Double`, all without a word.
+- A `ByteString` given as a string is now decoded as base64, the form OPC UA
+  JSON, structure reads and PubSub JSON use. A string that is not valid
+  base64 is rejected; it used to be written as its raw text bytes.
 
 ### Tests
 
+- `test/integration-datatypes.test.js` writes every converted type, nested
+  structures, arrays of structures and type-less structure writes against a
+  real in-process server and reads them back. 14 of its 17 cases fail on the
+  previous code. `test/opcua-variant.test.js` covers the conversion through
+  the OPC UA binary codec, and `test/opcua-server-setvalue.test.js` the
+  server side.
 - `test/integration-server-restart.test.js` restarts a real in-process OPC UA
   server under a live `opcua-client` subscription. It covers both node-opcua's
   in-place repair and the full-reconnect path forced by reads during the

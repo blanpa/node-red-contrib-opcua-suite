@@ -233,4 +233,68 @@ describe("opcua-server setValue datatype resolution", function () {
     expect(res.err).to.equal(null);
     expect(res.msg.nodeId).to.match(/^ns=1;/);
   });
+  // ─── JSON message values (shared conversion with the client) ───
+
+  it("setValue accepts an ISO string for a DateTime variable", async function () {
+    const nodeId = "ns=1;s=SV_DateTime";
+    await invoke({
+      command: "addVariable",
+      variableName: "SV_DateTime",
+      datatype: "DateTime",
+      nodeId,
+      initialValue: "2026-01-01T00:00:00Z",
+    });
+    const set = await invoke({
+      command: "setValue",
+      nodeId,
+      payload: "2026-06-01T12:00:00Z",
+    });
+    expect(set.err).to.equal(null);
+    const dv = await readValue(nodeId);
+    expect(dv.value.dataType).to.equal(DataType.DateTime);
+    expect(dv.value.value.toISOString()).to.equal("2026-06-01T12:00:00.000Z");
+  });
+
+  it("addVariable accepts a NodeId string as initial value", async function () {
+    const nodeId = "ns=1;s=SV_NodeId";
+    const add = await invoke({
+      command: "addVariable",
+      variableName: "SV_NodeId",
+      datatype: "NodeId",
+      nodeId,
+      initialValue: "ns=1;s=Target",
+    });
+    expect(add.err).to.equal(null);
+    const dv = await readValue(nodeId);
+    expect(dv.value.dataType).to.equal(DataType.NodeId);
+    expect(dv.value.value.toString()).to.equal("ns=1;s=Target");
+  });
+
+  it("addVariable rejects an unknown datatype instead of making a Double", async function () {
+    const res = await invoke({
+      command: "addVariable",
+      variableName: "SV_Typo",
+      datatype: "Dubble",
+    });
+    expect(res.err).to.be.an("error");
+    expect(res.msg.error).to.include("Unknown DataType: Dubble");
+  });
+
+  it("setValue names the value when it does not fit the DataType", async function () {
+    const nodeId = "ns=1;s=SV_BadDate";
+    await invoke({
+      command: "addVariable",
+      variableName: "SV_BadDate",
+      datatype: "DateTime",
+      nodeId,
+      initialValue: "2026-01-01T00:00:00Z",
+    });
+    const set = await invoke({
+      command: "setValue",
+      nodeId,
+      payload: "not a date",
+    });
+    expect(set.err).to.be.an("error");
+    expect(set.msg.error).to.include('Invalid DateTime value "not a date"');
+  });
 });
