@@ -167,15 +167,13 @@ others read a key that is not on disk yet. Symptoms are an
 `Error starting server` on the embedded server node and
 `Initial connect failed` on the clients.
 
-It is a first-run-only race and it does not repeat: once the certificate
-exists, **restarting Node-RED clears it permanently**.
+**Fixed** in the current version: the package now creates that certificate
+one instance at a time (`lib/pki-lock.js`). Older versions hit this race only
+on the very first start; there, restarting Node-RED clears it permanently:
 
 ```bash
 docker compose restart node-red
 ```
-
-To avoid it entirely on a fresh volume, start the stack once and let it settle
-before deploying a multi-endpoint flow.
 
 ### `opcua-server` shows as `unhealthy`
 

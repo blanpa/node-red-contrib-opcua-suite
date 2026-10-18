@@ -13,6 +13,7 @@ const {
   NodeClass,
 } = require("node-opcua");
 const { buildVariant, resolveDataType } = require("../lib/opcua-variant");
+const { withPkiLock } = require("../lib/pki-lock");
 
 module.exports = function (RED) {
   function OpcUaServerNode(config) {
@@ -78,7 +79,9 @@ module.exports = function (RED) {
           maxConnectionsPerEndpoint: maxConnectionsPerEndpoint,
         });
 
-        await server.initialize();
+        // Serialised with every other server and client of this package:
+        // see lib/pki-lock.js for the first-start certificate race.
+        await withPkiLock(() => server.initialize());
 
         // Get namespace
         addressSpace = server.engine.addressSpace;
