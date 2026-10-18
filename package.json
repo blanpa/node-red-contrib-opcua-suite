@@ -69,6 +69,6 @@
   },
   "homepage": "https://github.com/blanpa/node-red-contrib-opcua-suite#readme",
   "overrides": {
-    "ip-address": "^10.5.0"
+    "ip-address": "^10.7.4"
   }
 }
