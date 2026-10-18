@@ -274,6 +274,8 @@ async function startServer() {
     dataType: DataType.Int32,
     value: new Variant({ dataType: DataType.Int32, value: 0 }),
   });
+  // Ramp keeps an in-memory history so clients can test HistoryRead.
+  addressSpace.installHistoricalDataNode(rampVar, { maxOnlineValues: 3600 });
 
   const timestampVar = ns.addVariable({
     componentOf: dynamicFolder,
@@ -973,6 +975,7 @@ async function startServer() {
   console.log("║      Scalar/     → Boolean, Int16..64, Float, String..  ║");
   console.log("║      Arrays/     → IntArray, DoubleArray, StringArray   ║");
   console.log("║      Dynamic/    → Sinus, Random, Toggle, Ramp (1s)    ║");
+  console.log("║                    Ramp is historized (HistoryRead)     ║");
   console.log("║      Writable/   → Temperature, Pressure, SetPoint..   ║");
   console.log("║      Methods/    → Add, Multiply, ResetAll             ║");
   console.log("║      Structure/  → SensorReading, MachineStatus,       ║");

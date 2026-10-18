@@ -1,4 +1,4 @@
-.PHONY: help build up down logs restart clean
+.PHONY: help build up down logs restart clean functest
 
 help: ## Zeige diese Hilfe
 	@echo "Verfügbare Befehle:"
@@ -34,3 +34,7 @@ shell: ## Öffne Shell im Container
 
 status: ## Zeige Container Status
 	docker compose ps
+
+functest: ## Funktionstest-Suite (Beispiel 15) in Docker ausfuehren
+	docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from runner; \
+	code=$$?; docker compose -f docker-compose.test.yml down -v; exit $$code

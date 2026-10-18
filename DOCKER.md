@@ -111,6 +111,27 @@ container name is free to change.
 Node-RED waits for `opcua-server` to report **healthy** before it starts, so
 the first deploy no longer races the OPC UA server's startup.
 
+## Function Test Stack
+
+```bash
+npm run test:functional        # or: make functest
+```
+
+`docker-compose.test.yml` runs the function test suite (example 15) in its own
+compose project `opcua-suite-functest`, next to and independent of the plain and
+dev stacks:
+
+| Service | Purpose |
+|---|---|
+| `opcua-server` | node-opcua test server (`test-server/server.js`) |
+| `val-mosquitto` | anonymous MQTT broker for the PubSub tests |
+| `node-red` | Node-RED with this package, fresh `/data` on a tmpfs, host port 1882 |
+| `runner` | deploys the flow, waits for the run and exits with its result |
+
+The service names `opcua-server` and `val-mosquitto` are the hostnames the flow
+uses, the same as in the dev stack. The flow therefore also runs when imported
+into the dev stack.
+
 ## Troubleshooting
 
 ### Container won't start

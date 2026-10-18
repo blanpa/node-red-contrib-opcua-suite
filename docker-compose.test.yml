@@ -1,0 +1,84 @@
+# Function test stack: OPC UA test server + MQTT broker + Node-RED with this
+# package + a runner that deploys "15 - Function Test Suite" and exits with
+# the test result.
+#
+#   docker compose -f docker-compose.test.yml up --build \
+#     --abort-on-container-exit --exit-code-from runner
+#   docker compose -f docker-compose.test.yml down -v
+#
+# Or simply: npm run test:functional / make functest
+#
+# The project name keeps these containers apart from docker-compose.yml and
+# docker-compose.dev.yml. The service names opcua-server and val-mosquitto
+# are the hostnames the flow uses, so they must not change.
+name: opcua-suite-functest
+
+services:
+  opcua-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    entrypoint: ["node", "/opt/opcua-suite/test-server/server.js"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('net').connect(4840,'127.0.0.1').on('connect',function(){process.exit(0)}).on('error',function(){process.exit(1)})",
+        ]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    networks: [functest]
+
+  val-mosquitto:
+    image: eclipse-mosquitto:2
+    command: ["mosquitto", "-c", "/mosquitto-no-auth.conf"]
+    networks: [functest]
+
+  node-red:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - TZ=Europe/Berlin
+    # Fresh user directory on every run: no flows, no credentials, no PKI.
+    tmpfs:
+      - /data:uid=1000,gid=1000
+    ports:
+      - "1882:1880"
+    depends_on:
+      opcua-server:
+        condition: service_healthy
+      val-mosquitto:
+        condition: service_started
+    networks: [functest]
+
+  runner:
+    # Any image with Node.js works; reuse the Node-RED build.
+    build:
+      context: .
+      dockerfile: Dockerfile
+    entrypoint: ["node", "/functest/run.js"]
+    environment:
+      - NODE_RED_URL=http://node-red:1880
+      - FLOW_FILE=/functest/flow.json
+    volumes:
+      - type: bind
+        source: ./test/functional/run.js
+        target: /functest/run.js
+        read_only: true
+      - type: bind
+        source: "./examples/15 - Function Test Suite.json"
+        target: /functest/flow.json
+        read_only: true
+    depends_on:
+      node-red:
+        condition: service_healthy
+    networks: [functest]
+
+networks:
+  functest:
+    driver: bridge

@@ -36,10 +36,11 @@ QUICKSTART.md
 
 # Examples: the user-facing flows (01-12) ARE shipped so Node-RED's
 # "Import → Examples → node-red-contrib-opcua-suite" works. Only the
-# comprehensive dev validation flows (13/14) are GitHub-only — they
+# comprehensive dev validation flows (13/14/15) are GitHub-only — they
 # reference the bundled Docker test stack (test server + MQTT broker).
 examples/13*
 examples/14*
+examples/15*
 
 # Internal planning / code-review artifacts (GitHub only)
 .planning/
