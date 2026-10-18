@@ -61,6 +61,10 @@
 
 ### Fixed
 
+- **Picking a method with Browse did not fill in its object.** Node-RED
+  detaches the dialog below a second tray and re-attaches it only after the
+  close animation, so the object field could not be found when the choice
+  arrived. The picker now hands over the choice once the tray has closed.
 - **An item row without NodeId vanished on save.** A row added with
   *Add item* that already had a name or data type but no NodeId yet was
   dropped without a word when the dialog was closed with *Done*. It is now
@@ -232,6 +236,12 @@
 - `test/opcua-client-manager.test.js` and
   `test/opcua-server-setvalue.test.js` cover the `registernodes` result and
   `deleteNode`. Both fail on the previous code.
+- `test/ui/` drives every edit dialog in a real Node-RED editor with headless
+  Chrome (58 tests: new-node defaults, every field and section, validation,
+  save and reopen, cancel, NodeId picker, layout, theme, palette labels, and
+  an open-and-save round trip of all package nodes). Run it with
+  `npm run test:ui:docker` or `make uitest`. It found the method picker bug
+  above.
 - `test/editor-contract.test.js` checks the dialogs against the runtime:
   every operation is selectable, every dialog loads the shared resources and
   uses theme colours. `test/browse-client-method-arguments.test.js` covers

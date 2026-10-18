@@ -22,10 +22,11 @@
             return this.name ? "node_label_italic" : "";
         },
         oneditprepare: function () {
+            var $object = $("#node-input-objectNodeId");
             function endpoint() {
                 return $("#node-input-endpoint").val();
             }
-            OpcUaEditor.attachPicker($("#node-input-objectNodeId"), {
+            OpcUaEditor.attachPicker($object, {
                 endpoint: endpoint,
                 classes: ["Object", "ObjectType"],
                 title: "Select the object",
@@ -36,7 +37,7 @@
                 title: "Select the method",
                 onPick: function (ref, parent) {
                     // A method is called on the object it belongs to.
-                    if (parent && parent.nodeId) $("#node-input-objectNodeId").val(parent.nodeId);
+                    if (parent && parent.nodeId) $object.val(parent.nodeId).trigger("change");
                 },
             });
 

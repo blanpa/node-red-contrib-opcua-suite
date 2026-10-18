@@ -296,8 +296,13 @@
           click: function () {
             if (!chosen) return;
             var pick = chosen;
-            RED.tray.close();
-            if (opts.onPick) opts.onPick(pick.ref, pick.parent, endpointId);
+            // Node-RED detaches the dialog below while this tray is open and
+            // re-attaches it only when the close animation has finished, so
+            // the choice is handed over in the close callback. Before that,
+            // an ID lookup in the dialog below finds nothing.
+            RED.tray.close(function () {
+              if (opts.onPick) opts.onPick(pick.ref, pick.parent, endpointId);
+            });
           },
         },
       ],

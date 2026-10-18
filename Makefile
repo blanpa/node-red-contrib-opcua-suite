@@ -1,4 +1,4 @@
-.PHONY: help build up down logs restart clean functest
+.PHONY: help build up down logs restart clean functest uitest
 
 help: ## Zeige diese Hilfe
 	@echo "Verfügbare Befehle:"
@@ -37,4 +37,9 @@ status: ## Zeige Container Status
 
 functest: ## Funktionstest-Suite (Beispiel 15) in Docker ausfuehren
 	docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from runner; \
+	code=$$?; docker compose -f docker-compose.test.yml down -v; exit $$code
+
+uitest: ## UI-Tests aller Node-Dialoge in Docker und kopflosem Chrome
+	docker compose -f docker-compose.test.yml up -d --build opcua-server val-mosquitto node-red && \
+	node test/ui/run-ui-tests.js; \
 	code=$$?; docker compose -f docker-compose.test.yml down -v; exit $$code

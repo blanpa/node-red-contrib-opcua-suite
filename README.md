@@ -451,8 +451,17 @@ npm test                       # 932 unit tests (8 pending)
 npm run lint                   # ESLint
 npm run format:check           # Prettier
 npm run test:functional        # 81 function tests in Docker (example 15)
+npm run test:ui:docker         # 58 UI tests of every node dialog (Docker + headless Chrome)
 node test/live-integration.js  # 36 live integration tests (requires Docker)
 ```
+
+`test:ui:docker` starts the same stack and drives every edit dialog in a headless
+Chrome (`CHROME_BIN` selects the browser): defaults of new nodes, every field and
+section, validation, save and reopen, cancel, the NodeId picker, layout at the
+default dialog width, theme colours, and an open-and-save round trip of all
+package nodes of the function test flow. Nothing is deployed by the tests. Against
+an already running stack use `npm run test:ui`; `UI_HEADFUL=1` shows the browser
+and `UI_FILTER=item` runs a subset.
 
 `test:functional` uses its own compose project (`docker-compose.test.yml`), so it
 does not touch a running dev or plain stack. While it runs, Node-RED is reachable
