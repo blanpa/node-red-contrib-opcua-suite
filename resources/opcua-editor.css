@@ -1,0 +1,403 @@
+/*
+ * Shared editor styles for node-red-contrib-opcua-suite.
+ *
+ * Every edit dialog of the package wraps its form in .opcua-form and uses the
+ * building blocks below. Colours come from Node-RED's theme variables, so the
+ * dialogs follow light and dark editor themes; the second value of each var()
+ * is only a fallback for editors older than Node-RED 3.
+ */
+
+/* --- Rows --------------------------------------------------------------- */
+
+.opcua-form .form-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.opcua-form .form-row > label {
+  flex: 0 0 125px;
+  width: auto;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.opcua-form .form-row > label .fa {
+  width: 14px;
+  text-align: center;
+  margin-right: 2px;
+}
+.opcua-form .form-row > input[type="text"],
+.opcua-form .form-row > input[type="number"],
+.opcua-form .form-row > input[type="password"],
+.opcua-form .form-row > select,
+.opcua-form .form-row > textarea,
+.opcua-form .form-row > .opcua-grow {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  margin: 0;
+}
+/* Node-RED replaces a config-node <input> with a <div style="width:70%">
+   holding the select and its edit/add buttons. */
+.opcua-form .form-row > div:has(> select) {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto !important;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.opcua-form .form-row > div:has(> select) > select {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto !important;
+  margin: 0;
+}
+.opcua-form .form-row > input.opcua-num,
+.opcua-form .form-row > select.opcua-num {
+  flex: 0 0 110px;
+}
+.opcua-form .opcua-unit {
+  color: var(--red-ui-secondary-text-color, #646464);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.opcua-form .form-row > .red-ui-button {
+  flex: 0 0 auto;
+}
+
+/* --- Hints -------------------------------------------------------------- */
+
+.opcua-form .opcua-hint {
+  margin: -6px 0 10px 133px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--red-ui-secondary-text-color, #646464);
+}
+.opcua-form .opcua-hint.opcua-hint-block {
+  margin-left: 0;
+}
+.opcua-form .opcua-hint code,
+.opcua-form .opcua-note code,
+.opcua-form .opcua-check-hint code {
+  font-size: 11px;
+}
+.opcua-form .opcua-note {
+  margin: 4px 0 12px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.45;
+  background: var(--red-ui-form-tips-background, #fefbe9);
+  color: var(--red-ui-primary-text-color, #202020);
+  border: 1px solid var(--red-ui-secondary-border-color, #e8e8e8);
+  overflow-wrap: anywhere;
+}
+.opcua-form .opcua-note.opcua-note-warning {
+  border-left: 3px solid var(--red-ui-text-color-warning, #ab6400);
+}
+
+/* --- Checkboxes ----------------------------------------------------------- */
+
+.opcua-form .opcua-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 10px 133px;
+}
+.opcua-form .opcua-check.opcua-check-block {
+  margin-left: 0;
+}
+.opcua-form .opcua-check input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: auto;
+  margin: 2px 0 0;
+}
+.opcua-form .opcua-check label {
+  width: auto;
+  margin: 0;
+  cursor: pointer;
+}
+.opcua-form .opcua-check .opcua-check-hint {
+  display: block;
+  font-size: 12px;
+  color: var(--red-ui-secondary-text-color, #646464);
+}
+
+/* --- Sections ------------------------------------------------------------- */
+
+.opcua-form .opcua-section {
+  margin: 14px 0 6px;
+}
+.opcua-form .opcua-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  background: var(--red-ui-tertiary-background, #f7f7f7);
+  border: 1px solid var(--red-ui-secondary-border-color, #e8e8e8);
+  color: var(--red-ui-primary-text-color, #202020);
+}
+.opcua-form .opcua-section-header:hover {
+  background: var(--red-ui-list-item-background-hover, #e8e8e8);
+}
+.opcua-form .opcua-section-header .opcua-chevron {
+  width: 10px;
+  font-size: 11px;
+  color: var(--red-ui-secondary-text-color, #646464);
+}
+.opcua-form .opcua-section-title {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+}
+.opcua-form .opcua-section-summary {
+  font-size: 12px;
+  color: var(--red-ui-secondary-text-color, #646464);
+}
+.opcua-form .opcua-section.opcua-collapsed .opcua-section-body {
+  display: none;
+}
+
+/* --- Lists and tables ----------------------------------------------------- */
+
+.opcua-form .opcua-table-head,
+.opcua-form .opcua-table-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.opcua-form .opcua-table-head {
+  padding: 0 4px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--red-ui-secondary-text-color, #646464);
+}
+.opcua-form .opcua-table-row {
+  padding: 4px;
+  margin-bottom: 4px;
+  border-radius: 4px;
+  background: var(--red-ui-tertiary-background, #f7f7f7);
+  border: 1px solid var(--red-ui-secondary-border-color, #e8e8e8);
+}
+.opcua-form .opcua-table-row input[type="text"],
+.opcua-form .opcua-table-row input[type="number"],
+.opcua-form .opcua-table-row select {
+  margin: 0;
+  min-width: 0;
+}
+.opcua-form .opcua-col-grow {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.opcua-form .opcua-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.opcua-form .opcua-cell > input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+}
+.opcua-form .opcua-col-type {
+  flex: 0 0 125px;
+}
+.opcua-form .opcua-col-small {
+  flex: 0 0 64px;
+  text-align: center;
+}
+.opcua-form .opcua-col-btn {
+  flex: 0 0 auto;
+}
+.opcua-form .opcua-empty {
+  padding: 10px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--red-ui-secondary-text-color, #646464);
+  border: 1px dashed var(--red-ui-tertiary-border-color, #cecece);
+  border-radius: 4px;
+  margin-bottom: 6px;
+}
+.opcua-form .opcua-card {
+  padding: 8px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  border: 1px solid var(--red-ui-primary-border-color, #d9d9d9);
+  background: var(--red-ui-secondary-background, #fff);
+}
+.opcua-form .opcua-card-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.opcua-form .opcua-card-head label {
+  width: auto;
+  margin: 0;
+  font-size: 12px;
+  color: var(--red-ui-secondary-text-color, #646464);
+}
+.opcua-form .opcua-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 10px;
+}
+.opcua-form .opcua-toolbar .opcua-spacer {
+  flex: 1;
+}
+.opcua-form textarea.opcua-code {
+  width: 100%;
+  margin-bottom: 8px;
+  font-family: monospace;
+  font-size: 12px;
+  white-space: pre;
+}
+
+/* --- Certificate upload --------------------------------------------------- */
+
+.opcua-form .cert-dropzone {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px dashed var(--red-ui-tertiary-border-color, #cecece);
+  background: var(--red-ui-tertiary-background, #f7f7f7);
+  color: var(--red-ui-primary-text-color, #202020);
+}
+.opcua-form .cert-dropzone:hover,
+.opcua-form .cert-dropzone.drag-over {
+  border-color: var(--red-ui-text-color-link, #0d74ce);
+}
+.opcua-form .cert-dropzone.has-file {
+  border-style: solid;
+  border-color: var(--red-ui-text-color-success, #218358);
+}
+.opcua-form .cert-dropzone.upload-error {
+  border-color: var(--red-ui-text-color-error, #ad1625);
+}
+/* Node-RED's own form rules style every <input>; this selector must beat them,
+   or the native file chooser shows up inside the drop zone. */
+.red-ui-editor .opcua-form .cert-dropzone input.cert-file-input[type="file"] {
+  display: none !important;
+}
+.opcua-form .cert-icon {
+  font-size: 18px;
+  color: var(--red-ui-secondary-text-color, #646464);
+}
+.opcua-form .cert-dropzone.has-file .cert-icon {
+  color: var(--red-ui-text-color-success, #218358);
+}
+.opcua-form .cert-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.opcua-form .cert-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+.opcua-form .cert-status {
+  font-size: 12px;
+  color: var(--red-ui-secondary-text-color, #646464);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.opcua-form .cert-clear {
+  padding: 2px 6px;
+  color: var(--red-ui-secondary-text-color, #646464);
+  visibility: hidden;
+}
+.opcua-form .cert-dropzone.has-file .cert-clear {
+  visibility: visible;
+}
+
+/* --- NodeId picker -------------------------------------------------------- */
+
+.opcua-picker {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 10px 14px;
+  box-sizing: border-box;
+  gap: 8px;
+}
+.opcua-picker-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.opcua-picker-bar select {
+  flex: 1;
+  margin: 0;
+}
+.opcua-picker-tree {
+  flex: 1;
+  overflow: auto;
+  border: 1px solid var(--red-ui-secondary-border-color, #e8e8e8);
+  border-radius: 4px;
+  padding: 4px 0;
+  background: var(--red-ui-secondary-background, #fff);
+}
+.opcua-picker-tree ul {
+  list-style: none;
+  margin: 0;
+  padding-left: 16px;
+}
+.opcua-picker-tree > ul {
+  padding-left: 4px;
+}
+.opcua-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  cursor: default;
+  white-space: nowrap;
+}
+.opcua-picker-row.opcua-selectable {
+  cursor: pointer;
+}
+.opcua-picker-row.opcua-selectable:hover {
+  background: var(--red-ui-list-item-background-hover, #e8e8e8);
+}
+.opcua-picker-row.opcua-selected {
+  background: var(--red-ui-list-item-background-selected, #dbeafe);
+}
+.opcua-picker-row:not(.opcua-selectable) .opcua-picker-name {
+  color: var(--red-ui-secondary-text-color, #646464);
+}
+.opcua-picker-toggle {
+  width: 12px;
+  cursor: pointer;
+  color: var(--red-ui-secondary-text-color, #646464);
+}
+.opcua-picker-meta {
+  font-size: 11px;
+  color: var(--red-ui-secondary-text-color, #646464);
+}
+.opcua-picker-status {
+  font-size: 12px;
+  color: var(--red-ui-secondary-text-color, #646464);
+}
+.opcua-picker-status.opcua-error {
+  color: var(--red-ui-text-color-error, #ad1625);
+}
+.opcua-picker-choice {
+  font-family: monospace;
+  font-size: 12px;
+  min-height: 16px;
+}

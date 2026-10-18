@@ -62,6 +62,8 @@ Set `msg.topic` to the NodeId and the client's default operation to **Subscribe*
 
 ## Nodes
 
+All edit dialogs share one layout: short labels, collapsible sections for advanced settings, units next to the field and colours from the editor theme, so they work in light and dark themes. NodeId fields have a **Browse** button that picks the node from a deployed endpoint's address space.
+
 ### opcua-endpoint (Config Node)
 
 Shared connection configuration. All nodes referencing the same endpoint share **one** TCP connection (ref-counted: connected on first node, disconnected when the last node closes).
@@ -77,19 +79,22 @@ flowchart LR
     EP{{"opcua-endpoint<br/>(1 shared connection,<br/>ref-counted)"}} -->|"opc.tcp"| SRV[("OPC UA Server")]
 ```
 
-With **Session Pool** > 1 the endpoint holds N sessions instead of one — see [Session pool routing](#session-pool-routing).
+With **Sessions** > 1 the endpoint holds N sessions instead of one — see [Session pool routing](#session-pool-routing).
 
-| Field | Description |
-|---|---|
-| Endpoint URL | `opc.tcp://localhost:4840` |
-| Security Mode | None, Sign, SignAndEncrypt |
-| Security Policy | None, Basic128Rsa15, Basic256, Basic256Sha256, Aes128/Aes256 |
-| Username / Password | Optional credentials |
-| Certificates | Drag & drop upload for client cert, private key, CA cert, X509 user token |
-| Session Pool | Number of sessions (default 1 = single shared session). `>1` round-robins stateless reads/writes/browse across N sessions; subscriptions & registered nodes stay on the primary. Only helps when a single session is the bottleneck — see [Benchmark](#benchmark--stress-test). |
-| Op. Timeout | Per-operation timeout in ms (default 10000). Raise it for slow PLCs — an operation that overruns marks the connection dead and forces a reconnect on the next message. |
+| Section | Field | Description |
+|---|---|---|
+| | Endpoint URL | `opc.tcp://localhost:4840`, or an environment variable such as `${OPCUA_URL}` |
+| Security | Mode | None, Sign, Sign and encrypt |
+| | Policy | Basic256Sha256, Aes128_Sha256_RsaOaep, Aes256_Sha256_RsaPss; Basic256 and Basic128Rsa15 are marked deprecated. Shown only when the mode is not None |
+| | Certificates | Optional client certificate, private key and server certificate (drag and drop). Without them a self-signed certificate is created |
+| Authentication | Method | Anonymous, Username and password, or User certificate (X509). Only the chosen method is saved |
+| Connection behaviour | Connect tries | Retries per connect attempt (default 10) |
+| | Reconnect delay | Longest pause between connect retries and start of the background reconnect (default 5000 ms) |
+| | Timeout | Per-operation timeout in ms (default 10000). Raise it for slow PLCs — an operation that overruns marks the connection dead and forces a reconnect on the next message. |
+| | Sessions | Number of sessions (default 1 = single shared session). `>1` round-robins stateless reads/writes/browse across N sessions; subscriptions & registered nodes stay on the primary. Only helps when a single session is the bottleneck — see [Benchmark](#benchmark--stress-test). |
+| | Application | Application name reported to the server |
 
-Authentication priority: X509 User Token > Username/Password > Anonymous.
+Connect tries, reconnect delay and application name used to be set on each client node, although only the first node opening the shared connection counted. They now belong to the endpoint. A client node from an older flow still provides them while the endpoint leaves the field empty.
 
 ### opcua-client (All-in-One)
 
@@ -109,13 +114,14 @@ Single node for all OPC UA operations. Set via `msg.operation` or the default op
 | `getendpoints` | — | — | Discover server endpoints |
 | `readattribute` | NodeId | — | Read BrowseName, DisplayName, etc. |
 | `registernodes` | — | — | Register nodes for fast access |
+| `unregisternodes` | — | — | Release registered nodes |
 | `translatebrowsepath` | — | Browse path | Translate browse path to NodeId |
 
 When `msg.items` is present, the client automatically switches to batch mode — even if the operation is set to `read` or `write`.
 
 Every output (including the error output) carries the resolved operation in `msg.operation` — `"read"`, `"write"`, `"browse"`, … (lower-cased), or the more specific `"readmultiple"` / `"writemultiple"` when a batch ran — so a downstream **switch** node can branch on it.
 
-**Advanced settings** (resilience): the client connects on deploy (**Connect on deploy**, default on) so its status reflects the real connection immediately. On a connection-lost error each message is retried up to **Operation Retries** times (default 3) with exponential **Retry Backoff** (default 100 ms, capped at 2 s) — see [Resilience hardening](#resilience-hardening-implemented).
+**Resilience**: the client connects on deploy (**Connect on deploy**, default on) so its status reflects the real connection immediately. Under **On connection loss** each message is retried up to **Retries** times (default 3) with exponential **Backoff** (default 100 ms, capped at 2 s) — see [Resilience hardening](#resilience-hardening-implemented). Connect tries and reconnect delay are set on the endpoint.
 
 ### opcua-item (Item Collector)
 
@@ -131,21 +137,23 @@ Defines OPC UA items (variables) for batch operations. Each item needs a **NodeI
 [inject] → [Item: Temp, Pressure, Speed] → [Client]
 ```
 
-In **Collector Mode** (default), items are appended to `msg.items` for batch operations. In **Legacy Mode** (collector off), only the first item is set on `msg.topic` / `msg.datatype` for single operations.
+With **Collect into msg.items** (default), items are appended to `msg.items` for batch operations. With it off, only the first item is set on `msg.topic` / `msg.datatype` for single operations.
+
+**Browse** next to each NodeId picks a variable from a deployed endpoint and fills in an empty name and data type.
 
 **DataType** (per item, write-only) covers the full OPC UA type set: booleans/integers (`Boolean`, `SByte`/`Byte`, `Int16`–`Int64`, `UInt16`–`UInt64`), floating point (`Float`, `Double`), text/time (`String`, `DateTime`, `LocalizedText`, `QualifiedName`, `XmlElement`), binary/identifier types (`ByteString`, `Guid`, `NodeId`, `ExpandedNodeId`, `StatusCode`), the structured `ExtensionObject`, and an *Advanced (rarely writable)* group (`DataValue`, `Variant`, `DiagnosticInfo`, offered for completeness — incompatible values surface a server write error). The DataType is only used for writes — reads always return the server's type. Leave it on **Auto** to let node-opcua infer the type from the JS value.
 
-**Array (`[]`)** — tick the per-item `[]` box to write the value as an array (ValueRank); the payload must be a JS array (e.g. `[1, 2, 3]`). Sets `arrayType: "Array"` on the item (or `msg.arrayType` for a single write).
+**Array** — tick the per-item **Array** box to write the value as an array (ValueRank); the payload must be a JS array (e.g. `[1, 2, 3]`). Sets `arrayType: "Array"` on the item (or `msg.arrayType` for a single write).
 
 **ExtensionObject** — selecting `ExtensionObject` reveals an optional **DataType NodeId** field (e.g. `ns=2;i=3003`); leave it empty to take the structure type from the variable. The payload is a plain JSON object of the struct fields, or an array of them. See [ExtensionObjects](#extensionobjects-structured-types).
 
-**Operation** (optional) sets `msg.operation` (Read / Write / Subscribe / Unsubscribe) so the downstream client knows what to do without a separate config — leave on *don't set* to keep the client's default or an existing `msg.operation`.
+**Operation** (optional) sets `msg.operation` (read, read multiple, write, write multiple, subscribe, unsubscribe) so the downstream client knows what to do without a separate config — leave on *don't set* to keep the client's default or an existing `msg.operation`.
 
 **Unwrap single value** sets `msg.unwrapSingle = true`. When a read resolves to exactly one item, the client delivers the scalar value in `msg.payload` (e.g. `false`) instead of a one-element array (`[{value:false, …}]`). The same option also exists on the client node; see [Single-value reads](#single-value-reads).
 
 ### opcua-browser
 
-Browses the OPC UA address space. Send a NodeId via `msg.topic` to browse from that node, or leave empty to start from `RootFolder`.
+Browses the OPC UA address space. Send a NodeId via `msg.topic` to browse from that node, or leave empty to start from the configured **Start node** (default `RootFolder`; **Browse** picks it from the server).
 
 | Input | Description |
 |---|---|
@@ -164,7 +172,7 @@ Modes:
 
 ### opcua-method
 
-Calls an OPC UA method. Configure the **Object NodeId** and **Method NodeId** in the node or pass them via `msg.objectNodeId` / `msg.methodNodeId`.
+Calls an OPC UA method. Configure the **Object** and **Method** NodeIds in the node or pass them via `msg.objectNodeId` / `msg.methodNodeId`. **Browse** picks the method from a deployed endpoint and fills in its object; **Read arguments from the server** lists the input and output arguments and shows an example `msg.inputArguments`.
 
 Input arguments via `msg.payload` as an array:
 ```json
@@ -181,8 +189,8 @@ Subscribes to OPC UA events and alarms.
 
 | Config | Description |
 |---|---|
-| Source NodeId | Node to monitor (default: `i=2253` — Server node) |
-| Event Type | e.g. `BaseEventType`, `AlarmConditionType` |
+| Source | Node to monitor (default: `i=2253` — Server node); **Browse** picks it from the server |
+| Event type | e.g. `BaseEventType`, `AlarmConditionType`; the field suggests the standard event types |
 
 Send `msg.action = "subscribe"` to start, `msg.action = "unsubscribe"` to stop. Each event produces a message with `eventType`, `severity`, `message`, `time`, and `sourceName`.
 
@@ -216,11 +224,11 @@ Shared PubSub transport configuration. Picks the transport (**UDP** multicast or
 
 ### opcua-publisher
 
-Publishes a DataSet over the referenced `opcua-pubsub-connection`. Declares a WriterGroup with one or more DataSetWriters. **Acyclic** (default): each input `msg.payload` field map becomes one NetworkMessage. **Cyclic**: publishes at `PublishingInterval`, sending a KeepAlive when no value changed. See [OPC UA PubSub](#opc-ua-pubsub).
+Publishes a DataSet over the referenced `opcua-pubsub-connection`. Declares a WriterGroup with one or more DataSetWriters, edited as a form (writer id, DataSet name, fields with data type, optional configuration version) or, with **Edit as JSON**, as the raw array. **Acyclic** (default): each input `msg.payload` field map becomes one NetworkMessage. **Cyclic**: publishes at `PublishingInterval`, sending a KeepAlive when no value changed. See [OPC UA PubSub](#opc-ua-pubsub).
 
 ### opcua-subscriber
 
-Receives DataSets over the referenced `opcua-pubsub-connection`. Declares a DataSetReader filtering on PublisherId / WriterGroupId / DataSetWriterId, decodes each NetworkMessage, and emits one `msg` per matched DataSetMessage. A ConfigurationVersion mismatch raises a visible `node.error()`. See [OPC UA PubSub](#opc-ua-pubsub) for the full `msg` shape.
+Receives DataSets over the referenced `opcua-pubsub-connection`. Declares a DataSetReader filtering on PublisherId / WriterGroupId / DataSetWriterId (the PublisherId field suggests the ids of the workspace's PubSub connections), decodes each NetworkMessage, and emits one `msg` per matched DataSetMessage. A ConfigurationVersion mismatch raises a visible `node.error()`. See [OPC UA PubSub](#opc-ua-pubsub) for the full `msg` shape.
 
 ## OPC UA PubSub
 
@@ -439,7 +447,7 @@ docker compose build --no-cache && docker compose up -d --force-recreate  # Rebu
 ## Testing
 
 ```bash
-npm test                       # 872 unit tests (8 pending)
+npm test                       # 932 unit tests (8 pending)
 npm run lint                   # ESLint
 npm run format:check           # Prettier
 npm run test:functional        # 81 function tests in Docker (example 15)

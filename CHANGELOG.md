@@ -2,7 +2,47 @@
 
 ## Unreleased
 
+### Changed
+
+- **All edit dialogs share one design.** They load a common stylesheet and
+  helper script from `resources/`: short labels that no longer wrap, one
+  section style, units next to the field, explanations below it, and colours
+  from Node-RED's theme variables, so the dialogs also work in dark themes.
+- **Connect tries, reconnect delay and application name moved to the
+  endpoint.** All nodes using an endpoint share one connection, but these
+  settings sat on each client node and only the first node opening the
+  connection counted; set on a method or event node first, the client's
+  values were ignored. The endpoint's own value now wins. Values stored on
+  client nodes by older flows still apply while the endpoint field is empty,
+  and the client dialog points this out.
+- **Endpoint dialog:** sections Security, Authentication and Connection
+  behaviour. The policy is shown only for Sign and Sign and encrypt, and
+  Basic256 and Basic128Rsa15 are marked deprecated. Authentication is one
+  choice (anonymous, username and password, user certificate); only the
+  chosen method is saved, so a leftover value of another method can no
+  longer take precedence. The URL is validated; `${ENV_VAR}` is accepted.
+- **Publisher dialog:** DataSetWriters are edited as a form (writer id,
+  DataSet name, fields with data type, configuration version) instead of raw
+  JSON. **Edit as JSON** still shows the array; properties the form does not
+  show are kept. An invalid writer list now marks the node invalid instead of
+  silently keeping the previous value.
+- **PubSub connection dialog:** the three certificate fields reserved for a
+  later mTLS feature are no longer shown, since they had no effect. Stored
+  values are kept. Hints no longer mention internal planning phases, and the
+  MTU hint says what the value does.
+
 ### Added
+
+- **NodeId picker.** Item, method, event and browser nodes have a **Browse**
+  button that opens the address space of a deployed endpoint and fills in the
+  chosen node. In the item node it also fills an empty name and data type; in
+  the method node it fills the method's object.
+- **Read arguments** in the method dialog lists a method's input and output
+  arguments from the server and shows an example `msg.inputArguments`
+  (admin route `POST /opcua-browse-client/method-arguments`).
+- Event type suggestions in the event node, PublisherId suggestions in the
+  subscriber node, and a check that the subscriber has at least one filter.
+- The server dialog shows the endpoint URL clients connect to.
 
 - **Function test suite (example `15 - Function Test Suite`).** 81 tests
   exercise every node and every client operation against the node-opcua test
@@ -21,6 +61,16 @@
 
 ### Fixed
 
+- **Opening and saving a dialog could silently drop a setting.** The item
+  node's operation list lacked "readmultiple" and "writemultiple", and the
+  client's operation list lacked "unregisternodes"; such nodes opened with an
+  empty field, and saving cleared the value. Both lists now offer every
+  operation, and any stored value a list does not know is kept.
+- **The certificate upload fields showed the browser's native file chooser**
+  on top of their hint text, because Node-RED's own input styles took
+  precedence over the package's rule.
+- The editor's address-space browser looked up built-in DataType names with
+  the wrong key, so every variable's type needed extra server reads.
 - **Two OPC UA servers, or a server and a client, failed on the first start
   of a fresh Node-RED user directory** with `Cannot find private key …
   private_key.pem`.
@@ -174,6 +224,13 @@
 - `test/opcua-client-manager.test.js` and
   `test/opcua-server-setvalue.test.js` cover the `registernodes` result and
   `deleteNode`. Both fail on the previous code.
+- `test/editor-contract.test.js` checks the dialogs against the runtime:
+  every operation is selectable, every dialog loads the shared resources and
+  uses theme colours. `test/browse-client-method-arguments.test.js` covers
+  the method-arguments route and the DataType lookup against a real server.
+  An editor round trip in the browser (open and save all 135 package nodes
+  of the function test flow, then deploy) changed no stored value and the
+  suite still passed.
 - `test/pki-lock.test.js` starts two `opcua-server` nodes at once in a child
   process with an empty node-opcua config directory. On the previous code it
   fails every time with `Cannot find private key`.

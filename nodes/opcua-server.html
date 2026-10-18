@@ -1,88 +1,111 @@
+<link rel="stylesheet" href="resources/node-red-contrib-opcua-suite/opcua-editor.css" />
+<script src="resources/node-red-contrib-opcua-suite/opcua-editor.js"></script>
+
 <script type="text/javascript">
-    RED.nodes.registerType('opcua-server', {
-        category: 'OPC UA Suite',
-        color: '#3a8cba',
+    RED.nodes.registerType("opcua-server", {
+        category: "OPC UA Suite",
+        color: "#3a8cba",
         defaults: {
-            name: { value: '' },
-            port: { value: 4840, validate: RED.validators.number() },
-            serverName: { value: 'Node-RED OPC UA Server' },
+            name: { value: "" },
+            port: {
+                value: 4840,
+                validate: function (v) {
+                    var n = parseInt(v, 10);
+                    return n >= 1 && n <= 65535;
+                },
+            },
+            serverName: { value: "Node-RED OPC UA Server" },
             maxAllowedSessionNumber: { value: 10, validate: RED.validators.number() },
             maxConnectionsPerEndpoint: { value: 10, validate: RED.validators.number() },
-            allowMsgFunc: { value: false }
+            allowMsgFunc: { value: false },
         },
         inputs: 1,
         outputs: 1,
-        icon: 'opcua.svg',
-        paletteLabel: 'OPC UA Server',
-        label: function() {
-            return this.name || 'OPC UA Server';
+        icon: "opcua.svg",
+        paletteLabel: "OPC UA Server",
+        label: function () {
+            return this.name || "OPC UA Server";
         },
-        labelStyle: function() {
-            return this.name ? 'node_label_italic' : '';
+        labelStyle: function () {
+            return this.name ? "node_label_italic" : "";
         },
-        oneditprepare: function() {
-            $('#opcua-server-toggle-limits').on('click', function() {
-                $('#opcua-server-limits').slideToggle(200);
-                $(this).find('.fa').toggleClass('fa-chevron-down fa-chevron-right');
-            });
-            $('#opcua-server-toggle-security').on('click', function() {
-                $('#opcua-server-security').slideToggle(200);
-                $(this).find('.fa').toggleClass('fa-chevron-down fa-chevron-right');
-            });
-        }
+        oneditprepare: function () {
+            var node = this;
+            function updateUrl() {
+                var port = $("#node-input-port").val() || "4840";
+                $("#opcua-server-url").text("opc.tcp://<host>:" + port + "/UA/NodeRED");
+            }
+            $("#node-input-port").on("input change", updateUrl);
+            updateUrl();
+            if (Number(node.maxAllowedSessionNumber) !== 10 || Number(node.maxConnectionsPerEndpoint) !== 10) {
+                OpcUaEditor.expand("#opcua-server-limits");
+            }
+            if (node.allowMsgFunc === true || node.allowMsgFunc === "true") {
+                OpcUaEditor.expand("#opcua-server-security");
+            }
+            OpcUaEditor.sections("#opcua-server-form");
+        },
     });
 </script>
 
 <script type="text/html" data-template-name="opcua-server">
-<div class="opcua-node-container">
-    <div class="form-row">
-        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
-        <input type="text" id="node-input-name" placeholder="Name">
-    </div>
-    <div class="form-row">
-        <label for="node-input-port"><i class="fa fa-plug"></i> Port</label>
-        <input type="number" id="node-input-port" min="1" max="65535" style="width:100px" placeholder="4840">
-    </div>
-    <div class="form-row">
-        <label for="node-input-serverName"><i class="fa fa-server"></i> Server Name</label>
-        <input type="text" id="node-input-serverName" placeholder="Node-RED OPC UA Server">
-    </div>
+    <div class="opcua-form" id="opcua-server-form">
+        <div class="form-row">
+            <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+            <input type="text" id="node-input-name" placeholder="Name" />
+        </div>
+        <div class="form-row">
+            <label for="node-input-port"><i class="fa fa-plug"></i> Port</label>
+            <input type="number" class="opcua-num" id="node-input-port" min="1" max="65535" placeholder="4840" />
+        </div>
+        <div class="opcua-hint">Clients connect to <code id="opcua-server-url"></code></div>
+        <div class="form-row">
+            <label for="node-input-serverName"><i class="fa fa-server"></i> Server name</label>
+            <input type="text" id="node-input-serverName" placeholder="Node-RED OPC UA Server" />
+        </div>
 
-    <div class="opcua-toggle-row" id="opcua-server-toggle-limits" style="display:flex;align-items:center;gap:8px;padding:6px 10px;margin:12px 0 8px;background:#f5f7fa;border-radius:6px;cursor:pointer;user-select:none;border:1px solid #e1e5ea">
-        <i class="fa fa-chevron-right" style="color:#999;font-size:11px"></i>
-        <span style="font-size:12px;font-weight:600;color:#555;flex:1">Limits</span>
-    </div>
-    <div id="opcua-server-limits" style="display:none">
-        <div class="form-row">
-            <label for="node-input-maxAllowedSessionNumber"><i class="fa fa-users"></i> Max Sessions</label>
-            <input type="number" id="node-input-maxAllowedSessionNumber" min="1" max="100" style="width:80px" placeholder="10">
+        <div class="opcua-section opcua-collapsed" id="opcua-server-limits">
+            <div class="opcua-section-header">
+                <i class="fa opcua-chevron"></i>
+                <span class="opcua-section-title">Limits</span>
+            </div>
+            <div class="opcua-section-body">
+                <div class="form-row">
+                    <label for="node-input-maxAllowedSessionNumber"><i class="fa fa-users"></i> Sessions</label>
+                    <input type="number" class="opcua-num" id="node-input-maxAllowedSessionNumber" min="1" max="100" placeholder="10" />
+                    <span class="opcua-unit">at most</span>
+                </div>
+                <div class="form-row">
+                    <label for="node-input-maxConnectionsPerEndpoint"><i class="fa fa-link"></i> Connections</label>
+                    <input type="number" class="opcua-num" id="node-input-maxConnectionsPerEndpoint" min="1" max="100" placeholder="10" />
+                    <span class="opcua-unit">at most, per endpoint</span>
+                </div>
+            </div>
         </div>
-        <div class="form-row">
-            <label for="node-input-maxConnectionsPerEndpoint"><i class="fa fa-link"></i> Max Connections</label>
-            <input type="number" id="node-input-maxConnectionsPerEndpoint" min="1" max="100" style="width:80px" placeholder="10">
-        </div>
-    </div>
 
-    <div class="opcua-toggle-row" id="opcua-server-toggle-security" style="display:flex;align-items:center;gap:8px;padding:6px 10px;margin:12px 0 8px;background:#f5f7fa;border-radius:6px;cursor:pointer;user-select:none;border:1px solid #e1e5ea">
-        <i class="fa fa-chevron-right" style="color:#999;font-size:11px"></i>
-        <span style="font-size:12px;font-weight:600;color:#555;flex:1">Security</span>
-    </div>
-    <div id="opcua-server-security" style="display:none">
-        <div class="form-row">
-            <label for="node-input-allowMsgFunc" style="width:auto">
-                <input type="checkbox" id="node-input-allowMsgFunc" style="width:auto;vertical-align:middle;margin-right:6px">
-                Allow method code from <code>msg.func</code>
-            </label>
+        <div class="opcua-section opcua-collapsed" id="opcua-server-security">
+            <div class="opcua-section-header">
+                <i class="fa opcua-chevron"></i>
+                <span class="opcua-section-title">Security</span>
+            </div>
+            <div class="opcua-section-body">
+                <div class="opcua-check opcua-check-block">
+                    <input type="checkbox" id="node-input-allowMsgFunc" />
+                    <label for="node-input-allowMsgFunc">
+                        Allow method code from <code>msg.func</code>
+                        <span class="opcua-check-hint">Off by default.</span>
+                    </label>
+                </div>
+                <div class="opcua-note opcua-note-warning">
+                    When enabled, the <code>addMethod</code> command runs the JavaScript in
+                    <code>msg.func</code> with <code>new Function()</code>. That code arrives with
+                    the message, so any upstream node fed from outside (<code>http in</code>,
+                    MQTT, ...) could run arbitrary code in the Node-RED process. Enable it only
+                    when every path into this node is trusted.
+                </div>
+            </div>
         </div>
-        <div class="form-tips" style="margin-top:4px">
-            <b>Off by default.</b> When enabled, the <code>addMethod</code> command evaluates the
-            JavaScript body in <code>msg.func</code> via <code>new&nbsp;Function()</code>. Unlike a
-            Function node that code arrives with the <i>message</i>, so any upstream node fed from
-            outside (<code>http in</code>, MQTT, …) can execute arbitrary code in the Node-RED
-            process. Only enable it when every path into this node is trusted.
-        </div>
     </div>
-</div>
 </script>
 
 <script type="text/html" data-help-name="opcua-server">

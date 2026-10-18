@@ -457,9 +457,11 @@ describe("opcua-pubsub-connection config node", function () {
       );
     });
 
-    it("26. HTML contains the three cert-dropzone divs", function () {
-      const matches = html.match(/cert-dropzone/g) || [];
-      expect(matches.length).to.be.at.least(3);
+    it("26. HTML does not offer the reserved cert fields in the dialog", function () {
+      // The fields are not used by any transport yet. They stay in the
+      // defaults (test 22) so stored flows keep their values, but the dialog
+      // no longer shows upload zones that would do nothing.
+      expect(html).to.not.match(/cert-dropzone/);
     });
   });
 });

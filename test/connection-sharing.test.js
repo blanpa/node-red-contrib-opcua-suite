@@ -111,6 +111,58 @@ describe("Connection Sharing", function () {
     return node;
   }
 
+  describe("connection settings precedence", function () {
+    it("uses the endpoint's own settings over the client's", function () {
+      const ep = createEndpoint({
+        applicationName: "Endpoint App",
+        maxReconnectAttempts: "4",
+        reconnectDelay: "1500",
+      });
+      const mgr = ep.getSharedManager({
+        applicationName: "Client App",
+        maxReconnectAttempts: 10,
+        reconnectDelay: 5000,
+      });
+      expect(mgr.config.applicationName).to.equal("Endpoint App");
+      expect(mgr.config.maxReconnectAttempts).to.equal(4);
+      expect(mgr.config.reconnectDelay).to.equal(1500);
+    });
+
+    it("falls back to the client's values when the endpoint leaves them empty", function () {
+      const ep = createEndpoint({
+        applicationName: "",
+        maxReconnectAttempts: "",
+        reconnectDelay: "",
+      });
+      const mgr = ep.getSharedManager({
+        applicationName: "Client App",
+        maxReconnectAttempts: 7,
+        reconnectDelay: 3000,
+      });
+      expect(mgr.config.applicationName).to.equal("Client App");
+      expect(mgr.config.maxReconnectAttempts).to.equal(7);
+      expect(mgr.config.reconnectDelay).to.equal(3000);
+    });
+
+    it("leaves unset values to the manager defaults", function () {
+      const ep = createEndpoint();
+      const mgr = ep.getSharedManager({
+        applicationName: "",
+        maxReconnectAttempts: "",
+        reconnectDelay: "",
+      });
+      expect(mgr.config.applicationName).to.equal("Node-RED OPC UA Client");
+      expect(mgr.config.maxReconnectAttempts).to.equal(undefined);
+      expect(mgr.config.reconnectDelay).to.equal(undefined);
+    });
+
+    it("keeps an explicit 0 from the endpoint", function () {
+      const ep = createEndpoint({ maxReconnectAttempts: 0 });
+      const mgr = ep.getSharedManager({ maxReconnectAttempts: 10 });
+      expect(mgr.config.maxReconnectAttempts).to.equal(0);
+    });
+  });
+
   describe("getSharedManager", function () {
     it("should return a ClientManager instance on first call", function () {
       const ep = createEndpoint();

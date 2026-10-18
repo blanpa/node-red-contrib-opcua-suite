@@ -1,62 +1,71 @@
+<link rel="stylesheet" href="resources/node-red-contrib-opcua-suite/opcua-editor.css" />
+<script src="resources/node-red-contrib-opcua-suite/opcua-editor.js"></script>
+
 <script type="text/javascript">
-    RED.nodes.registerType('opcua-browser', {
-        category: 'OPC UA Suite',
-        color: '#3a8cba',
+    RED.nodes.registerType("opcua-browser", {
+        category: "OPC UA Suite",
+        color: "#3a8cba",
         defaults: {
-            name: { value: '' },
-            endpoint: { value: '', type: 'opcua-endpoint', required: true },
-            startNodeId: { value: 'RootFolder' },
+            name: { value: "" },
+            endpoint: { value: "", type: "opcua-endpoint", required: true },
+            startNodeId: { value: "RootFolder" },
             recursive: { value: false },
-            maxDepth: { value: 10, validate: RED.validators.number() }
+            maxDepth: { value: 10, validate: RED.validators.number() },
         },
         inputs: 1,
         outputs: 1,
-        icon: 'opcua.svg',
-        paletteLabel: 'OPC UA Browser',
-        label: function() {
-            return this.name || 'OPC UA Browser';
+        icon: "opcua.svg",
+        paletteLabel: "OPC UA Browser",
+        label: function () {
+            return this.name || "OPC UA Browser";
         },
-        oneditprepare: function() {
-            function toggleRecursive() {
-                var checked = $('#node-input-recursive').is(':checked');
-                if (checked) {
-                    $('#opcua-browser-depth-row').slideDown(150);
-                } else {
-                    $('#opcua-browser-depth-row').slideUp(150);
-                }
+        labelStyle: function () {
+            return this.name ? "node_label_italic" : "";
+        },
+        oneditprepare: function () {
+            OpcUaEditor.attachPicker($("#node-input-startNodeId"), {
+                endpoint: function () {
+                    return $("#node-input-endpoint").val();
+                },
+                title: "Select the start node",
+            });
+            function toggleDepth() {
+                $("#opcua-browser-depth-row").toggle($("#node-input-recursive").is(":checked"));
             }
-            $('#node-input-recursive').on('change', toggleRecursive);
-            toggleRecursive();
-        }
+            $("#node-input-recursive").on("change", toggleDepth);
+            toggleDepth();
+        },
     });
 </script>
 
 <script type="text/html" data-template-name="opcua-browser">
-<div class="opcua-node-container">
-    <div class="form-row">
-        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
-        <input type="text" id="node-input-name" placeholder="Name">
-    </div>
-    <div class="form-row">
-        <label for="node-input-endpoint"><i class="fa fa-plug"></i> Endpoint</label>
-        <input type="text" id="node-input-endpoint">
-    </div>
-    <div class="form-row">
-        <label for="node-input-startNodeId"><i class="fa fa-folder-open"></i> Start NodeId</label>
-        <input type="text" id="node-input-startNodeId" placeholder="RootFolder" style="width:70%">
-    </div>
-    <div class="opcua-checkbox-row" style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#f8f9fb;border:1px solid #e5e8ec;border-radius:6px;margin:8px 0">
-        <input type="checkbox" id="node-input-recursive" style="width:auto;margin:0">
-        <div>
-            <div style="font-size:12px;font-weight:500;color:#444">Recursive browse</div>
-            <div style="font-size:11px;color:#999">Browse full subtree</div>
+    <div class="opcua-form" id="opcua-browser-form">
+        <div class="form-row">
+            <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+            <input type="text" id="node-input-name" placeholder="Name" />
+        </div>
+        <div class="form-row">
+            <label for="node-input-endpoint"><i class="fa fa-plug"></i> Endpoint</label>
+            <input type="text" id="node-input-endpoint" />
+        </div>
+        <div class="form-row">
+            <label for="node-input-startNodeId"><i class="fa fa-folder-open"></i> Start node</label>
+            <input type="text" id="node-input-startNodeId" placeholder="RootFolder" />
+        </div>
+        <div class="opcua-hint"><code>msg.topic</code> or <code>msg.nodeId</code> overrides it.</div>
+        <div class="opcua-check">
+            <input type="checkbox" id="node-input-recursive" />
+            <label for="node-input-recursive">
+                Recursive
+                <span class="opcua-check-hint">Also browse the subtree into <code>msg.recursiveResult</code>.</span>
+            </label>
+        </div>
+        <div class="form-row" id="opcua-browser-depth-row">
+            <label for="node-input-maxDepth"><i class="fa fa-level-down"></i> Max depth</label>
+            <input type="number" class="opcua-num" id="node-input-maxDepth" min="1" max="20" placeholder="10" />
+            <span class="opcua-unit">levels</span>
         </div>
     </div>
-    <div class="form-row" id="opcua-browser-depth-row">
-        <label for="node-input-maxDepth"><i class="fa fa-level-down"></i> Max Depth</label>
-        <input type="number" id="node-input-maxDepth" min="1" max="20" style="width:80px" placeholder="10">
-    </div>
-</div>
 </script>
 
 <script type="text/html" data-help-name="opcua-browser">

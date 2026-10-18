@@ -1,139 +1,358 @@
-<script type="text/javascript">
-    RED.nodes.registerType("opcua-publisher", {
-        category: "OPC UA Suite",
-        color: "#3a8cba",
-        defaults: {
-            name: { value: "" },
-            connection: { value: "", type: "opcua-pubsub-connection", required: true },
-            messageEncoding: { value: "uadp" },            // "uadp" | "json"
-            publishMode: { value: "acyclic" },             // "acyclic" | "cyclic"
-            publishingInterval: { value: 1000, required: true, validate: RED.validators.number() },
-            keepAliveTime: { value: "" },
-            writerGroupId: { value: 1, required: true, validate: RED.validators.number() },
-            priority: { value: 128 },
-            maxNetworkMessageSize: { value: 1400 },
-            writers: { value: "[{\"dataSetWriterId\":1,\"dataSetName\":\"DataSet1\",\"publishedDataSet\":{\"name\":\"DataSet1\",\"fields\":[{\"name\":\"value\",\"dataType\":\"Double\"}]}}]" }
-        },
-        inputs: 1,
-        outputs: 1,
-        icon: "opcua.svg",
-        label: function () {
-            return this.name || "OPC UA Publisher";
-        },
-        labelStyle: function () {
-            return this.name ? "node_label_italic" : "";
-        },
-        oneditprepare: function () {
-            // Populate the writers JSON editor from the stored value.
-            var writersVal = this.writers;
-            try {
-                // Pretty-print for editing if it parses; otherwise show as-is.
-                writersVal = JSON.stringify(JSON.parse(this.writers || "[]"), null, 2);
-            } catch (e) { /* leave raw */ }
-            $("#node-input-writers-json").val(writersVal);
+<link rel="stylesheet" href="resources/node-red-contrib-opcua-suite/opcua-editor.css" />
+<script src="resources/node-red-contrib-opcua-suite/opcua-editor.js"></script>
 
-            // Hint: publishingInterval drives the cyclic interval.
-            function updateModeHint() {
-                var mode = $("#node-input-publishMode").val();
-                if (mode === "cyclic") {
-                    $("#opcua-pub-mode-hint").text("Cyclic: publishes every Publishing Interval ms; sends KeepAlive when nothing changed.");
-                } else {
-                    $("#opcua-pub-mode-hint").text("Acyclic: publishes once per inbound msg.payload.");
-                }
-            }
-            $("#node-input-publishMode").on("change", updateModeHint);
-            updateModeHint();
-        },
-        oneditsave: function () {
-            // Serialize the writers JSON editor back into the hidden writers field.
-            var raw = $("#node-input-writers-json").val();
+<script type="text/javascript">
+    (function () {
+        var DEFAULT_WRITERS = [
+            {
+                dataSetWriterId: 1,
+                dataSetName: "DataSet1",
+                publishedDataSet: { name: "DataSet1", fields: [{ name: "value", dataType: "Double" }] },
+            },
+        ];
+
+        function validWriters(v) {
             try {
-                // Validate + compact before storing.
-                this.writers = JSON.stringify(JSON.parse(raw));
+                var list = typeof v === "string" ? JSON.parse(v || "[]") : v;
+                return (
+                    Array.isArray(list) &&
+                    list.length > 0 &&
+                    list.every(function (w) {
+                        return (
+                            w &&
+                            Number.isInteger(Number(w.dataSetWriterId)) &&
+                            w.publishedDataSet &&
+                            Array.isArray(w.publishedDataSet.fields) &&
+                            w.publishedDataSet.fields.length > 0 &&
+                            w.publishedDataSet.fields.every(function (f) {
+                                return f && f.name && f.dataType;
+                            })
+                        );
+                    })
+                );
             } catch (e) {
-                // On parse error, keep the previous stored value untouched.
+                return false;
             }
         }
-    });
+
+        RED.nodes.registerType("opcua-publisher", {
+            category: "OPC UA Suite",
+            color: "#3a8cba",
+            defaults: {
+                name: { value: "" },
+                connection: { value: "", type: "opcua-pubsub-connection", required: true },
+                messageEncoding: { value: "uadp" },
+                publishMode: { value: "acyclic" },
+                publishingInterval: { value: 1000, required: true, validate: RED.validators.number() },
+                keepAliveTime: { value: "" },
+                writerGroupId: { value: 1, required: true, validate: RED.validators.number() },
+                priority: { value: 128 },
+                maxNetworkMessageSize: { value: 1400 },
+                writers: { value: JSON.stringify(DEFAULT_WRITERS), validate: validWriters },
+            },
+            inputs: 1,
+            outputs: 1,
+            icon: "opcua.svg",
+            paletteLabel: "OPC UA Publisher",
+            label: function () {
+                return this.name || "OPC UA Publisher";
+            },
+            labelStyle: function () {
+                return this.name ? "node_label_italic" : "";
+            },
+            oneditprepare: function () {
+                var node = this;
+                var $cards = $("#opcua-pub-writers");
+                var jsonMode = false;
+
+                function typeSelect(value) {
+                    var $sel = $('<select class="opcua-col-type"></select>');
+                    OpcUaEditor.PUBSUB_DATA_TYPES.forEach(function (t) {
+                        $("<option>").val(t).text(t).appendTo($sel);
+                    });
+                    OpcUaEditor.keepValue($sel, value || "Double");
+                    return $sel;
+                }
+
+                function addField($fields, field) {
+                    var $row = $('<div class="opcua-table-row opcua-pub-field"></div>').data("orig", field || {});
+                    $('<input type="text" class="opcua-col-grow opcua-pub-fname" placeholder="Field name">')
+                        .val((field && field.name) || "")
+                        .appendTo($row);
+                    typeSelect(field && field.dataType).addClass("opcua-pub-ftype").appendTo($row);
+                    $('<button type="button" class="red-ui-button red-ui-button-small opcua-col-btn" title="Remove field"><i class="fa fa-times"></i></button>')
+                        .on("click", function () {
+                            $row.remove();
+                        })
+                        .appendTo($row);
+                    $row.appendTo($fields);
+                }
+
+                function addWriter(writer) {
+                    writer = writer || {};
+                    var pds = writer.publishedDataSet || {};
+                    var cv = pds.configurationVersion || {};
+                    var $card = $('<div class="opcua-card opcua-pub-writer"></div>').data("orig", writer);
+                    var $head = $('<div class="opcua-card-head"></div>').appendTo($card);
+                    $("<label>").text("Writer id").appendTo($head);
+                    $('<input type="number" class="opcua-pub-wid" min="0" max="65535" style="width:80px">')
+                        .val(writer.dataSetWriterId !== undefined ? writer.dataSetWriterId : nextId())
+                        .appendTo($head);
+                    $("<label>").text("DataSet").appendTo($head);
+                    $('<input type="text" class="opcua-col-grow opcua-pub-wname" placeholder="DataSet name">')
+                        .val(writer.dataSetName || pds.name || "")
+                        .appendTo($head);
+                    $('<button type="button" class="red-ui-button red-ui-button-small" title="Remove writer"><i class="fa fa-trash"></i></button>')
+                        .on("click", function () {
+                            $card.remove();
+                        })
+                        .appendTo($head);
+
+                    var $th = $('<div class="opcua-table-head"></div>').appendTo($card);
+                    $('<span class="opcua-col-grow">Field</span>').appendTo($th);
+                    $('<span class="opcua-col-type">Data type</span>').appendTo($th);
+                    $('<span class="opcua-col-btn" style="width:24px"></span>').appendTo($th);
+                    var $fields = $('<div class="opcua-pub-fields"></div>').appendTo($card);
+                    (pds.fields || []).forEach(function (f) {
+                        addField($fields, f);
+                    });
+
+                    var $foot = $('<div class="opcua-toolbar"></div>').appendTo($card);
+                    $('<button type="button" class="red-ui-button red-ui-button-small"><i class="fa fa-plus"></i> Add field</button>')
+                        .on("click", function () {
+                            addField($fields, {});
+                            $fields.find(".opcua-pub-fname").last().trigger("focus");
+                        })
+                        .appendTo($foot);
+                    $('<span class="opcua-spacer"></span>').appendTo($foot);
+                    $('<label class="opcua-unit" style="width:auto;margin:0">Config version</label>').appendTo($foot);
+                    $('<input type="number" class="opcua-pub-cvmajor" min="0" placeholder="1" style="width:60px">')
+                        .val(cv.major !== undefined ? cv.major : "")
+                        .appendTo($foot);
+                    $('<span class="opcua-unit">.</span>').appendTo($foot);
+                    $('<input type="number" class="opcua-pub-cvminor" min="0" placeholder="0" style="width:60px">')
+                        .val(cv.minor !== undefined ? cv.minor : "")
+                        .appendTo($foot);
+                    $card.insertBefore("#opcua-pub-writers-toolbar");
+                }
+
+                function nextId() {
+                    var max = 0;
+                    $cards.find(".opcua-pub-wid").each(function () {
+                        max = Math.max(max, Number($(this).val()) || 0);
+                    });
+                    return max + 1;
+                }
+
+                // Rebuilds the stored JSON from the form. Properties the form
+                // does not show (valueRank, maxStringLength, ...) are kept.
+                function collect() {
+                    var list = [];
+                    $cards.find(".opcua-pub-writer").each(function () {
+                        var $c = $(this);
+                        var w = $.extend(true, {}, $c.data("orig"));
+                        var name = ($c.find(".opcua-pub-wname").val() || "").trim();
+                        w.dataSetWriterId = Number($c.find(".opcua-pub-wid").val());
+                        w.dataSetName = name;
+                        var pds = $.extend(true, {}, w.publishedDataSet || {});
+                        pds.name = name;
+                        pds.fields = [];
+                        $c.find(".opcua-pub-field").each(function () {
+                            var f = $.extend({}, $(this).data("orig"));
+                            f.name = ($(this).find(".opcua-pub-fname").val() || "").trim();
+                            f.dataType = $(this).find(".opcua-pub-ftype").val();
+                            if (f.name) pds.fields.push(f);
+                        });
+                        var major = $c.find(".opcua-pub-cvmajor").val();
+                        var minor = $c.find(".opcua-pub-cvminor").val();
+                        if (major !== "" || minor !== "") {
+                            pds.configurationVersion = { major: Number(major || 0), minor: Number(minor || 0) };
+                        } else {
+                            delete pds.configurationVersion;
+                        }
+                        w.publishedDataSet = pds;
+                        list.push(w);
+                    });
+                    return list;
+                }
+
+                function render(list) {
+                    $cards.find(".opcua-pub-writer").remove();
+                    list.forEach(addWriter);
+                }
+
+                var initial;
+                try {
+                    initial = JSON.parse(node.writers || "[]");
+                } catch (e) {
+                    initial = null;
+                }
+
+                $("#opcua-pub-add-writer").on("click", function () {
+                    addWriter({ publishedDataSet: { fields: [{ name: "", dataType: "Double" }] } });
+                });
+
+                function showJson(on) {
+                    jsonMode = on;
+                    $cards.toggle(!on);
+                    $("#opcua-pub-json-box").toggle(on);
+                    $("#opcua-pub-mode-toggle").text(on ? "Edit as form" : "Edit as JSON");
+                }
+                $("#opcua-pub-mode-toggle").on("click", function () {
+                    $("#opcua-pub-json-error").hide();
+                    if (!jsonMode) {
+                        $("#opcua-pub-json").val(JSON.stringify(collect(), null, 2));
+                        showJson(true);
+                        return;
+                    }
+                    try {
+                        var list = JSON.parse($("#opcua-pub-json").val());
+                        if (!Array.isArray(list)) throw new Error("The JSON must be an array of writers.");
+                        render(list);
+                        showJson(false);
+                    } catch (e) {
+                        $("#opcua-pub-json-error").text("Invalid JSON: " + e.message).show();
+                    }
+                });
+
+                if (Array.isArray(initial)) {
+                    render(initial);
+                    showJson(false);
+                } else {
+                    // A value the form cannot show stays editable as text.
+                    $("#opcua-pub-json").val(node.writers || "");
+                    showJson(true);
+                }
+
+                // --- Encoding, mode ---
+                function applyTransportRule() {
+                    var conn = RED.nodes.node($("#node-input-connection").val());
+                    var udp = conn && conn.transportType === "udp";
+                    $("#node-input-messageEncoding option[value='json']").prop("disabled", !!udp);
+                    if (udp) $("#node-input-messageEncoding").val("uadp");
+                    $("#opcua-pub-encoding-hint").toggle(!!udp);
+                }
+                $("#node-input-connection").on("change", applyTransportRule);
+                applyTransportRule();
+
+                function updateMode() {
+                    var cyclic = $("#node-input-publishMode").val() === "cyclic";
+                    $("#opcua-pub-keepalive-row").toggle(cyclic);
+                    $("#opcua-pub-mode-hint").text(
+                        cyclic
+                            ? "Publishes every interval; sends a KeepAlive when no value changed."
+                            : "Publishes once per incoming message.",
+                    );
+                }
+                $("#node-input-publishMode").on("change", updateMode);
+                updateMode();
+
+                $("#opcua-pub-form").data("collect", function () {
+                    if (jsonMode) return $("#opcua-pub-json").val();
+                    return JSON.stringify(collect());
+                });
+                OpcUaEditor.sections("#opcua-pub-form");
+            },
+            oneditsave: function () {
+                var collect = $("#opcua-pub-form").data("collect");
+                var raw = collect ? collect() : this.writers;
+                try {
+                    this.writers = JSON.stringify(JSON.parse(raw));
+                } catch (e) {
+                    // Invalid JSON: store it as typed so the node is flagged
+                    // invalid instead of silently keeping the old value.
+                    this.writers = raw;
+                }
+            },
+        });
+    })();
 </script>
 
 <script type="text/html" data-template-name="opcua-publisher">
-    <div class="form-row">
-        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
-        <input type="text" id="node-input-name" placeholder="OPC UA Publisher">
-    </div>
+    <div class="opcua-form" id="opcua-pub-form">
+        <div class="form-row">
+            <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+            <input type="text" id="node-input-name" placeholder="Name" />
+        </div>
+        <div class="form-row">
+            <label for="node-input-connection"><i class="fa fa-plug"></i> Connection</label>
+            <input type="text" id="node-input-connection" />
+        </div>
+        <div class="form-row">
+            <label for="node-input-messageEncoding"><i class="fa fa-code"></i> Encoding</label>
+            <select id="node-input-messageEncoding">
+                <option value="uadp">UADP (binary)</option>
+                <option value="json">JSON</option>
+            </select>
+        </div>
+        <div class="opcua-hint" id="opcua-pub-encoding-hint">UDP carries UADP only; JSON needs MQTT.</div>
+        <div class="form-row">
+            <label for="node-input-publishMode"><i class="fa fa-clock-o"></i> Publish</label>
+            <select id="node-input-publishMode">
+                <option value="acyclic">On message</option>
+                <option value="cyclic">Cyclic</option>
+            </select>
+        </div>
+        <div class="opcua-hint" id="opcua-pub-mode-hint"></div>
 
-    <div class="form-row">
-        <label for="node-input-connection"><i class="fa fa-plug"></i> Connection</label>
-        <input type="text" id="node-input-connection">
-    </div>
+        <div class="opcua-section" id="opcua-pub-group">
+            <div class="opcua-section-header">
+                <i class="fa opcua-chevron"></i>
+                <span class="opcua-section-title">Writer group</span>
+            </div>
+            <div class="opcua-section-body">
+                <div class="form-row">
+                    <label for="node-input-writerGroupId"><i class="fa fa-hashtag"></i> Group id</label>
+                    <input type="number" class="opcua-num" id="node-input-writerGroupId" min="0" max="65535" placeholder="1" />
+                </div>
+                <div class="form-row">
+                    <label for="node-input-publishingInterval"><i class="fa fa-hourglass"></i> Interval</label>
+                    <input type="number" class="opcua-num" id="node-input-publishingInterval" min="1" placeholder="1000" />
+                    <span class="opcua-unit">ms</span>
+                </div>
+                <div class="form-row" id="opcua-pub-keepalive-row">
+                    <label for="node-input-keepAliveTime"><i class="fa fa-heartbeat"></i> KeepAlive</label>
+                    <input type="number" class="opcua-num" id="node-input-keepAliveTime" min="1" placeholder="interval" />
+                    <span class="opcua-unit">ms, empty = interval</span>
+                </div>
+                <div class="form-row">
+                    <label for="node-input-priority"><i class="fa fa-sort-amount-asc"></i> Priority</label>
+                    <input type="number" class="opcua-num" id="node-input-priority" min="0" max="255" placeholder="128" />
+                </div>
+                <div class="form-row">
+                    <label for="node-input-maxNetworkMessageSize"><i class="fa fa-expand"></i> Max size</label>
+                    <input type="number" class="opcua-num" id="node-input-maxNetworkMessageSize" min="100" placeholder="1400" />
+                    <span class="opcua-unit">bytes, larger messages are split</span>
+                </div>
+            </div>
+        </div>
 
-    <div class="form-row">
-        <label for="node-input-messageEncoding"><i class="fa fa-code"></i> Encoding</label>
-        <select id="node-input-messageEncoding">
-            <option value="uadp">UADP (binary)</option>
-            <option value="json">JSON</option>
-        </select>
+        <div class="opcua-section" id="opcua-pub-writers-section">
+            <div class="opcua-section-header">
+                <i class="fa opcua-chevron"></i>
+                <span class="opcua-section-title">DataSet writers</span>
+            </div>
+            <div class="opcua-section-body">
+                <div id="opcua-pub-writers">
+                    <div class="opcua-toolbar" id="opcua-pub-writers-toolbar">
+                        <button type="button" id="opcua-pub-add-writer" class="red-ui-button red-ui-button-small"><i class="fa fa-plus"></i> Add writer</button>
+                    </div>
+                </div>
+                <div id="opcua-pub-json-box" style="display:none">
+                    <textarea id="opcua-pub-json" class="opcua-code" rows="14"></textarea>
+                    <div class="opcua-note opcua-note-warning" id="opcua-pub-json-error" style="display:none"></div>
+                </div>
+                <div class="opcua-toolbar">
+                    <span class="opcua-spacer"></span>
+                    <button type="button" id="opcua-pub-mode-toggle" class="red-ui-button red-ui-button-small">Edit as JSON</button>
+                </div>
+                <div class="opcua-hint opcua-hint-block">
+                    <code>msg.payload</code> sets field values by name, for example
+                    <code>{ "value": 21.5 }</code>.
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="form-tips" style="margin-bottom:10px;">
-        UDP transport supports UADP only; JSON requires MQTT.
-    </div>
-
-    <div class="form-row">
-        <label for="node-input-publishMode"><i class="fa fa-clock-o"></i> Publish Mode</label>
-        <select id="node-input-publishMode">
-            <option value="acyclic">Acyclic (msg-driven)</option>
-            <option value="cyclic">Cyclic (interval)</option>
-        </select>
-    </div>
-    <div class="form-tips" id="opcua-pub-mode-hint" style="margin-bottom:10px;"></div>
-
-    <hr/>
-    <h4>WriterGroup</h4>
-
-    <div class="form-row">
-        <label for="node-input-publishingInterval"><i class="fa fa-hourglass"></i> Publishing Interval (ms)</label>
-        <input type="text" id="node-input-publishingInterval" placeholder="1000">
-    </div>
-
-    <div class="form-row">
-        <label for="node-input-keepAliveTime"><i class="fa fa-heartbeat"></i> KeepAlive Time (ms)</label>
-        <input type="text" id="node-input-keepAliveTime" placeholder="(defaults to Publishing Interval)">
-    </div>
-
-    <div class="form-row">
-        <label for="node-input-writerGroupId"><i class="fa fa-hashtag"></i> WriterGroupId</label>
-        <input type="text" id="node-input-writerGroupId" placeholder="1">
-    </div>
-
-    <div class="form-row">
-        <label for="node-input-priority"><i class="fa fa-sort-amount-asc"></i> Priority</label>
-        <input type="text" id="node-input-priority" placeholder="128">
-    </div>
-
-    <div class="form-row">
-        <label for="node-input-maxNetworkMessageSize"><i class="fa fa-expand"></i> Max Msg Size</label>
-        <input type="text" id="node-input-maxNetworkMessageSize" placeholder="1400">
-    </div>
-
-    <hr/>
-    <h4>DataSetWriters</h4>
-    <div class="form-row" style="margin-bottom:5px;">
-        <label style="width:100%;" for="node-input-writers-json">
-            <i class="fa fa-list"></i> Writers (JSON)
-        </label>
-    </div>
-    <div class="form-row">
-        <textarea id="node-input-writers-json" rows="10"
-            style="width:100%; font-family:monospace; white-space:pre;"></textarea>
-    </div>
-    <div class="form-tips">
-        Array of DataSetWriters. Each:
-        <code>{ "dataSetWriterId": 1, "dataSetName": "...", "publishedDataSet": { "name": "...", "fields": [{ "name": "...", "dataType": "Double" }] } }</code>
-    </div>
-
-    <!-- hidden field that actually stores the serialized writers value -->
-    <input type="hidden" id="node-input-writers">
 </script>
 
 <script type="text/html" data-help-name="opcua-publisher">
@@ -145,6 +364,11 @@
     <b>DataSetWriters</b>, each bound to one <b>PublishedDataSet</b>. The
     PublishedDataSet <code>fields[]</code> (<code>{ name, dataType }</code>) are the
     authority for typing outgoing field values.</p>
+
+    <h3>Editing DataSetWriters</h3>
+    <p>Each writer has an id, a DataSet name and its fields (name and data type). The optional
+    configuration version lets subscribers detect a changed DataSet layout. <b>Edit as JSON</b>
+    switches to the raw JSON array; properties the form does not show are kept.</p>
 
     <h3>Input (acyclic)</h3>
     <p><code>msg.payload</code> is an object keyed by field name:

@@ -128,6 +128,21 @@ async function checkCoverage() {
   return ok;
 }
 
+/** The shared editor files every dialog loads must be served. */
+async function checkEditorResources() {
+  let ok = true;
+  for (const file of ["opcua-editor.css", "opcua-editor.js"]) {
+    const res = await request(
+      "GET",
+      `/resources/node-red-contrib-opcua-suite/${file}`,
+    );
+    const served = res.status === 200 && res.text.length > 0;
+    if (!served) ok = false;
+    console.log(`  ${served ? "SERVED " : "MISSING"} editor resource ${file}`);
+  }
+  return ok;
+}
+
 async function main() {
   console.log(`Node-RED: ${NODE_RED_URL}`);
   const settings = await waitForNodeRed();
@@ -151,7 +166,7 @@ async function main() {
     console.log(`Deployed ${path.basename(FLOW_FILE)} (${flow.length} nodes)`);
   }
 
-  const coverageOk = await checkCoverage();
+  const coverageOk = (await checkCoverage()) && (await checkEditorResources());
 
   const deadline = Date.now() + RUN_TIMEOUT_MS;
   let lastReported = 0;
@@ -179,7 +194,11 @@ async function main() {
     console.log("Failed tests:");
     for (const r of failed) console.log(`  ${r.id} ${r.name}: ${r.detail}`);
   }
-  if (!coverageOk) console.log("Node type coverage is incomplete (see above).");
+  if (!coverageOk) {
+    console.log(
+      "Node type coverage or editor resources incomplete (see above).",
+    );
+  }
   process.exit(failed.length || st.passed !== st.total || !coverageOk ? 1 : 0);
 }
 

@@ -19,6 +19,7 @@ USER node-red
 COPY --chown=node-red:node-red package.json /opt/opcua-suite/package.json
 COPY --chown=node-red:node-red lib /opt/opcua-suite/lib
 COPY --chown=node-red:node-red nodes /opt/opcua-suite/nodes
+COPY --chown=node-red:node-red resources /opt/opcua-suite/resources
 
 RUN cd /opt/opcua-suite && npm install --production --no-audit --no-fund
 

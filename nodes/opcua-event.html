@@ -1,45 +1,69 @@
+<link rel="stylesheet" href="resources/node-red-contrib-opcua-suite/opcua-editor.css" />
+<script src="resources/node-red-contrib-opcua-suite/opcua-editor.js"></script>
+
 <script type="text/javascript">
-    RED.nodes.registerType('opcua-event', {
-        category: 'OPC UA Suite',
-        color: '#3a8cba',
+    RED.nodes.registerType("opcua-event", {
+        category: "OPC UA Suite",
+        color: "#3a8cba",
         defaults: {
-            name: { value: '' },
-            endpoint: { value: '', type: 'opcua-endpoint', required: true },
-            sourceNodeId: { value: 'i=2253' },
-            eventType: { value: 'BaseEventType' }
+            name: { value: "" },
+            endpoint: { value: "", type: "opcua-endpoint", required: true },
+            sourceNodeId: { value: "i=2253" },
+            eventType: { value: "BaseEventType" },
         },
         inputs: 1,
         outputs: 1,
-        icon: 'opcua.svg',
-        paletteLabel: 'OPC UA Event',
-        label: function() { return this.name || 'OPC UA Event'; }
+        icon: "opcua.svg",
+        paletteLabel: "OPC UA Event",
+        label: function () {
+            return this.name || "OPC UA Event";
+        },
+        labelStyle: function () {
+            return this.name ? "node_label_italic" : "";
+        },
+        oneditprepare: function () {
+            OpcUaEditor.datalist("opcua-event-types", OpcUaEditor.EVENT_TYPES);
+            OpcUaEditor.attachPicker($("#node-input-sourceNodeId"), {
+                endpoint: function () {
+                    return $("#node-input-endpoint").val();
+                },
+                classes: ["Object", "Variable", "View"],
+                title: "Select the event source",
+            });
+        },
     });
 </script>
 
 <script type="text/html" data-template-name="opcua-event">
-<div class="opcua-node-container">
-    <div class="form-row">
-        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
-        <input type="text" id="node-input-name" placeholder="Name">
+    <div class="opcua-form" id="opcua-event-form">
+        <div class="form-row">
+            <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+            <input type="text" id="node-input-name" placeholder="Name" />
+        </div>
+        <div class="form-row">
+            <label for="node-input-endpoint"><i class="fa fa-plug"></i> Endpoint</label>
+            <input type="text" id="node-input-endpoint" />
+        </div>
+        <div class="form-row">
+            <label for="node-input-sourceNodeId"><i class="fa fa-crosshairs"></i> Source</label>
+            <input type="text" id="node-input-sourceNodeId" placeholder="i=2253" />
+        </div>
+        <div class="opcua-hint"><code>i=2253</code> is the Server object, which reports all server events.</div>
+        <div class="form-row">
+            <label for="node-input-eventType"><i class="fa fa-bell"></i> Event type</label>
+            <input type="text" id="node-input-eventType" list="opcua-event-types" placeholder="BaseEventType" />
+            <datalist id="opcua-event-types"></datalist>
+        </div>
+        <div class="opcua-hint">Includes subtypes. <code>BaseEventType</code> receives every event.</div>
     </div>
-    <div class="form-row">
-        <label for="node-input-endpoint"><i class="fa fa-plug"></i> Endpoint</label>
-        <input type="text" id="node-input-endpoint">
-    </div>
-    <div class="form-row">
-        <label for="node-input-sourceNodeId"><i class="fa fa-crosshairs"></i> Source NodeId</label>
-        <input type="text" id="node-input-sourceNodeId" placeholder="i=2253 (Server Node)" style="width:70%">
-    </div>
-    <div class="form-row">
-        <label for="node-input-eventType"><i class="fa fa-bell"></i> Event Type</label>
-        <input type="text" id="node-input-eventType" placeholder="BaseEventType" style="width:70%">
-        <div style="font-size:11px;color:#999;margin-top:2px;padding-left:105px">e.g. BaseEventType, AlarmConditionType</div>
-    </div>
-</div>
 </script>
 
 <script type="text/html" data-help-name="opcua-event">
     <p>Subscribes to OPC UA events and alarms.</p>
+    <h3>Configuration</h3>
+    <p><b>Source</b> is the node whose events are monitored; the Server object
+    (<code>i=2253</code>) reports events of the whole server. <b>Event type</b> filters by type,
+    including its subtypes; <code>BaseEventType</code> receives everything.</p>
     <h3>Input</h3>
     <ul>
         <li><code>msg.action = "subscribe"</code> — Start event subscription (default)</li>

@@ -1,86 +1,133 @@
+<link rel="stylesheet" href="resources/node-red-contrib-opcua-suite/opcua-editor.css" />
+<script src="resources/node-red-contrib-opcua-suite/opcua-editor.js"></script>
+
 <script type="text/javascript">
-    RED.nodes.registerType("opcua-subscriber", {
-        category: "OPC UA Suite",
-        color: "#3a8cba",
-        defaults: {
-            name: { value: "" },
-            connection: { value: "", type: "opcua-pubsub-connection", required: true },
-            messageEncoding: { value: "uadp" },            // "uadp" | "json"
-            publisherId: { value: "" },                    // DataSetReader filter (string|number)
-            writerGroupId: { value: "" },                  // DataSetReader filter (number)
-            dataSetWriterId: { value: "" },                // DataSetReader filter (number)
-            expectedConfigVersion: { value: "" }           // optional "M.m" ConfigurationVersion check
-        },
-        inputs: 0,
-        outputs: 1,
-        icon: "opcua.svg",
-        label: function () {
-            return this.name || "OPC UA Subscriber";
-        },
-        labelStyle: function () {
-            return this.name ? "node_label_italic" : "";
-        },
-        oneditprepare: function () {
-            // When the picked connection is UDP, force messageEncoding to uadp and
-            // disable the json option, surfacing the UDP-only-UADP rule in the editor.
-            function applyTransportRule() {
-                var connId = $("#node-input-connection").val();
-                var connNode = connId ? RED.nodes.node(connId) : null;
-                var jsonOption = $("#node-input-messageEncoding option[value='json']");
-                if (connNode && connNode.transportType === "udp") {
-                    $("#node-input-messageEncoding").val("uadp");
-                    jsonOption.prop("disabled", true);
-                    $("#opcua-sub-encoding-hint").text("UDP transport supports UADP only.");
-                } else {
-                    jsonOption.prop("disabled", false);
-                    $("#opcua-sub-encoding-hint").text("");
-                }
-            }
-            $("#node-input-connection").on("change", applyTransportRule);
-            applyTransportRule();
+    (function () {
+        function oneFilterSet() {
+            var pid = $("#node-input-publisherId").length ? $("#node-input-publisherId").val() : this.publisherId;
+            var wg = $("#node-input-writerGroupId").length ? $("#node-input-writerGroupId").val() : this.writerGroupId;
+            var dsw = $("#node-input-dataSetWriterId").length ? $("#node-input-dataSetWriterId").val() : this.dataSetWriterId;
+            return [pid, wg, dsw].some(function (v) {
+                return v !== "" && v !== undefined && v !== null;
+            });
         }
-    });
+
+        RED.nodes.registerType("opcua-subscriber", {
+            category: "OPC UA Suite",
+            color: "#3a8cba",
+            defaults: {
+                name: { value: "" },
+                connection: { value: "", type: "opcua-pubsub-connection", required: true },
+                messageEncoding: { value: "uadp" },
+                publisherId: { value: "", validate: oneFilterSet },
+                writerGroupId: { value: "" },
+                dataSetWriterId: { value: "" },
+                expectedConfigVersion: {
+                    value: "",
+                    validate: function (v) {
+                        return !v || /^\d+\.\d+$/.test(v);
+                    },
+                },
+            },
+            inputs: 0,
+            outputs: 1,
+            icon: "opcua.svg",
+            paletteLabel: "OPC UA Subscriber",
+            label: function () {
+                return this.name || "OPC UA Subscriber";
+            },
+            labelStyle: function () {
+                return this.name ? "node_label_italic" : "";
+            },
+            oneditprepare: function () {
+                var ids = [];
+                RED.nodes.eachConfig(function (n) {
+                    if (n.type === "opcua-pubsub-connection" && n.publisherId !== "" && n.publisherId !== undefined) {
+                        ids.push(String(n.publisherId));
+                    }
+                });
+                OpcUaEditor.datalist("opcua-sub-publisher-ids", ids);
+
+                function applyTransportRule() {
+                    var conn = RED.nodes.node($("#node-input-connection").val());
+                    var udp = conn && conn.transportType === "udp";
+                    $("#node-input-messageEncoding option[value='json']").prop("disabled", !!udp);
+                    if (udp) $("#node-input-messageEncoding").val("uadp");
+                    $("#opcua-sub-encoding-hint").toggle(!!udp);
+                }
+                $("#node-input-connection").on("change", applyTransportRule);
+                applyTransportRule();
+
+                function updateFilterHint() {
+                    $("#opcua-sub-filter-missing").toggle(!oneFilterSet());
+                }
+                $("#node-input-publisherId, #node-input-writerGroupId, #node-input-dataSetWriterId").on("input change", updateFilterHint);
+                updateFilterHint();
+
+                if ($("#node-input-expectedConfigVersion").val()) OpcUaEditor.expand("#opcua-sub-checks");
+                OpcUaEditor.sections("#opcua-sub-form");
+            },
+        });
+    })();
 </script>
 
 <script type="text/html" data-template-name="opcua-subscriber">
-    <div class="form-row">
-        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
-        <input type="text" id="node-input-name" placeholder="Name">
-    </div>
-    <div class="form-row">
-        <label for="node-input-connection"><i class="fa fa-server"></i> Connection</label>
-        <input type="text" id="node-input-connection">
-    </div>
-    <div class="form-row">
-        <label for="node-input-messageEncoding"><i class="fa fa-code"></i> Encoding</label>
-        <select id="node-input-messageEncoding">
-            <option value="uadp">UADP (binary)</option>
-            <option value="json">JSON</option>
-        </select>
-    </div>
-    <div class="form-tips" id="opcua-sub-encoding-hint" style="margin-bottom:8px;"></div>
+    <div class="opcua-form" id="opcua-sub-form">
+        <div class="form-row">
+            <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+            <input type="text" id="node-input-name" placeholder="Name" />
+        </div>
+        <div class="form-row">
+            <label for="node-input-connection"><i class="fa fa-plug"></i> Connection</label>
+            <input type="text" id="node-input-connection" />
+        </div>
+        <div class="form-row">
+            <label for="node-input-messageEncoding"><i class="fa fa-code"></i> Encoding</label>
+            <select id="node-input-messageEncoding">
+                <option value="uadp">UADP (binary)</option>
+                <option value="json">JSON</option>
+            </select>
+        </div>
+        <div class="opcua-hint" id="opcua-sub-encoding-hint">UDP carries UADP only; JSON needs MQTT.</div>
 
-    <div class="form-row">
-        <h4 style="margin-bottom:4px;">DataSetReader filter</h4>
-        <div class="form-tips" style="margin-bottom:8px;">At least one filter is required.</div>
+        <div class="opcua-section" id="opcua-sub-filter">
+            <div class="opcua-section-header">
+                <i class="fa opcua-chevron"></i>
+                <span class="opcua-section-title">Filter</span>
+            </div>
+            <div class="opcua-section-body">
+                <div class="form-row">
+                    <label for="node-input-publisherId"><i class="fa fa-id-badge"></i> Publisher id</label>
+                    <input type="text" id="node-input-publisherId" list="opcua-sub-publisher-ids" placeholder="any" />
+                    <datalist id="opcua-sub-publisher-ids"></datalist>
+                </div>
+                <div class="form-row">
+                    <label for="node-input-writerGroupId"><i class="fa fa-object-group"></i> Group id</label>
+                    <input type="number" class="opcua-num" id="node-input-writerGroupId" min="0" max="65535" placeholder="any" />
+                </div>
+                <div class="form-row">
+                    <label for="node-input-dataSetWriterId"><i class="fa fa-hashtag"></i> Writer id</label>
+                    <input type="number" class="opcua-num" id="node-input-dataSetWriterId" min="0" max="65535" placeholder="any" />
+                </div>
+                <div class="opcua-note opcua-note-warning" id="opcua-sub-filter-missing">Set at least one of the three filters.</div>
+                <div class="opcua-hint opcua-hint-block">Messages that do not match are skipped.</div>
+            </div>
+        </div>
+
+        <div class="opcua-section opcua-collapsed" id="opcua-sub-checks">
+            <div class="opcua-section-header">
+                <i class="fa opcua-chevron"></i>
+                <span class="opcua-section-title">Checks</span>
+            </div>
+            <div class="opcua-section-body">
+                <div class="form-row">
+                    <label for="node-input-expectedConfigVersion"><i class="fa fa-check-circle"></i> Config version</label>
+                    <input type="text" class="opcua-num" id="node-input-expectedConfigVersion" placeholder="major.minor" />
+                </div>
+                <div class="opcua-hint">If set, a DataSet with another configuration version is dropped and reported as an error.</div>
+            </div>
+        </div>
     </div>
-    <div class="form-row">
-        <label for="node-input-publisherId"><i class="fa fa-id-badge"></i> Publisher Id</label>
-        <input type="text" id="node-input-publisherId" placeholder="(optional)">
-    </div>
-    <div class="form-row">
-        <label for="node-input-writerGroupId"><i class="fa fa-object-group"></i> Writer Group Id</label>
-        <input type="number" id="node-input-writerGroupId" placeholder="(optional)">
-    </div>
-    <div class="form-row">
-        <label for="node-input-dataSetWriterId"><i class="fa fa-pencil"></i> DataSet Writer Id</label>
-        <input type="number" id="node-input-dataSetWriterId" placeholder="(optional)">
-    </div>
-    <div class="form-row">
-        <label for="node-input-expectedConfigVersion"><i class="fa fa-check-circle"></i> Expected Config Version</label>
-        <input type="text" id="node-input-expectedConfigVersion" placeholder="M.m (optional)">
-    </div>
-    <div class="form-tips" style="margin-bottom:8px;">If set, a DataSetMessage whose ConfigurationVersion differs raises an error.</div>
 </script>
 
 <script type="text/html" data-help-name="opcua-subscriber">
@@ -94,9 +141,10 @@
         <dt>Connection</dt><dd>The <code>opcua-pubsub-connection</code> config node.</dd>
         <dt>Encoding</dt><dd><code>uadp</code> or <code>json</code>. UDP transport
         supports UADP only (UDP-JSON is rejected at startup).</dd>
-        <dt>DataSetReader filter</dt><dd>At least one of Publisher Id, Writer Group Id,
-        or DataSet Writer Id is required. Non-matching messages are skipped silently.</dd>
-        <dt>Expected Config Version</dt><dd>Optional <code>M.m</code>. A matched message
+        <dt>Filter</dt><dd>At least one of Publisher id, Writer group id or Writer id is
+        required. Non-matching messages are skipped silently. The Publisher id field suggests
+        the ids of the PubSub connections in this workspace.</dd>
+        <dt>Config version</dt><dd>Optional <code>M.m</code>. A matched message
         whose ConfigurationVersion differs raises a visible error and is dropped.</dd>
     </dl>
 

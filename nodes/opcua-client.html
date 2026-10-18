@@ -1,4 +1,26 @@
+<link rel="stylesheet" href="resources/node-red-contrib-opcua-suite/opcua-editor.css" />
+<script src="resources/node-red-contrib-opcua-suite/opcua-editor.js"></script>
+
 <script type="text/javascript">
+    // Every operation opcua-client.js executes. The dialog offers all of them,
+    // and test/editor-contract.test.js keeps this list in sync with the code.
+    var OPCUA_CLIENT_OPERATIONS = [
+        ["read", "Read"],
+        ["readmultiple", "Read multiple"],
+        ["write", "Write"],
+        ["writemultiple", "Write multiple"],
+        ["subscribe", "Subscribe"],
+        ["unsubscribe", "Unsubscribe"],
+        ["browse", "Browse"],
+        ["method", "Call method"],
+        ["history", "History read"],
+        ["readattribute", "Read attribute"],
+        ["translatebrowsepath", "Translate browse path"],
+        ["registernodes", "Register nodes"],
+        ["unregisternodes", "Unregister nodes"],
+        ["getendpoints", "Get endpoints"],
+    ];
+
     RED.nodes.registerType("opcua-client", {
         category: "OPC UA Suite",
         color: "#3a8cba",
@@ -6,9 +28,12 @@
             name: { value: "" },
             endpoint: { value: "", type: "opcua-endpoint", required: true },
             defaultOperation: { value: "read" },
-            applicationName: { value: "Node-RED OPC UA Client" },
-            maxReconnectAttempts: { value: 10 },
-            reconnectDelay: { value: 5000 },
+            // Connection settings that moved to the endpoint. Kept so older
+            // flows still work: the endpoint falls back to them when it
+            // does not set its own values. New nodes leave them empty.
+            applicationName: { value: "" },
+            maxReconnectAttempts: { value: "" },
+            reconnectDelay: { value: "" },
             retryAttempts: { value: 0 },
             maxOperationRetries: { value: 3 },
             retryBackoffMs: { value: 100 },
@@ -27,242 +52,113 @@
             return this.name ? "node_label_italic" : "";
         },
         oneditprepare: function () {
-            // Toggle advanced section
-            $("#opcua-client-toggle-advanced").on("click", function () {
-                $("#opcua-client-advanced").slideToggle(200);
-                $(this)
-                    .find(".fa")
-                    .toggleClass("fa-chevron-down fa-chevron-right");
+            var node = this;
+            var $op = $("#node-input-defaultOperation");
+            OPCUA_CLIENT_OPERATIONS.forEach(function (o) {
+                $("<option>").val(o[0]).text(o[1]).appendTo($op);
             });
+            OpcUaEditor.keepValue($op, node.defaultOperation || "read");
+
+            // Older flows set connection settings on the client node. They
+            // still apply as a fallback, so say where they belong now.
+            var legacy = [];
+            if (node.applicationName && node.applicationName !== "Node-RED OPC UA Client") {
+                legacy.push("application name " + node.applicationName);
+            }
+            if (node.maxReconnectAttempts !== "" && node.maxReconnectAttempts !== undefined && Number(node.maxReconnectAttempts) !== 10) {
+                legacy.push("reconnect attempts " + node.maxReconnectAttempts);
+            }
+            if (node.reconnectDelay !== "" && node.reconnectDelay !== undefined && Number(node.reconnectDelay) !== 5000) {
+                legacy.push("reconnect delay " + node.reconnectDelay + " ms");
+            }
+            if (legacy.length) {
+                $("#opcua-client-legacy")
+                    .text(
+                        "This node still sets " + legacy.join(", ") +
+                        ". These settings now belong to the endpoint; they keep " +
+                        "working here until the endpoint sets its own values.",
+                    )
+                    .show();
+            }
+
+            if (
+                Number(node.retryAttempts) !== 0 ||
+                Number(node.maxOperationRetries) !== 3 ||
+                Number(node.retryBackoffMs) !== 100
+            ) {
+                OpcUaEditor.expand("#opcua-client-retry");
+            }
+            OpcUaEditor.sections("#opcua-client-form");
         },
     });
 </script>
 
-<style>
-    .opcua-node-container .form-row label {
-        font-weight: 500;
-        color: #444;
-    }
-    .opcua-node-container select,
-    .opcua-node-container input[type="text"],
-    .opcua-node-container input[type="number"] {
-        border-radius: 4px;
-    }
-    .opcua-toggle-row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 6px 10px;
-        margin: 12px 0 8px;
-        background: #f5f7fa;
-        border-radius: 6px;
-        cursor: pointer;
-        user-select: none;
-        border: 1px solid #e1e5ea;
-        transition: background 0.15s;
-    }
-    .opcua-toggle-row:hover {
-        background: #edf0f5;
-    }
-    .opcua-toggle-row span {
-        font-size: 12px;
-        font-weight: 600;
-        color: #555;
-        flex: 1;
-    }
-    .opcua-toggle-row .fa {
-        color: #999;
-        font-size: 11px;
-    }
-    .opcua-op-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0;
-    }
-    .opcua-op-grid option {
-        padding: 4px 8px;
-    }
-</style>
-
 <script type="text/html" data-template-name="opcua-client">
-    <div class="opcua-node-container">
+    <div class="opcua-form" id="opcua-client-form">
         <div class="form-row">
             <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
             <input type="text" id="node-input-name" placeholder="Name" />
         </div>
         <div class="form-row">
-            <label for="node-input-endpoint"
-                ><i class="fa fa-plug"></i> Endpoint</label
-            >
-            <input
-                type="text"
-                id="node-input-endpoint"
-                placeholder="Endpoint"
-            />
+            <label for="node-input-endpoint"><i class="fa fa-plug"></i> Endpoint</label>
+            <input type="text" id="node-input-endpoint" />
         </div>
         <div class="form-row">
-            <label for="node-input-defaultOperation"
-                ><i class="fa fa-cog"></i> Default Operation</label
-            >
-            <select id="node-input-defaultOperation" style="width:70%">
-                <option value="read">Read</option>
-                <option value="readmultiple">Read Multiple</option>
-                <option value="write">Write</option>
-                <option value="writemultiple">Write Multiple</option>
-                <option value="subscribe">Subscribe</option>
-                <option value="unsubscribe">Unsubscribe</option>
-                <option value="browse">Browse</option>
-                <option value="method">Method Call</option>
-                <option value="history">History Read</option>
-                <option value="getendpoints">Get Endpoints</option>
-                <option value="readattribute">Read Attribute</option>
-                <option value="registernodes">Register Nodes</option>
-                <option value="translatebrowsepath">
-                    Translate Browse Path
-                </option>
-            </select>
+            <label for="node-input-defaultOperation"><i class="fa fa-cog"></i> Operation</label>
+            <select id="node-input-defaultOperation"></select>
         </div>
+        <div class="opcua-hint">Used when the message has no <code>msg.operation</code>.</div>
 
-        <div class="form-row" style="padding-left:2px;">
-            <label for="node-input-verboseLog" style="width:auto;">
-                <input
-                    type="checkbox"
-                    id="node-input-verboseLog"
-                    style="width:auto; margin:0 8px 0 0; vertical-align:middle;"
-                />
-                <i class="fa fa-file-text-o" style="margin-right:4px;"></i>
-                Verbose Log
-            </label>
-            <span style="font-size:11px;color:#999;margin-left:8px;">
-                Log reconnect events &amp; warnings
-            </span>
-        </div>
-
-        <div class="form-row" style="padding-left:2px;">
-            <label for="node-input-autoConnect" style="width:auto;">
-                <input
-                    type="checkbox"
-                    id="node-input-autoConnect"
-                    style="width:auto; margin:0 8px 0 0; vertical-align:middle;"
-                />
-                <i class="fa fa-plug" style="margin-right:4px;"></i>
+        <div class="opcua-check">
+            <input type="checkbox" id="node-input-autoConnect" />
+            <label for="node-input-autoConnect">
                 Connect on deploy
+                <span class="opcua-check-hint">Otherwise the first message opens the connection.</span>
             </label>
-            <span style="font-size:11px;color:#999;margin-left:8px;">
-                Connect immediately instead of on first message
-            </span>
+        </div>
+        <div class="opcua-check">
+            <input type="checkbox" id="node-input-unwrapSingle" />
+            <label for="node-input-unwrapSingle">
+                Unwrap a single value
+                <span class="opcua-check-hint">A read of one item returns the value itself, not a one-element array.</span>
+            </label>
+        </div>
+        <div class="opcua-check">
+            <input type="checkbox" id="node-input-verboseLog" />
+            <label for="node-input-verboseLog">
+                Verbose log
+                <span class="opcua-check-hint">Log reconnects and warnings.</span>
+            </label>
         </div>
 
-        <div class="form-row" style="padding-left:2px;">
-            <label for="node-input-unwrapSingle" style="width:auto;">
-                <input
-                    type="checkbox"
-                    id="node-input-unwrapSingle"
-                    style="width:auto; margin:0 8px 0 0; vertical-align:middle;"
-                />
-                <i class="fa fa-compress" style="margin-right:4px;"></i>
-                Unwrap single value
-            </label>
-            <span style="font-size:11px;color:#999;margin-left:8px;">
-                Single read → scalar in msg.payload (not a 1-element array)
-            </span>
-        </div>
-
-        <div class="opcua-toggle-row" id="opcua-client-toggle-advanced">
-            <i class="fa fa-chevron-right"></i>
-            <span>Advanced Settings</span>
-        </div>
-        <div id="opcua-client-advanced" style="display:none">
-            <div class="form-row">
-                <label for="node-input-applicationName"
-                    ><i class="fa fa-info-circle"></i> Application Name</label
-                >
-                <input
-                    type="text"
-                    id="node-input-applicationName"
-                    placeholder="Node-RED OPC UA Client"
-                    style="width:70%"
-                />
+        <div class="opcua-section opcua-collapsed" id="opcua-client-retry">
+            <div class="opcua-section-header">
+                <i class="fa opcua-chevron"></i>
+                <span class="opcua-section-title">On connection loss</span>
             </div>
-            <div class="form-row">
-                <label for="node-input-maxReconnectAttempts"
-                    ><i class="fa fa-refresh"></i> Max Reconnects</label
-                >
-                <input
-                    type="number"
-                    id="node-input-maxReconnectAttempts"
-                    min="0"
-                    max="100"
-                    style="width:80px;"
-                    placeholder="10"
-                />
-                <span style="font-size:11px;color:#999;margin-left:4px"
-                    >retries per connect attempt</span
-                >
-            </div>
-            <div class="form-row">
-                <label for="node-input-reconnectDelay"
-                    ><i class="fa fa-clock-o"></i> Reconnect Delay</label
-                >
-                <input
-                    type="number"
-                    id="node-input-reconnectDelay"
-                    min="1000"
-                    max="60000"
-                    style="width:100px;"
-                    placeholder="5000"
-                />
-                <span style="font-size:11px;color:#999;margin-left:4px"
-                    >ms</span
-                >
-            </div>
-            <div class="form-row">
-                <label for="node-input-retryAttempts"
-                    ><i class="fa fa-repeat"></i> Retry Attempts</label
-                >
-                <input
-                    type="number"
-                    id="node-input-retryAttempts"
-                    min="0"
-                    max="1000"
-                    style="width:80px;"
-                    placeholder="0"
-                />
-                <span style="font-size:11px;color:#999;margin-left:4px"
-                    >reconnect attempts (0 = infinite)</span
-                >
-            </div>
-            <div class="form-row">
-                <label for="node-input-maxOperationRetries"
-                    ><i class="fa fa-repeat"></i> Operation Retries</label
-                >
-                <input
-                    type="number"
-                    id="node-input-maxOperationRetries"
-                    min="0"
-                    max="20"
-                    style="width:80px;"
-                    placeholder="3"
-                />
-                <span style="font-size:11px;color:#999;margin-left:4px"
-                    >retries per message on connection loss</span
-                >
-            </div>
-            <div class="form-row">
-                <label for="node-input-retryBackoffMs"
-                    ><i class="fa fa-clock-o"></i> Retry Backoff</label
-                >
-                <input
-                    type="number"
-                    id="node-input-retryBackoffMs"
-                    min="0"
-                    max="5000"
-                    style="width:100px;"
-                    placeholder="100"
-                />
-                <span style="font-size:11px;color:#999;margin-left:4px"
-                    >ms (exponential, capped at 2s)</span
-                >
+            <div class="opcua-section-body">
+                <div class="form-row">
+                    <label for="node-input-maxOperationRetries"><i class="fa fa-repeat"></i> Retries</label>
+                    <input type="number" class="opcua-num" id="node-input-maxOperationRetries" min="0" max="20" placeholder="3" />
+                    <span class="opcua-unit">per message</span>
+                </div>
+                <div class="opcua-hint">How often a message is retried after the connection was lost.</div>
+                <div class="form-row">
+                    <label for="node-input-retryBackoffMs"><i class="fa fa-clock-o"></i> Backoff</label>
+                    <input type="number" class="opcua-num" id="node-input-retryBackoffMs" min="0" max="5000" placeholder="100" />
+                    <span class="opcua-unit">ms, doubles per retry, at most 2 s</span>
+                </div>
+                <div class="form-row">
+                    <label for="node-input-retryAttempts"><i class="fa fa-refresh"></i> Reconnects</label>
+                    <input type="number" class="opcua-num" id="node-input-retryAttempts" min="0" max="1000" placeholder="0" />
+                    <span class="opcua-unit">per retry, 0 = until connected</span>
+                </div>
+                <div class="opcua-note">
+                    Connect attempts, reconnect delay and the application name are
+                    set on the endpoint, because all nodes using it share one
+                    connection.
+                </div>
+                <div class="opcua-note opcua-note-warning" id="opcua-client-legacy" style="display:none"></div>
             </div>
         </div>
     </div>
@@ -341,26 +237,33 @@
 
     <h3>Connection recovery</h3>
     <p>
-        The connection is shared through the endpoint, so these settings
-        are taken from the first OPC UA node that opens it.
+        All nodes using an endpoint share one connection, so connect
+        attempts, reconnect delay and the application name are set on the
+        <b>endpoint</b>. Flows created with older versions may still carry
+        them on the client node; there they keep working as a fallback until
+        the endpoint sets its own values.
     </p>
+    <h4>On connection loss</h4>
     <dl class="message-properties">
-        <dt>Max Reconnects</dt>
+        <dt>Retries</dt>
         <dd>
-            How often one connect attempt is retried before it fails
-            (default 10; 0 = a single try). This also bounds how long a
-            message waits for a connection while the server is down.
+            How often one message is retried after the connection was lost
+            (default 3).
         </dd>
-        <dt>Reconnect Delay</dt>
+        <dt>Backoff</dt>
         <dd>
-            Longest pause between those retries, and the starting pause of
-            the background reconnect.
+            Pause before the first retry; it doubles per retry, at most 2 s.
+        </dd>
+        <dt>Reconnects</dt>
+        <dd>
+            Reconnect attempts per retry; 0 keeps trying until the
+            connection is back.
         </dd>
     </dl>
     <p>
         After a failed connect the node keeps reconnecting in the
         background and never gives up. The pause doubles from
-        <i>Reconnect Delay</i> up to one minute. A flow that only
+        the endpoint's <i>Reconnect delay</i> up to one minute. A flow that only
         subscribes therefore connects as soon as the server is reachable,
         however long it was offline. A redeploy stops the old attempts.
         If the server drops an established connection, node-opcua restores

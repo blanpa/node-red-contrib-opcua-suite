@@ -11,7 +11,12 @@ const {
   terminateWithin,
 } = require("../lib/opcua-utils");
 const OpcUaClientManager = require("../lib/opcua-client-manager");
-const { resolveNodeId, NodeClass, AttributeIds } = require("node-opcua");
+const {
+  resolveNodeId,
+  NodeClass,
+  AttributeIds,
+  BrowseDirection,
+} = require("node-opcua");
 
 module.exports = function (RED) {
   // ─── Cached browse connections (per endpoint, shared across editor tabs) ───
@@ -219,8 +224,83 @@ module.exports = function (RED) {
 
   function resolveDataTypeName(dtNodeId) {
     if (!dtNodeId) return "";
-    const s = dtNodeId.toString();
+    // node-opcua prints namespace 0 NodeIds as "ns=0;i=11"; the map is keyed
+    // without the prefix. Matching the full string never hit, so every
+    // built-in type took the slow BrowseName + supertype lookup.
+    const s = dtNodeId.toString().replace(/^ns=0;/, "");
     return BUILTIN_DATATYPE_MAP[s] || null;
+  }
+
+  /**
+   * Reads a method's InputArguments and OutputArguments properties.
+   * Returns { inputArguments, outputArguments }, each a list of
+   * { name, dataType, valueRank, description }.
+   */
+  async function readMethodArguments(session, methodNodeId) {
+    const { references, statusCode } = await browseAllReferences(session, {
+      nodeId: methodNodeId,
+      referenceTypeId: "HasProperty",
+      includeSubtypes: true,
+      browseDirection: BrowseDirection.Forward,
+      resultMask: 8, // BrowseName
+    });
+    if (statusCode && statusCode.isNotGood && statusCode.isNotGood()) {
+      throw new Error(`Browse failed: ${statusCode.toString()}`);
+    }
+    const propertyIds = {};
+    for (const ref of references) {
+      const name = ref.browseName && ref.browseName.name;
+      if (name === "InputArguments" || name === "OutputArguments") {
+        propertyIds[name] = ref.nodeId;
+      }
+    }
+    const result = { inputArguments: [], outputArguments: [] };
+    const names = Object.keys(propertyIds);
+    if (names.length === 0) return result;
+
+    const values = await session.read(
+      names.map((n) => ({
+        nodeId: propertyIds[n],
+        attributeId: AttributeIds.Value,
+      })),
+    );
+    const typeNames = new Map();
+    async function typeName(dtNodeId) {
+      const builtIn = resolveDataTypeName(dtNodeId);
+      if (builtIn) return builtIn;
+      const key = dtNodeId.toString();
+      if (!typeNames.has(key)) {
+        let name = key;
+        try {
+          const dv = await session.read({
+            nodeId: dtNodeId,
+            attributeId: AttributeIds.BrowseName,
+          });
+          name = (dv.value && dv.value.value && dv.value.value.name) || key;
+        } catch (_e) {
+          /* keep the NodeId */
+        }
+        typeNames.set(key, name);
+      }
+      return typeNames.get(key);
+    }
+
+    for (let i = 0; i < names.length; i++) {
+      const args =
+        (values[i] && values[i].value && values[i].value.value) || [];
+      const list = [];
+      for (const a of Array.from(args)) {
+        list.push({
+          name: a.name || "",
+          dataType: a.dataType ? await typeName(a.dataType) : "",
+          valueRank: typeof a.valueRank === "number" ? a.valueRank : -1,
+          description: (a.description && a.description.text) || "",
+        });
+      }
+      if (names[i] === "InputArguments") result.inputArguments = list;
+      else result.outputArguments = list;
+    }
+    return result;
   }
 
   // NodeClasses that support Value attribute subscription
@@ -546,6 +626,36 @@ module.exports = function (RED) {
             response.extensionFields = extensionFields;
           }
           res.json(response);
+        } catch (e) {
+          res.status(500).json({ error: e.message });
+        }
+      },
+    );
+
+    // Input and output arguments of a method, for the method node's editor.
+    RED.httpAdmin.post(
+      "/opcua-browse-client/method-arguments",
+      permission("flows.read"),
+      async function (req, res) {
+        try {
+          const { endpointId, methodNodeId } = req.body || {};
+          if (!endpointId || !methodNodeId) {
+            return res
+              .status(400)
+              .json({ error: "endpointId and methodNodeId required" });
+          }
+          const endpointNode = RED.nodes.getNode(endpointId);
+          if (!endpointNode) {
+            return res
+              .status(404)
+              .json({ error: "Endpoint node not found. Deploy first." });
+          }
+          const mgr = await getBrowseConnection(endpointNode);
+          const result = await readMethodArguments(
+            mgr.getSession(),
+            resolveNodeId(methodNodeId),
+          );
+          res.json(result);
         } catch (e) {
           res.status(500).json({ error: e.message });
         }

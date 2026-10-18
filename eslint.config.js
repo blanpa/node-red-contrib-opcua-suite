@@ -71,6 +71,28 @@ module.exports = [
     },
   },
 
+  // ── Editor code running in the browser (resources/) ──
+  {
+    files: ["resources/**/*.js"],
+    languageOptions: {
+      ecmaVersion: 2018,
+      sourceType: "script",
+      globals: {
+        window: "readonly",
+        document: "readonly",
+        $: "readonly",
+        RED: "readonly",
+        FileReader: "readonly",
+        Promise: "readonly",
+        setTimeout: "readonly",
+      },
+    },
+    rules: {
+      "no-var": "off",
+      "prefer-const": "off",
+    },
+  },
+
   // ── Tests: mock signatures routinely ignore positional parameters ──
   {
     files: ["test/**/*.js", "test-server/**/*.js"],

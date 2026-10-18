@@ -1,46 +1,149 @@
+<link rel="stylesheet" href="resources/node-red-contrib-opcua-suite/opcua-editor.css" />
+<script src="resources/node-red-contrib-opcua-suite/opcua-editor.js"></script>
+
 <script type="text/javascript">
-    RED.nodes.registerType('opcua-method', {
-        category: 'OPC UA Suite',
-        color: '#3a8cba',
+    RED.nodes.registerType("opcua-method", {
+        category: "OPC UA Suite",
+        color: "#3a8cba",
         defaults: {
-            name: { value: '' },
-            endpoint: { value: '', type: 'opcua-endpoint', required: true },
-            methodNodeId: { value: '' },
-            objectNodeId: { value: '' }
+            name: { value: "" },
+            endpoint: { value: "", type: "opcua-endpoint", required: true },
+            methodNodeId: { value: "" },
+            objectNodeId: { value: "" },
         },
         inputs: 1,
         outputs: 1,
-        icon: 'opcua.svg',
-        paletteLabel: 'OPC UA Method',
-        label: function() { return this.name || 'OPC UA Method'; }
+        icon: "opcua.svg",
+        paletteLabel: "OPC UA Method",
+        label: function () {
+            return this.name || "OPC UA Method";
+        },
+        labelStyle: function () {
+            return this.name ? "node_label_italic" : "";
+        },
+        oneditprepare: function () {
+            function endpoint() {
+                return $("#node-input-endpoint").val();
+            }
+            OpcUaEditor.attachPicker($("#node-input-objectNodeId"), {
+                endpoint: endpoint,
+                classes: ["Object", "ObjectType"],
+                title: "Select the object",
+            });
+            OpcUaEditor.attachPicker($("#node-input-methodNodeId"), {
+                endpoint: endpoint,
+                classes: ["Method"],
+                title: "Select the method",
+                onPick: function (ref, parent) {
+                    // A method is called on the object it belongs to.
+                    if (parent && parent.nodeId) $("#node-input-objectNodeId").val(parent.nodeId);
+                },
+            });
+
+            function exampleValue(dt) {
+                if (/Boolean/.test(dt)) return false;
+                if (/^(S?Byte|U?Int\d+|Float|Double)$/.test(dt)) return 0;
+                if (dt === "DateTime") return new Date(0).toISOString();
+                return "";
+            }
+            function renderArgs(title, args) {
+                var $box = $("<div></div>");
+                $('<div class="opcua-table-head"></div>').text(title).appendTo($box);
+                if (!args.length) {
+                    $('<div class="opcua-empty"></div>').text("None").appendTo($box);
+                    return $box;
+                }
+                args.forEach(function (a) {
+                    var $row = $('<div class="opcua-table-row"></div>').appendTo($box);
+                    $('<span class="opcua-col-grow"></span>').text(a.name).appendTo($row);
+                    $('<span class="opcua-col-type"></span>').text(a.dataType + (a.valueRank > 0 ? "[]" : "")).appendTo($row);
+                    if (a.description) $('<span class="opcua-col-grow opcua-unit"></span>').text(a.description).appendTo($row);
+                });
+                return $box;
+            }
+            $("#opcua-method-read").on("click", function () {
+                var $out = $("#opcua-method-args").empty();
+                var methodNodeId = $("#node-input-methodNodeId").val();
+                if (!methodNodeId) {
+                    $('<div class="opcua-note opcua-note-warning"></div>').text("Set the method NodeId first.").appendTo($out);
+                    return;
+                }
+                $('<div class="opcua-unit"></div>').text("Reading...").appendTo($out);
+                OpcUaEditor.post("opcua-browse-client/method-arguments", {
+                    endpointId: endpoint(),
+                    methodNodeId: methodNodeId,
+                }).then(
+                    function (resp) {
+                        $out.empty();
+                        renderArgs("Input arguments", resp.inputArguments || []).appendTo($out);
+                        renderArgs("Output arguments", resp.outputArguments || []).appendTo($out);
+                        var example = (resp.inputArguments || []).map(function (a) {
+                            var arg = { dataType: a.dataType, value: a.valueRank > 0 ? [] : exampleValue(a.dataType) };
+                            if (a.valueRank > 0) arg.arrayType = "Array";
+                            return arg;
+                        });
+                        $('<div class="opcua-table-head" style="margin-top:8px"></div>').text("Example msg.inputArguments").appendTo($out);
+                        $('<textarea class="opcua-code" rows="4" readonly></textarea>')
+                            .val(JSON.stringify(example, null, 2))
+                            .appendTo($out);
+                    },
+                    function (err) {
+                        $out.empty();
+                        $('<div class="opcua-note opcua-note-warning"></div>').text(err.message).appendTo($out);
+                    },
+                );
+            });
+            OpcUaEditor.sections("#opcua-method-form");
+        },
     });
 </script>
 
 <script type="text/html" data-template-name="opcua-method">
-<div class="opcua-node-container">
-    <div class="form-row">
-        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
-        <input type="text" id="node-input-name" placeholder="Name">
+    <div class="opcua-form" id="opcua-method-form">
+        <div class="form-row">
+            <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+            <input type="text" id="node-input-name" placeholder="Name" />
+        </div>
+        <div class="form-row">
+            <label for="node-input-endpoint"><i class="fa fa-plug"></i> Endpoint</label>
+            <input type="text" id="node-input-endpoint" />
+        </div>
+        <div class="form-row">
+            <label for="node-input-objectNodeId"><i class="fa fa-cube"></i> Object</label>
+            <input type="text" id="node-input-objectNodeId" placeholder="ns=1;s=MyObject" />
+        </div>
+        <div class="form-row">
+            <label for="node-input-methodNodeId"><i class="fa fa-play-circle"></i> Method</label>
+            <input type="text" id="node-input-methodNodeId" placeholder="ns=1;s=MyMethod" />
+        </div>
+        <div class="opcua-hint">
+            <code>msg.objectNodeId</code> and <code>msg.methodNodeId</code> override these.
+        </div>
+
+        <div class="opcua-section opcua-collapsed" id="opcua-method-arguments">
+            <div class="opcua-section-header">
+                <i class="fa opcua-chevron"></i>
+                <span class="opcua-section-title">Arguments</span>
+            </div>
+            <div class="opcua-section-body">
+                <div class="opcua-toolbar">
+                    <button type="button" id="opcua-method-read" class="red-ui-button red-ui-button-small">Read arguments from the server</button>
+                </div>
+                <div id="opcua-method-args"></div>
+                <div class="opcua-hint opcua-hint-block">
+                    The node takes the input arguments from <code>msg.inputArguments</code> or
+                    <code>msg.payload</code>.
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="form-row">
-        <label for="node-input-endpoint"><i class="fa fa-plug"></i> Endpoint</label>
-        <input type="text" id="node-input-endpoint">
-    </div>
-    <div class="form-row">
-        <label for="node-input-objectNodeId"><i class="fa fa-cube"></i> Object NodeId</label>
-        <input type="text" id="node-input-objectNodeId" placeholder="ns=1;s=MyObject" style="width:70%">
-        <div style="font-size:11px;color:#999;margin-top:2px;padding-left:105px">Or via msg.objectNodeId</div>
-    </div>
-    <div class="form-row">
-        <label for="node-input-methodNodeId"><i class="fa fa-play-circle"></i> Method NodeId</label>
-        <input type="text" id="node-input-methodNodeId" placeholder="ns=1;s=MyMethod" style="width:70%">
-        <div style="font-size:11px;color:#999;margin-top:2px;padding-left:105px">Or via msg.methodNodeId</div>
-    </div>
-</div>
 </script>
 
 <script type="text/html" data-help-name="opcua-method">
     <p>Calls an OPC UA method.</p>
+    <h3>Configuration</h3>
+    <p><b>Browse</b> picks the object and method from a deployed endpoint. <b>Read arguments</b>
+    shows the method's input and output arguments and an example <code>msg.inputArguments</code>.</p>
     <h3>Input</h3>
     <ul>
         <li><code>msg.objectNodeId</code> — Object containing the method (or configuration)</li>

@@ -1,287 +1,231 @@
+<link rel="stylesheet" href="resources/node-red-contrib-opcua-suite/opcua-editor.css" />
+<script src="resources/node-red-contrib-opcua-suite/opcua-editor.js"></script>
+
 <script type="text/javascript">
-    RED.nodes.registerType('opcua-item', {
-        category: 'OPC UA Suite',
-        color: '#3a8cba',
-        defaults: {
-            name: { value: '' },
-            collector: { value: true },
-            operation: { value: '' },
-            unwrapSingle: { value: false },
-            items: { value: [] }
-        },
-        inputs: 1,
-        outputs: 1,
-        icon: 'opcua.svg',
-        paletteLabel: 'OPC UA Item',
-        label: function() {
-            if (this.name) return this.name;
-            var count = this.items ? this.items.length : 0;
-            if (count === 0) return 'OPC UA Item';
-            if (count === 1) return this.items[0].itemName || this.items[0].nodeId || 'OPC UA Item';
-            return count + ' items';
-        },
-        oneditprepare: function() {
-            var node = this;
-            var datatypeOpts = '<option value="">Auto</option>' +
-                '<optgroup label="Boolean / Integer">' +
-                '<option value="Boolean">Boolean</option>' +
-                '<option value="SByte">SByte</option>' +
-                '<option value="Int16">Int16</option>' +
-                '<option value="Int32">Int32</option>' +
-                '<option value="Int64">Int64</option>' +
-                '<option value="Byte">Byte</option>' +
-                '<option value="UInt16">UInt16</option>' +
-                '<option value="UInt32">UInt32</option>' +
-                '<option value="UInt64">UInt64</option>' +
-                '</optgroup>' +
-                '<optgroup label="Floating Point">' +
-                '<option value="Float">Float</option>' +
-                '<option value="Double">Double</option>' +
-                '</optgroup>' +
-                '<optgroup label="Text / Time">' +
-                '<option value="String">String</option>' +
-                '<option value="DateTime">DateTime</option>' +
-                '<option value="LocalizedText">LocalizedText</option>' +
-                '<option value="QualifiedName">QualifiedName</option>' +
-                '<option value="XmlElement">XmlElement</option>' +
-                '</optgroup>' +
-                '<optgroup label="Binary / Identifier">' +
-                '<option value="ByteString">ByteString</option>' +
-                '<option value="Guid">Guid</option>' +
-                '<option value="NodeId">NodeId</option>' +
-                '<option value="ExpandedNodeId">ExpandedNodeId</option>' +
-                '<option value="StatusCode">StatusCode</option>' +
-                '</optgroup>' +
-                '<optgroup label="Structured">' +
-                '<option value="ExtensionObject">ExtensionObject</option>' +
-                '</optgroup>' +
-                '<optgroup label="Advanced (rarely writable)">' +
-                '<option value="DataValue">DataValue</option>' +
-                '<option value="Variant">Variant</option>' +
-                '<option value="DiagnosticInfo">DiagnosticInfo</option>' +
-                '</optgroup>';
+    (function () {
+        // Operations the item node can set. test/editor-contract.test.js
+        // checks them against opcua-item.js and opcua-client.js.
+        var ITEM_OPERATIONS = [
+            ["", "Do not set (client default or msg.operation)"],
+            ["read", "Read"],
+            ["readmultiple", "Read multiple"],
+            ["write", "Write"],
+            ["writemultiple", "Write multiple"],
+            ["subscribe", "Subscribe"],
+            ["unsubscribe", "Unsubscribe"],
+        ];
 
-            function addItemRow(nid, iname, dt, dtNodeId, arr) {
-                var item = $('<div class="opcua-il-item"></div>');
-                var row = $('<div class="opcua-il-row">' +
-                    '<input type="text" class="opcua-il-nodeId" placeholder="ns=2;s=Variable">' +
-                    '<input type="text" class="opcua-il-itemName" placeholder="Name">' +
-                    '<select class="opcua-il-datatype">' + datatypeOpts + '</select>' +
-                    '<label class="opcua-il-arr" title="Write the value as an array (ValueRank)"><input type="checkbox" class="opcua-il-arrcb"> []</label>' +
-                    '<button type="button" class="opcua-il-remove red-ui-button red-ui-button-small"><i class="fa fa-remove"></i></button>' +
-                    '</div>');
-                var extRow = $('<div class="opcua-il-extrow">' +
-                    '<input type="text" class="opcua-il-dtnodeid" placeholder="DataType NodeId (optional, e.g. ns=2;i=3003)">' +
-                    '</div>');
-                row.find('.opcua-il-nodeId').val(nid || '');
-                row.find('.opcua-il-itemName').val(iname || '');
-                row.find('.opcua-il-datatype').val(dt || '');
-                row.find('.opcua-il-arrcb').prop('checked', !!arr);
-                extRow.find('.opcua-il-dtnodeid').val(dtNodeId || '');
+        var DATATYPE_OPTIONS =
+            '<option value="">Auto</option>' +
+            '<optgroup label="Boolean and integers">' +
+            ["Boolean", "SByte", "Int16", "Int32", "Int64", "Byte", "UInt16", "UInt32", "UInt64"]
+                .map(function (t) { return '<option value="' + t + '">' + t + "</option>"; }).join("") +
+            "</optgroup>" +
+            '<optgroup label="Floating point"><option value="Float">Float</option><option value="Double">Double</option></optgroup>' +
+            '<optgroup label="Text and time">' +
+            ["String", "DateTime", "LocalizedText", "QualifiedName", "XmlElement"]
+                .map(function (t) { return '<option value="' + t + '">' + t + "</option>"; }).join("") +
+            "</optgroup>" +
+            '<optgroup label="Binary and identifiers">' +
+            ["ByteString", "Guid", "NodeId", "ExpandedNodeId", "StatusCode"]
+                .map(function (t) { return '<option value="' + t + '">' + t + "</option>"; }).join("") +
+            "</optgroup>" +
+            '<optgroup label="Structured"><option value="ExtensionObject">ExtensionObject</option></optgroup>' +
+            '<optgroup label="Rarely writable">' +
+            ["DataValue", "Variant", "DiagnosticInfo"]
+                .map(function (t) { return '<option value="' + t + '">' + t + "</option>"; }).join("") +
+            "</optgroup>";
 
-                // The DataType NodeId field is only relevant for ExtensionObject
-                function syncExtRow() {
-                    if (row.find('.opcua-il-datatype').val() === 'ExtensionObject') {
-                        extRow.show();
-                    } else {
-                        extRow.hide();
-                    }
-                }
-                row.find('.opcua-il-datatype').on('change', syncExtRow);
-                syncExtRow();
+        RED.nodes.registerType("opcua-item", {
+            category: "OPC UA Suite",
+            color: "#3a8cba",
+            defaults: {
+                name: { value: "" },
+                collector: { value: true },
+                operation: { value: "" },
+                unwrapSingle: { value: false },
+                items: { value: [] },
+            },
+            inputs: 1,
+            outputs: 1,
+            icon: "opcua.svg",
+            paletteLabel: "OPC UA Item",
+            label: function () {
+                if (this.name) return this.name;
+                var count = this.items ? this.items.length : 0;
+                if (count === 0) return "OPC UA Item";
+                if (count === 1) return this.items[0].itemName || this.items[0].nodeId || "OPC UA Item";
+                return count + " items";
+            },
+            labelStyle: function () {
+                return this.name ? "node_label_italic" : "";
+            },
+            oneditprepare: function () {
+                var node = this;
+                var $list = $("#opcua-item-list");
 
-                row.find('.opcua-il-remove').on('click', function() {
-                    item.remove();
-                    updatePreview();
+                var $op = $("#node-input-operation");
+                ITEM_OPERATIONS.forEach(function (o) {
+                    $("<option>").val(o[0]).text(o[1]).appendTo($op);
                 });
-                item.append(row).append(extRow);
-                $('#opcua-il-list').append(item);
-                updatePreview();
-            }
+                OpcUaEditor.keepValue($op, node.operation || "");
 
-            $('#opcua-il-add-btn').on('click', function() {
-                addItemRow('', '', '', '', false);
-            });
+                function addRow(item) {
+                    item = item || {};
+                    var $wrap = $('<div class="opcua-item-entry"></div>');
+                    var $row = $('<div class="opcua-table-row"></div>').appendTo($wrap);
+                    var $cell = $('<span class="opcua-col-grow opcua-cell"></span>').appendTo($row);
+                    var $nid = $('<input type="text" class="opcua-item-nodeid" placeholder="ns=2;s=Variable">')
+                        .val(item.nodeId || "").appendTo($cell);
+                    var $name = $('<input type="text" class="opcua-col-grow opcua-item-name" placeholder="Name">')
+                        .val(item.itemName || "").appendTo($row);
+                    var $dt = $('<select class="opcua-col-type opcua-item-datatype">' + DATATYPE_OPTIONS + "</select>").appendTo($row);
+                    OpcUaEditor.keepValue($dt, item.datatype || "");
+                    var $arr = $('<span class="opcua-col-small"><input type="checkbox" class="opcua-item-array" title="Write the value as an array"></span>').appendTo($row);
+                    $arr.find("input").prop("checked", !!item.arrayType);
+                    var $remove = $('<button type="button" class="red-ui-button red-ui-button-small opcua-col-btn" title="Remove"><i class="fa fa-times"></i></button>').appendTo($row);
 
-            // Migrate from old format (nodeId/datatype/itemName/itemList)
-            var items = node.items || [];
-            if (items.length === 0) {
-                // Check old single-item fields
-                if (node.nodeId) {
-                    items.push({ nodeId: node.nodeId, itemName: node.itemName || '', datatype: node.datatype || '' });
-                }
-                // Check old itemList field
-                if (node.itemList && node.itemList.length > 0) {
-                    for (var j = 0; j < node.itemList.length; j++) {
-                        items.push(node.itemList[j]);
+                    var $ext = $('<div class="opcua-table-row opcua-item-ext"></div>').appendTo($wrap);
+                    $('<span class="opcua-unit">Structure type</span>').appendTo($ext);
+                    var $dtn = $('<input type="text" class="opcua-col-grow opcua-item-dtnodeid" placeholder="DataType NodeId, only for abstract variables, e.g. ns=2;i=3003">')
+                        .val(item.dataTypeNodeId || "").appendTo($ext);
+
+                    function syncExt() {
+                        $ext.toggle($dt.val() === "ExtensionObject");
                     }
-                }
-            }
+                    $dt.on("change", syncExt);
+                    syncExt();
 
-            for (var i = 0; i < items.length; i++) {
-                addItemRow(items[i].nodeId, items[i].itemName, items[i].datatype, items[i].dataTypeNodeId, items[i].arrayType);
-            }
+                    // Browse button: fills NodeId, and Name / DataType when empty.
+                    OpcUaEditor.attachPicker($nid, {
+                        classes: ["Variable"],
+                        title: "Select a variable",
+                        compact: true,
+                        onPick: function (ref) {
+                            if (!$name.val()) $name.val(ref.browseName || "");
+                            if (!$dt.val() && ref.dataType && $dt.find('option[value="' + ref.dataType + '"]').length) {
+                                $dt.val(ref.dataType).trigger("change");
+                            }
+                        },
+                    }).addClass("red-ui-button-small opcua-col-btn");
 
-            function updatePreview() {
-                var collector = $('#node-input-collector').is(':checked');
-                var count = $('#opcua-il-list').children().length;
-                var html = '';
-                if (count === 0) {
-                    html = '<span style="color:#aaa">Pass-Through (no items)</span>';
-                } else {
-                    html = '<b>' + count + ' item' + (count > 1 ? 's' : '') + '</b>';
+                    $remove.on("click", function () {
+                        $wrap.remove();
+                        updatePreview();
+                    });
+                    $wrap.insertBefore("#opcua-item-empty");
+                    updatePreview();
                 }
-                html += '<br><small style="color:#888">' + (collector ? 'Collector (Batch)' : 'Legacy (Single)') + '</small>';
-                $('#opcua-item-preview').html(html);
-            }
-            $('#node-input-collector').on('change', updatePreview);
-            updatePreview();
-        },
-        oneditsave: function() {
-            var items = [];
-            $('#opcua-il-list .opcua-il-item').each(function() {
-                var nodeId = $(this).find('.opcua-il-nodeId').val();
-                if (nodeId && nodeId.trim()) {
+
+                $("#opcua-item-add").on("click", function () {
+                    addRow({});
+                });
+
+                // Older versions stored a single item or an itemList.
+                var items = (node.items || []).slice();
+                if (items.length === 0) {
+                    if (node.nodeId) {
+                        items.push({ nodeId: node.nodeId, itemName: node.itemName || "", datatype: node.datatype || "" });
+                    }
+                    (node.itemList || []).forEach(function (it) {
+                        items.push(it);
+                    });
+                }
+                items.forEach(addRow);
+
+                function updatePreview() {
+                    var count = $list.find(".opcua-item-entry").length;
+                    $("#opcua-item-empty").toggle(count === 0);
+                    var collector = $("#node-input-collector").is(":checked");
+                    var text;
+                    if (count === 0) text = "No items: messages pass through unchanged.";
+                    else if (collector) text = count + (count === 1 ? " item is" : " items are") + " appended to msg.items.";
+                    else text = "Sets msg.topic to the first item" + (count > 1 ? "; the other " + (count - 1) + " are ignored." : ".");
+                    $("#opcua-item-preview").text(text);
+                }
+                $("#node-input-collector").on("change", updatePreview);
+                updatePreview();
+                OpcUaEditor.sections("#opcua-item-form");
+            },
+            oneditsave: function () {
+                var items = [];
+                $("#opcua-item-list .opcua-item-entry").each(function () {
+                    var nodeId = ($(this).find(".opcua-item-nodeid").val() || "").trim();
+                    if (!nodeId) return;
                     var item = {
-                        nodeId: nodeId.trim(),
-                        itemName: ($(this).find('.opcua-il-itemName').val() || '').trim(),
-                        datatype: $(this).find('.opcua-il-datatype').val() || ''
+                        nodeId: nodeId,
+                        itemName: ($(this).find(".opcua-item-name").val() || "").trim(),
+                        datatype: $(this).find(".opcua-item-datatype").val() || "",
                     };
-                    var dtn = ($(this).find('.opcua-il-dtnodeid').val() || '').trim();
+                    var dtn = ($(this).find(".opcua-item-dtnodeid").val() || "").trim();
                     if (dtn) item.dataTypeNodeId = dtn;
-                    if ($(this).find('.opcua-il-arrcb').is(':checked')) item.arrayType = 'Array';
+                    if ($(this).find(".opcua-item-array").is(":checked")) item.arrayType = "Array";
                     items.push(item);
-                }
-            });
-            this.items = items;
-        }
-    });
+                });
+                this.items = items;
+            },
+        });
+    })();
 </script>
 
-<style>
-    .opcua-item-preview {
-        background: #f5f7fa;
-        border: 1px solid #e1e5ea;
-        border-radius: 6px;
-        padding: 8px 12px;
-        margin: 8px 0 4px;
-        font-size: 12px;
-        line-height: 1.5;
-    }
-    .opcua-checkbox-row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 12px;
-        background: #f8f9fb;
-        border: 1px solid #e5e8ec;
-        border-radius: 6px;
-        margin: 4px 0;
-        transition: background 0.15s;
-    }
-    .opcua-checkbox-row:hover { background: #f0f3f7; }
-    .opcua-checkbox-row input[type="checkbox"] { width: auto; margin: 0; }
-    .opcua-checkbox-row .opcua-cb-label { font-size: 12px; font-weight: 500; color: #444; }
-    .opcua-checkbox-row .opcua-cb-hint { font-size: 11px; color: #999; }
-    .opcua-il-row {
-        display: flex;
-        gap: 6px;
-        align-items: center;
-        margin-bottom: 6px;
-    }
-    .opcua-il-row input,
-    .opcua-il-row select {
-        height: 32px;
-        font-size: 13px;
-        box-sizing: border-box;
-    }
-    .opcua-il-row .opcua-il-nodeId { flex: 1; min-width: 180px; }
-    .opcua-il-row .opcua-il-itemName { width: 130px; }
-    .opcua-il-row .opcua-il-datatype { width: 130px; }
-    .opcua-il-row .opcua-il-arr {
-        display: flex;
-        align-items: center;
-        gap: 3px;
-        flex-shrink: 0;
-        font-size: 12px;
-        color: #555;
-        white-space: nowrap;
-    }
-    .opcua-il-row .opcua-il-arr input[type="checkbox"] {
-        width: auto;
-        height: auto;
-        margin: 0;
-    }
-    .opcua-il-row .opcua-il-remove { flex-shrink: 0; }
-    .opcua-il-item { margin-bottom: 6px; }
-    .opcua-il-item .opcua-il-row { margin-bottom: 0; }
-    .opcua-il-extrow {
-        display: none;
-        margin: 4px 0 0 0;
-        padding-left: 4px;
-    }
-    .opcua-il-extrow .opcua-il-dtnodeid {
-        width: 100%;
-        height: 30px;
-        font-size: 12px;
-        box-sizing: border-box;
-    }
-    #opcua-il-list {
-        max-height: 360px;
-        overflow-y: auto;
-        padding: 4px 0;
-    }
-    #opcua-il-add-btn { margin-top: 4px; }
-</style>
-
 <script type="text/html" data-template-name="opcua-item">
-<div class="opcua-node-container">
-    <div class="form-row">
-        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
-        <input type="text" id="node-input-name" placeholder="Name">
-    </div>
+    <div class="opcua-form" id="opcua-item-form">
+        <div class="form-row">
+            <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+            <input type="text" id="node-input-name" placeholder="Name" />
+        </div>
 
-    <div class="form-row">
-        <label><i class="fa fa-list"></i> Items</label>
-        <div id="opcua-il-list"></div>
-        <button type="button" id="opcua-il-add-btn" class="red-ui-button red-ui-button-small"><i class="fa fa-plus"></i> Add Item</button>
-    </div>
+        <div class="opcua-section" id="opcua-item-items">
+            <div class="opcua-section-header">
+                <i class="fa opcua-chevron"></i>
+                <span class="opcua-section-title">Items</span>
+            </div>
+            <div class="opcua-section-body" id="opcua-item-list">
+                <div class="opcua-table-head">
+                    <span class="opcua-col-grow">NodeId</span>
+                    <span class="opcua-col-grow">Name</span>
+                    <span class="opcua-col-type">DataType (write)</span>
+                    <span class="opcua-col-small" title="Write the value as an array">Array</span>
+                    <span class="opcua-col-btn" style="width:24px"></span>
+                </div>
+                <div class="opcua-empty" id="opcua-item-empty">No items yet.</div>
+                <div class="opcua-toolbar">
+                    <button type="button" id="opcua-item-add" class="red-ui-button red-ui-button-small"><i class="fa fa-plus"></i> Add item</button>
+                    <span class="opcua-spacer"></span>
+                    <span class="opcua-unit" id="opcua-item-preview"></span>
+                </div>
+            </div>
+        </div>
 
-    <div class="form-row">
-        <label for="node-input-operation"><i class="fa fa-cog"></i> Operation</label>
-        <select id="node-input-operation" style="width:70%">
-            <option value="">— don't set (use Client default / msg.operation) —</option>
-            <option value="read">Read</option>
-            <option value="write">Write</option>
-            <option value="subscribe">Subscribe</option>
-            <option value="unsubscribe">Unsubscribe</option>
-        </select>
-    </div>
-
-    <div class="opcua-checkbox-row">
-        <input type="checkbox" id="node-input-collector">
-        <div>
-            <div class="opcua-cb-label">Collector Mode</div>
-            <div class="opcua-cb-hint">Add items to msg.items (for batch read/write)</div>
+        <div class="form-row">
+            <label for="node-input-operation"><i class="fa fa-cog"></i> Operation</label>
+            <select id="node-input-operation"></select>
+        </div>
+        <div class="opcua-check">
+            <input type="checkbox" id="node-input-collector" />
+            <label for="node-input-collector">
+                Collect into msg.items
+                <span class="opcua-check-hint">For batch reads and writes. Off: sets msg.topic to the first item.</span>
+            </label>
+        </div>
+        <div class="opcua-check">
+            <input type="checkbox" id="node-input-unwrapSingle" />
+            <label for="node-input-unwrapSingle">
+                Unwrap a single value
+                <span class="opcua-check-hint">A read of one item returns the value itself, not a one-element array.</span>
+            </label>
         </div>
     </div>
-    <div class="opcua-checkbox-row">
-        <input type="checkbox" id="node-input-unwrapSingle">
-        <div>
-            <div class="opcua-cb-label">Unwrap single value</div>
-            <div class="opcua-cb-hint">On read with one item, deliver the scalar in msg.payload instead of a 1-element array</div>
-        </div>
-    </div>
-    <div class="opcua-item-preview" id="opcua-item-preview"></div>
-</div>
 </script>
 
 <script type="text/html" data-help-name="opcua-item">
     <p>Defines OPC UA items (variables) for read/write operations.</p>
 
     <h3>Items</h3>
-    <p>Add one or more items via the <b>Add Item</b> button. Each item needs a <b>NodeId</b>,
-    and optionally a <b>Name</b>, a <b>DataType</b> and an <b>array</b> flag (<code>[]</code>).</p>
+    <p>Add one or more items via the <b>Add item</b> button. Each item needs a <b>NodeId</b>,
+    and optionally a <b>Name</b>, a <b>DataType</b> and the <b>Array</b> flag.</p>
+    <p><b>Browse</b> next to the NodeId picks a variable from a deployed endpoint and fills
+    in an empty name and data type.</p>
 
     <h4>DataType (write only)</h4>
     <p>The DataType is used for <b>writes</b> only — reads always return the server's type.
@@ -294,7 +238,7 @@
     match — they are offered for completeness.</p>
 
     <h4>Array (ValueRank)</h4>
-    <p>Tick <code>[]</code> to write the value as an <b>array</b> (e.g. <code>Int32[]</code>).
+    <p>Tick <b>Array</b> to write the value as an <b>array</b> (e.g. <code>Int32[]</code>).
     The payload must then be a JS array. Sets <code>arrayType: "Array"</code> on the item.</p>
 
     <h4>ExtensionObject (structured types)</h4>
@@ -316,13 +260,13 @@
     <h3>Collector Mode (default: active)</h3>
     <p>Adds items to the <code>msg.items</code> array for batch operations.</p>
 
-    <h3>Legacy Mode (Collector off)</h3>
+    <h3>Single mode (Collect into msg.items off)</h3>
     <p>Sets <code>msg.topic</code> and <code>msg.datatype</code> directly — only uses the first item.</p>
 
     <h3>Operation</h3>
     <p>Optionally sets <code>msg.operation</code> so the downstream Client knows what to do
-    (Read, Write, Subscribe, Unsubscribe). Leave on <i>don't set</i> to keep the Client's
-    default operation or an existing <code>msg.operation</code>.</p>
+    (read, read multiple, write, write multiple, subscribe, unsubscribe). Leave it on
+    <i>Do not set</i> to keep the Client's operation or an existing <code>msg.operation</code>.</p>
 
     <h3>Unwrap single value</h3>
     <p>When reading and exactly one item is resolved, the Client returns the scalar value in

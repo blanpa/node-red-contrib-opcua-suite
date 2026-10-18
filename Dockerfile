@@ -16,6 +16,7 @@ USER node-red
 COPY --chown=node-red:node-red package.json /opt/opcua-suite/package.json
 COPY --chown=node-red:node-red lib/ /opt/opcua-suite/lib/
 COPY --chown=node-red:node-red nodes/ /opt/opcua-suite/nodes/
+COPY --chown=node-red:node-red resources/ /opt/opcua-suite/resources/
 COPY --chown=node-red:node-red test-server/ /opt/opcua-suite/test-server/
 
 # Zuerst node-opcua installieren, dann das lokale Paket

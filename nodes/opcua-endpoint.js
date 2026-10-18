@@ -10,6 +10,19 @@ const PooledClientManager = require("../lib/opcua-pool");
 const { registerCertRoutes, getCertsDir } = require("../lib/cert-store");
 const { isValidEndpointUrl } = require("../lib/opcua-utils");
 
+/**
+ * Returns the first value that is set, as a number. An empty string, null,
+ * undefined or a non-numeric value counts as not set; 0 is a real value.
+ */
+function firstSet(...values) {
+  for (const v of values) {
+    if (v === undefined || v === null || v === "") continue;
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return undefined;
+}
+
 module.exports = function (RED) {
   // ─── Certificate Upload HTTP Endpoint ───
   // Cert directory creation + POST/GET/DELETE route registration are
@@ -59,6 +72,11 @@ module.exports = function (RED) {
       parseInt(config.operationTimeout, 10) || 10000,
     );
 
+    // Connection behaviour. Empty means "not set on the endpoint".
+    node.applicationName = config.applicationName || "";
+    node.maxReconnectAttempts = config.maxReconnectAttempts;
+    node.reconnectDelay = config.reconnectDelay;
+
     // ─── Shared Connection ───
     node._sharedManager = null;
     node._refCount = 0;
@@ -101,16 +119,23 @@ module.exports = function (RED) {
           password: node.credentials?.password || "",
           securityMode: node.securityMode || "None",
           securityPolicy: node.securityPolicy || "None",
+          // The endpoint's own setting wins. Flows from older versions set
+          // these on the client node instead, so the first node opening the
+          // connection still provides them when the endpoint leaves them
+          // empty; otherwise the manager's defaults apply.
           applicationName:
+            node.applicationName ||
             (clientConfig && clientConfig.applicationName) ||
             "Node-RED OPC UA Client",
           // Normalised by the manager (an explicit 0 is kept).
-          maxReconnectAttempts: clientConfig
-            ? clientConfig.maxReconnectAttempts
-            : undefined,
-          reconnectDelay: clientConfig
-            ? clientConfig.reconnectDelay
-            : undefined,
+          maxReconnectAttempts: firstSet(
+            node.maxReconnectAttempts,
+            clientConfig && clientConfig.maxReconnectAttempts,
+          ),
+          reconnectDelay: firstSet(
+            node.reconnectDelay,
+            clientConfig && clientConfig.reconnectDelay,
+          ),
           operationTimeout: node.operationTimeout,
           certificateFile: certData.certificateFile || "",
           privateKeyFile: certData.privateKeyFile || "",

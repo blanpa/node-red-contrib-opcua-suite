@@ -37,10 +37,10 @@
     "test:functional:flow": "node test/functional/build-flow.js",
     "bench": "node test-server/benchmark.js",
     "bench:quick": "node test-server/benchmark.js --quick",
-    "lint": "eslint \"nodes/**/*.js\" \"lib/**/*.js\" \"test/**/*.js\"",
-    "format": "prettier --write \"nodes/**/*.js\" \"lib/**/*.js\" \"test/**/*.js\"",
-    "lint:fix": "eslint --fix \"nodes/**/*.js\" \"lib/**/*.js\" \"test/**/*.js\"",
-    "format:check": "prettier --check \"nodes/**/*.js\" \"lib/**/*.js\" \"test/**/*.js\""
+    "lint": "eslint \"nodes/**/*.js\" \"lib/**/*.js\" \"test/**/*.js\" \"resources/**/*.js\"",
+    "format": "prettier --write \"nodes/**/*.js\" \"lib/**/*.js\" \"test/**/*.js\" \"resources/**/*.js\"",
+    "lint:fix": "eslint --fix \"nodes/**/*.js\" \"lib/**/*.js\" \"test/**/*.js\" \"resources/**/*.js\"",
+    "format:check": "prettier --check \"nodes/**/*.js\" \"lib/**/*.js\" \"test/**/*.js\" \"resources/**/*.js\""
   },
   "author": "blanpa",
   "license": "Apache-2.0",

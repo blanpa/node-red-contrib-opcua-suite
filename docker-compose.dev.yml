@@ -15,6 +15,7 @@ services:
       # NICHT nach /data/lib — das kollidiert mit Node-REDs internem /data/lib/flows!
       - ./nodes:/opt/opcua-suite/nodes:ro
       - ./lib:/opt/opcua-suite/lib:ro
+      - ./resources:/opt/opcua-suite/resources:ro
       - ./package.json:/opt/opcua-suite/package.json:ro
       # Logs
       - ./logs:/var/log/node-red
