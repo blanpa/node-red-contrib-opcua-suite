@@ -359,7 +359,9 @@ module.exports = function (RED) {
       throw new Error(`Node not found: ${nodeId}`);
     }
 
-    node.delete();
+    // UAVariable/UAObject have no delete() method; removal goes through
+    // the namespace, which also drops the references pointing at the node.
+    namespace.deleteNode(node);
 
     return {
       payload: true,

@@ -297,4 +297,25 @@ describe("opcua-server setValue datatype resolution", function () {
     expect(set.err).to.be.an("error");
     expect(set.msg.error).to.include('Invalid DateTime value "not a date"');
   });
+
+  // ─── deleteNode ───
+
+  it("deleteNode removes a variable from the address space", async function () {
+    const nodeId = "ns=1;s=SV_Delete";
+    const add = await invoke({
+      command: "addVariable",
+      variableName: "SV_Delete",
+      datatype: "Double",
+      nodeId,
+      initialValue: 1,
+    });
+    expect(add.err).to.equal(null);
+
+    const del = await invoke({ command: "deleteNode", nodeId });
+    expect(del.err, `deleteNode errored: ${del.msg.error}`).to.equal(null);
+    expect(del.msg.payload).to.equal(true);
+
+    const dv = await readValue(nodeId);
+    expect(dv.statusCode.name).to.equal("BadNodeIdUnknown");
+  });
 });
