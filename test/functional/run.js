@@ -95,6 +95,39 @@ function pad(s, n) {
   return s.length >= n ? s : s + " ".repeat(n - s.length);
 }
 
+/**
+ * Compares the node types this package registered in Node-RED with the
+ * types used in the deployed flow. Every installed type must be used.
+ */
+async function checkCoverage() {
+  const nodes = await request("GET", "/nodes", undefined, {
+    Accept: "application/json",
+  });
+  const flows = await request("GET", "/flows");
+  if (nodes.status !== 200 || flows.status !== 200) {
+    console.log("Node type coverage: could not read /nodes or /flows");
+    return false;
+  }
+  const installed = nodes.json
+    .filter((set) => set.module === "node-red-contrib-opcua-suite")
+    .flatMap((set) => set.types);
+  const list = Array.isArray(flows.json) ? flows.json : flows.json.flows;
+  console.log("");
+  console.log(
+    `Node types of node-red-contrib-opcua-suite (${installed.length} installed):`,
+  );
+  let ok = installed.length > 0;
+  for (const type of installed) {
+    const count = list.filter((n) => n.type === type).length;
+    if (!count) ok = false;
+    console.log(
+      `  ${count ? "USED   " : "MISSING"} ${pad(type, 26)} ${count} in the flow`,
+    );
+  }
+  console.log("");
+  return ok;
+}
+
 async function main() {
   console.log(`Node-RED: ${NODE_RED_URL}`);
   const settings = await waitForNodeRed();
@@ -117,6 +150,8 @@ async function main() {
     }
     console.log(`Deployed ${path.basename(FLOW_FILE)} (${flow.length} nodes)`);
   }
+
+  const coverageOk = await checkCoverage();
 
   const deadline = Date.now() + RUN_TIMEOUT_MS;
   let lastReported = 0;
@@ -144,7 +179,8 @@ async function main() {
     console.log("Failed tests:");
     for (const r of failed) console.log(`  ${r.id} ${r.name}: ${r.detail}`);
   }
-  process.exit(failed.length || st.passed !== st.total ? 1 : 0);
+  if (!coverageOk) console.log("Node type coverage is incomplete (see above).");
+  process.exit(failed.length || st.passed !== st.total || !coverageOk ? 1 : 0);
 }
 
 main().catch((e) => {

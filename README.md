@@ -402,7 +402,7 @@ Two tabs are two-step by design: **T5** (cyclic/KeepAlive), **T8** (filtering) a
 
 ### Function test suite (example 15)
 
-`15 - Function Test Suite` runs **80 functional tests** on its own, one after another, against the node-opcua test server, an embedded `opcua-server` node and an MQTT broker. No clicking is needed: the suite starts 8 s after deploy, and the *Run all tests* inject on the *FT Control* tab starts it again.
+`15 - Function Test Suite` runs **81 functional tests** on its own, one after another, against the node-opcua test server, an embedded `opcua-server` node and an MQTT broker. No clicking is needed: the suite starts 8 s after deploy, and the *Run all tests* inject on the *FT Control* tab starts it again.
 
 | Area | Covered |
 |---|---|
@@ -414,6 +414,9 @@ Two tabs are two-step by design: **T5** (cyclic/KeepAlive), **T8** (filtering) a
 | Embedded server | every command: getServerInfo, getNamespaceIndex, addFolder, addObject, addVariable, setValue, setWritable, addMethod, the `msg.func` gate, raiseEvent, deleteNode |
 | Security | username/password (valid and wrong), Sign and SignAndEncrypt with Basic256Sha256, Aes128_Sha256_RsaOaep and Aes256_Sha256_RsaPss |
 | PubSub | UDP-UADP, MQTT-UADP, MQTT-JSON, two DataSetWriters, chunking, UInt32 PublisherId, filtering, ConfigurationVersion mismatch, cyclic KeepAlive |
+| All nodes at once | the *FT Node Overview* tab lists all 11 node types with the tests using them; test N01 passes one message through all nine flow node types in a row |
+
+The generator refuses to build a flow that leaves a node type of the package unused, and the runner checks the types installed in Node-RED against the deployed flow.
 
 Run it fully automated in Docker. The command builds the stack, deploys the flow, prints one line per test and exits non-zero when a test fails:
 
@@ -436,10 +439,10 @@ docker compose build --no-cache && docker compose up -d --force-recreate  # Rebu
 ## Testing
 
 ```bash
-npm test                       # 868 unit tests (8 pending)
+npm test                       # 872 unit tests (8 pending)
 npm run lint                   # ESLint
 npm run format:check           # Prettier
-npm run test:functional        # 80 function tests in Docker (example 15)
+npm run test:functional        # 81 function tests in Docker (example 15)
 node test/live-integration.js  # 36 live integration tests (requires Docker)
 ```
 
