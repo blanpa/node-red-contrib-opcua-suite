@@ -144,7 +144,10 @@
   border: 1px solid var(--red-ui-secondary-border-color, #e8e8e8);
   color: var(--red-ui-primary-text-color, #202020);
 }
-.opcua-form .opcua-section-header:hover {
+.opcua-form .opcua-section.opcua-static > .opcua-section-header {
+  cursor: default;
+}
+.opcua-form .opcua-section:not(.opcua-static) > .opcua-section-header:hover {
   background: var(--red-ui-list-item-background-hover, #e8e8e8);
 }
 .opcua-form .opcua-section-header .opcua-chevron {
@@ -194,6 +197,10 @@
 }
 .opcua-form .opcua-col-grow {
   flex: 1 1 0;
+  min-width: 0;
+}
+.opcua-form .opcua-col-grow2 {
+  flex: 2 1 0;
   min-width: 0;
 }
 .opcua-form .opcua-cell {

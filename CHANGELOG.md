@@ -61,6 +61,14 @@
 
 ### Fixed
 
+- **An item row without NodeId vanished on save.** A row added with
+  *Add item* that already had a name or data type but no NodeId yet was
+  dropped without a word when the dialog was closed with *Done*. It is now
+  kept, its NodeId field is marked red, a note explains it, and the node shows
+  as incomplete until every row has a NodeId; the runtime skips such rows.
+  Only a row nobody typed into is still discarded. The item list can no
+  longer be collapsed out of sight, its NodeId column is wider, and *Add item*
+  puts the cursor into the new NodeId field.
 - **Opening and saving a dialog could silently drop a setting.** The item
   node's operation list lacked "readmultiple" and "writemultiple", and the
   client's operation list lacked "unregisternodes"; such nodes opened with an

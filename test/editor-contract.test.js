@@ -78,6 +78,29 @@ describe("editor contract", function () {
     }
   });
 
+  it("keeps item rows that have content but no NodeId yet", function () {
+    const html = read("nodes/opcua-item.html");
+    const save = html.slice(html.indexOf("oneditsave"));
+    // The old dialog skipped every row without NodeId, so a row with a typed
+    // name vanished on save. Only an untouched row may be dropped now.
+    expect(save).to.not.match(/if \(!nodeId\) return;/);
+    expect(save).to.match(
+      /if \(!nodeId && !itemName && !datatype && !dtn && !isArray\) return;/,
+    );
+    // ...and the node is flagged incomplete while a row lacks its NodeId.
+    expect(html).to.match(/items: \{\s*value: \[\],\s*validate: function/);
+  });
+
+  it("does not let the item list collapse out of sight", function () {
+    const html = read("nodes/opcua-item.html");
+    expect(html).to.include(
+      'class="opcua-section opcua-static" id="opcua-item-items"',
+    );
+    expect(read("resources/opcua-editor.js")).to.include(
+      '.find(".opcua-section:not(.opcua-static)")',
+    );
+  });
+
   it("keeps unknown stored select values instead of dropping them", function () {
     const js = read("resources/opcua-editor.js");
     expect(js).to.match(/E\.keepValue = function/);

@@ -54,10 +54,13 @@
 
   // --- Small helpers -------------------------------------------------------
 
-  /** Wires up every .opcua-section below root as a collapsible section. */
+  /**
+   * Wires up every .opcua-section below root as a collapsible section.
+   * A section with the class opcua-static stays open and has no toggle.
+   */
   E.sections = function (root) {
     $(root)
-      .find(".opcua-section")
+      .find(".opcua-section:not(.opcua-static)")
       .each(function () {
         var $sec = $(this);
         var $head = $sec.children(".opcua-section-header");

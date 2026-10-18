@@ -44,7 +44,19 @@
                 collector: { value: true },
                 operation: { value: "" },
                 unwrapSingle: { value: false },
-                items: { value: [] },
+                // A row without NodeId is kept (so typed input is never lost)
+                // but marks the node incomplete until the NodeId is filled in.
+                items: {
+                    value: [],
+                    validate: function (v) {
+                        return (
+                            Array.isArray(v) &&
+                            v.every(function (i) {
+                                return i && typeof i.nodeId === "string" && i.nodeId.trim() !== "";
+                            })
+                        );
+                    },
+                },
             },
             inputs: 1,
             outputs: 1,
@@ -74,7 +86,7 @@
                     item = item || {};
                     var $wrap = $('<div class="opcua-item-entry"></div>');
                     var $row = $('<div class="opcua-table-row"></div>').appendTo($wrap);
-                    var $cell = $('<span class="opcua-col-grow opcua-cell"></span>').appendTo($row);
+                    var $cell = $('<span class="opcua-col-grow2 opcua-cell"></span>').appendTo($row);
                     var $nid = $('<input type="text" class="opcua-item-nodeid" placeholder="ns=2;s=Variable">')
                         .val(item.nodeId || "").appendTo($cell);
                     var $name = $('<input type="text" class="opcua-col-grow opcua-item-name" placeholder="Name">')
@@ -109,16 +121,27 @@
                         },
                     }).addClass("red-ui-button-small opcua-col-btn");
 
+                    // A row with content but no NodeId is incomplete: mark it
+                    // instead of letting it disappear on save.
+                    function markIncomplete() {
+                        var hasContent =
+                            $name.val() || $dt.val() || $dtn.val() || $arr.find("input").is(":checked");
+                        $nid.toggleClass("input-error", !($nid.val() || "").trim() && !!hasContent);
+                        updatePreview();
+                    }
+                    $wrap.on("input change", "input, select", markIncomplete);
+
                     $remove.on("click", function () {
                         $wrap.remove();
                         updatePreview();
                     });
                     $wrap.insertBefore("#opcua-item-empty");
-                    updatePreview();
+                    markIncomplete();
+                    return $wrap;
                 }
 
                 $("#opcua-item-add").on("click", function () {
-                    addRow({});
+                    addRow({}).find(".opcua-item-nodeid").trigger("focus");
                 });
 
                 // Older versions stored a single item or an itemList.
@@ -134,13 +157,20 @@
                 items.forEach(addRow);
 
                 function updatePreview() {
-                    var count = $list.find(".opcua-item-entry").length;
-                    $("#opcua-item-empty").toggle(count === 0);
+                    var rows = $list.find(".opcua-item-entry").length;
+                    var incomplete = $list.find(".opcua-item-nodeid.input-error").length;
+                    // Rows with a NodeId are the ones the node will use.
+                    var count = $list.find(".opcua-item-nodeid").filter(function () {
+                        return ($(this).val() || "").trim() !== "";
+                    }).length;
+                    $("#opcua-item-incomplete").toggle(incomplete > 0);
+                    $("#opcua-item-empty").toggle(rows === 0);
                     var collector = $("#node-input-collector").is(":checked");
                     var text;
                     if (count === 0) text = "No items: messages pass through unchanged.";
                     else if (collector) text = count + (count === 1 ? " item is" : " items are") + " appended to msg.items.";
                     else text = "Sets msg.topic to the first item" + (count > 1 ? "; the other " + (count - 1) + " are ignored." : ".");
+                    if (incomplete) text += " " + incomplete + " incomplete.";
                     $("#opcua-item-preview").text(text);
                 }
                 $("#node-input-collector").on("change", updatePreview);
@@ -151,15 +181,16 @@
                 var items = [];
                 $("#opcua-item-list .opcua-item-entry").each(function () {
                     var nodeId = ($(this).find(".opcua-item-nodeid").val() || "").trim();
-                    if (!nodeId) return;
-                    var item = {
-                        nodeId: nodeId,
-                        itemName: ($(this).find(".opcua-item-name").val() || "").trim(),
-                        datatype: $(this).find(".opcua-item-datatype").val() || "",
-                    };
+                    var itemName = ($(this).find(".opcua-item-name").val() || "").trim();
+                    var datatype = $(this).find(".opcua-item-datatype").val() || "";
                     var dtn = ($(this).find(".opcua-item-dtnodeid").val() || "").trim();
+                    var isArray = $(this).find(".opcua-item-array").is(":checked");
+                    // Only a row nobody typed into is dropped. A row with a name
+                    // or type but no NodeId is kept and flags the node invalid.
+                    if (!nodeId && !itemName && !datatype && !dtn && !isArray) return;
+                    var item = { nodeId: nodeId, itemName: itemName, datatype: datatype };
                     if (dtn) item.dataTypeNodeId = dtn;
-                    if ($(this).find(".opcua-item-array").is(":checked")) item.arrayType = "Array";
+                    if (isArray) item.arrayType = "Array";
                     items.push(item);
                 });
                 this.items = items;
@@ -175,20 +206,23 @@
             <input type="text" id="node-input-name" placeholder="Name" />
         </div>
 
-        <div class="opcua-section" id="opcua-item-items">
+        <div class="opcua-section opcua-static" id="opcua-item-items">
             <div class="opcua-section-header">
-                <i class="fa opcua-chevron"></i>
                 <span class="opcua-section-title">Items</span>
             </div>
             <div class="opcua-section-body" id="opcua-item-list">
                 <div class="opcua-table-head">
-                    <span class="opcua-col-grow">NodeId</span>
+                    <span class="opcua-col-grow2">NodeId</span>
                     <span class="opcua-col-grow">Name</span>
                     <span class="opcua-col-type">DataType (write)</span>
                     <span class="opcua-col-small" title="Write the value as an array">Array</span>
                     <span class="opcua-col-btn" style="width:24px"></span>
                 </div>
                 <div class="opcua-empty" id="opcua-item-empty">No items yet.</div>
+                <div class="opcua-note opcua-note-warning" id="opcua-item-incomplete" style="display:none">
+                    Rows marked red have no NodeId yet. They are kept, but the node stays
+                    incomplete and skips them until each has a NodeId.
+                </div>
                 <div class="opcua-toolbar">
                     <button type="button" id="opcua-item-add" class="red-ui-button red-ui-button-small"><i class="fa fa-plus"></i> Add item</button>
                     <span class="opcua-spacer"></span>
