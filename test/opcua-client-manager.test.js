@@ -1188,4 +1188,47 @@ describe("OpcUaClientManager", function () {
       }
     });
   });
+
+  // ─── registerNodes ───
+
+  describe("registerNodes", function () {
+    function connectedManager(session) {
+      const mgr = new OpcUaClientManager({
+        endpointUrl: "opc.tcp://localhost:4840",
+      });
+      mgr.isConnected = true;
+      mgr.session = session;
+      return mgr;
+    }
+
+    it("returns the NodeIds node-opcua resolves with", async function () {
+      const { coerceNodeId } = require("node-opcua");
+      const session = {
+        registerNodes: sinon
+          .stub()
+          .resolves([coerceNodeId("ns=1;i=1"), coerceNodeId("ns=1;i=2")]),
+      };
+      const mgr = connectedManager(session);
+      const ids = await mgr.registerNodes([
+        { namespaceIndex: 1, identifierType: "s", identifier: "A" },
+        { namespaceIndex: 1, identifierType: "s", identifier: "B" },
+      ]);
+      expect(ids).to.deep.equal(["ns=1;i=1", "ns=1;i=2"]);
+      expect(session.registerNodes.calledOnce).to.be.true;
+    });
+
+    it("still accepts a response object with registeredNodeIds", async function () {
+      const { coerceNodeId } = require("node-opcua");
+      const session = {
+        registerNodes: sinon
+          .stub()
+          .resolves({ registeredNodeIds: [coerceNodeId("ns=2;i=7")] }),
+      };
+      const mgr = connectedManager(session);
+      const ids = await mgr.registerNodes([
+        { namespaceIndex: 2, identifierType: "s", identifier: "C" },
+      ]);
+      expect(ids).to.deep.equal(["ns=2;i=7"]);
+    });
+  });
 });
